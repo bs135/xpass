@@ -1,0 +1,32 @@
+[package]
+name = "vault-format-spike"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Spike: xpass vault file format v1, key slots and crypto"
+
+# Standalone crate, not part of any workspace.
+[workspace]
+
+[lib]
+name = "vault_format"
+
+[dependencies]
+argon2 = { version = "0.5", features = ["zeroize"] }
+chacha20poly1305 = "0.10"
+data-encoding = "2"
+hkdf = "0.12"
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4", "serde"] }
+zeroize = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+rand_chacha = "0.3"
+
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3

@@ -190,6 +190,7 @@ Feasibility spikes (~1–2 days each):
    prompt-behind-window issue. Highest risk. **Passed** — see [spikes/windows-hello.md](spikes/windows-hello.md)
    (stable across reboot; Tauri-window focus still to verify).
 2. **Vault format + crypto**: header, AAD, key wrap/unwrap, test vectors, Argon2 benchmark on the slowest target machine.
+   **Passed** — see [spikes/vault-format.md](spikes/vault-format.md) (XChaCha20-Poly1305, Argon2id 128 MiB / t=3 / p=4).
 3. **GitHub Contents API**: GET/PUT with `sha`, reproduce `409`, per-entry merge.
 
 Optional spike (post-MVP): auto-type via global hotkey (`SendInput`, target window detection, focus handling).
