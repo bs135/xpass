@@ -1,0 +1,24 @@
+[package]
+name = "hello-spike"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Spike: derive a stable key-wrapping key from Windows Hello (KeyCredentialManager)"
+
+# Standalone crate, not part of any workspace.
+[workspace]
+
+[dependencies]
+aes-gcm = "0.10"
+hkdf = "0.12"
+sha2 = "0.10"
+rand = "0.8"
+zeroize = "1"
+windows = { version = "0.62", features = [
+    "Foundation",
+    "Security_Credentials",
+    "Security_Cryptography",
+    "Storage_Streams",
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+] }

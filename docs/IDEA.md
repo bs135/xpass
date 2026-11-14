@@ -187,7 +187,8 @@ Design an `UnlockProvider` trait so Touch ID on macOS can be added later. Tauri 
 Feasibility spikes (~1–2 days each):
 
 1. **Windows Hello PoC in Tauri**: `KeyCredentialManager` create → sign → stable key across runs; solve the
-   prompt-behind-window issue. Highest risk.
+   prompt-behind-window issue. Highest risk. **Passed** — see [spikes/windows-hello.md](spikes/windows-hello.md)
+   (stable across reboot; Tauri-window focus still to verify).
 2. **Vault format + crypto**: header, AAD, key wrap/unwrap, test vectors, Argon2 benchmark on the slowest target machine.
 3. **GitHub Contents API**: GET/PUT with `sha`, reproduce `409`, per-entry merge.
 
