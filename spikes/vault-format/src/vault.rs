@@ -33,6 +33,7 @@ pub enum Unlock<'a> {
 
 /// Vault in memory after unlock. Holds the VaultKey; dropping it wipes the key
 /// and the payload secrets.
+#[derive(Clone)]
 pub struct UnlockedVault {
     vault_id: [u8; 16],
     vault_key: Key,
@@ -104,6 +105,34 @@ impl UnlockedVault {
         let payload: Payload = serde_json::from_slice(&plaintext).map_err(|e| Error::Payload(e.to_string()))?;
 
         Ok(Self { vault_id: header.vault_id, vault_key, slots: header.slots.clone(), payload })
+    }
+
+    /// Decrypts another copy of the same vault (e.g. the remote file during sync)
+    /// with the VaultKey already in memory, without asking for credentials.
+    ///
+    /// The result carries the *other* file's key slots (a password change on
+    /// another device is adopted) and our VaultKey.
+    /// - `DifferentVault`: vault_id differs.
+    /// - `KeyChanged`: slots differ and the key does not fit (rotated elsewhere).
+    /// - `Tampered`: slots are identical but the payload does not decrypt.
+    pub fn open_sibling(&self, file: &[u8]) -> Result<Self> {
+        let parsed = format::parse(file)?;
+        let header = &parsed.header;
+        if header.vault_id != self.vault_id {
+            return Err(Error::DifferentVault);
+        }
+        let plaintext = match crypto::open(&self.vault_key, &header.payload_nonce, parsed.ciphertext, parsed.header_bytes) {
+            Some(p) => p,
+            None if header.slots == self.slots => return Err(Error::Tampered),
+            None => return Err(Error::KeyChanged),
+        };
+        let payload: Payload = serde_json::from_slice(&plaintext).map_err(|e| Error::Payload(e.to_string()))?;
+        Ok(Self {
+            vault_id: self.vault_id,
+            vault_key: self.vault_key.clone(),
+            slots: header.slots.clone(),
+            payload,
+        })
     }
 
     /// Serializes and encrypts the vault. Bumps `payload.revision` and uses a

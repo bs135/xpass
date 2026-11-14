@@ -192,8 +192,10 @@ Feasibility spikes (~1–2 days each):
 2. **Vault format + crypto**: header, AAD, key wrap/unwrap, test vectors, Argon2 benchmark on the slowest target machine.
    **Passed** — see [spikes/vault-format.md](spikes/vault-format.md) (XChaCha20-Poly1305, Argon2id 128 MiB / t=3 / p=4).
 3. **GitHub Contents API**: GET/PUT with `sha`, reproduce `409`, per-entry merge.
+   **Passed** — see [spikes/github-sync.md](spikes/github-sync.md) (CAS via 409/422, raw GET up to 5 MB tested,
+   two real devices converge, offline-first).
 
 Optional spike (post-MVP): auto-type via global hotkey (`SendInput`, target window detection, focus handling).
 
-Decisions: see the table in section 2. All open questions are resolved; the next phase is the feasibility spikes,
-then implementation planning.
+Decisions: see the table in section 2. All open questions are resolved and all three feasibility spikes passed;
+the next phase is implementation planning.

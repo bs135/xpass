@@ -18,6 +18,11 @@ pub enum Error {
     BadKdfParams,
     /// Payload JSON could not be (de)serialized.
     Payload(String),
+    /// The other file belongs to a different vault (vault_id mismatch).
+    DifferentVault,
+    /// The other file's key slots differ and our VaultKey does not decrypt it:
+    /// the VaultKey was rotated on another device. Unlock with credentials instead.
+    KeyChanged,
 }
 
 impl fmt::Display for Error {
@@ -31,6 +36,8 @@ impl fmt::Display for Error {
             Error::BadRecoveryKey => write!(f, "invalid recovery key"),
             Error::BadKdfParams => write!(f, "KDF parameters out of bounds"),
             Error::Payload(m) => write!(f, "payload error: {m}"),
+            Error::DifferentVault => write!(f, "file belongs to a different vault"),
+            Error::KeyChanged => write!(f, "vault key was rotated on another device"),
         }
     }
 }
