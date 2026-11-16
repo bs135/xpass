@@ -1,4 +1,4 @@
-# xpass
+# xPass
 
 Zero-knowledge personal password manager for Windows, built with Tauri (Rust + React).
 

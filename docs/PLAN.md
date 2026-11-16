@@ -1,4 +1,4 @@
-# xpass — Implementation Plan
+# xPass — Implementation Plan
 
 Status: **approved** (2026-11-16). Inputs: [IDEA.md](IDEA.md) (decisions) and the three passed spikes:
 [windows-hello](spikes/windows-hello.md), [vault-format](spikes/vault-format.md), [github-sync](spikes/github-sync.md).
