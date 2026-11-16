@@ -123,7 +123,7 @@ export function isAppError(e: unknown): e is AppError {
 export const EVENT_LOCKED = 'vault://locked'
 
 /** Why the vault locked (payload of `vault://locked`). */
-export type LockReason = 'manual' | 'idle' | 'sessionLocked' | 'suspend' | 'exit'
+export type LockReason = 'manual' | 'idle' | 'sessionLocked' | 'displayOff' | 'suspend' | 'exit'
 
 export const api = {
     appInfo: () => invoke<AppInfo>('app_info'),

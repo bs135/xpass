@@ -80,6 +80,7 @@
   "lockReason": {
     "idle": "Đã tự khoá sau một thời gian không thao tác.",
     "sessionLocked": "Đã tự khoá vì Windows bị khoá.",
+    "displayOff": "Đã tự khoá vì màn hình tắt (máy ngủ hoặc hết thời gian chờ màn hình).",
     "suspend": "Đã tự khoá vì máy chuyển sang chế độ ngủ."
   },
   "recovery": {

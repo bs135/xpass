@@ -1,9 +1,13 @@
-//! Automatic lock (T8): on Windows session lock (`Win+L`, screen lock), before sleep,
-//! and after system-wide inactivity.
+//! Automatic lock (T8): on Windows session lock (`Win+L`, screen lock), when the
+//! display turns off, before sleep, and after system-wide inactivity.
 //!
 //! - A dedicated thread owns a message-only window (`HWND_MESSAGE`) registered with
-//!   `WTSRegisterSessionNotification` and `RegisterSuspendResumeNotification`; it
-//!   reacts to `WTS_SESSION_LOCK` and `PBT_APMSUSPEND`.
+//!   `WTSRegisterSessionNotification`, `RegisterSuspendResumeNotification` and
+//!   `RegisterPowerSettingNotification(GUID_CONSOLE_DISPLAY_STATE)`; it reacts to
+//!   `WTS_SESSION_LOCK`, `PBT_APMSUSPEND` and "display off".
+//! - Display off matters on Modern Standby (S0 low power idle) PCs: Start > Sleep
+//!   there does not deliver `PBT_APMSUSPEND` to desktop apps, but the display always
+//!   turns off. It also covers the display timeout.
 //! - Another thread checks `GetLastInputInfo` every 10 s against the idle timeout.
 //!
 //! Locking drops the session (zeroizing keys and secrets), clears our clipboard copy
@@ -28,6 +32,7 @@ pub enum LockReason {
     Manual,
     Idle,
     SessionLocked,
+    DisplayOff,
     Suspend,
     Exit,
 }
@@ -53,6 +58,11 @@ pub fn lock_app(app: &AppHandle, reason: LockReason) -> bool {
 /// True when the vault should lock for inactivity.
 pub fn idle_exceeded(idle: Duration, timeout: Option<Duration>) -> bool {
     timeout.is_some_and(|t| idle >= t)
+}
+
+/// `GUID_CONSOLE_DISPLAY_STATE` value: 0 = off, 1 = on, 2 = dimmed.
+pub fn display_turned_off(state: u32) -> bool {
+    state == 0
 }
 
 /// Starts the watcher threads. They live as long as the process.
@@ -101,15 +111,17 @@ mod os {
     use windows_sys::Win32::{
         Foundation::{HWND, LPARAM, LRESULT, WPARAM},
         System::{
-            LibraryLoader::GetModuleHandleW, Power::RegisterSuspendResumeNotification,
-            RemoteDesktop::WTSRegisterSessionNotification, SystemInformation::GetTickCount,
+            LibraryLoader::GetModuleHandleW,
+            Power::{RegisterPowerSettingNotification, RegisterSuspendResumeNotification, POWERBROADCAST_SETTING},
+            RemoteDesktop::WTSRegisterSessionNotification,
+            SystemInformation::GetTickCount,
         },
         UI::{
             Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO},
             WindowsAndMessaging::{
                 CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, RegisterClassW, TranslateMessage,
-                DEVICE_NOTIFY_WINDOW_HANDLE, HWND_MESSAGE, MSG, PBT_APMSUSPEND, WM_POWERBROADCAST,
-                WM_WTSSESSION_CHANGE, WNDCLASSW, WTS_SESSION_LOCK,
+                DEVICE_NOTIFY_WINDOW_HANDLE, HWND_MESSAGE, MSG, PBT_APMSUSPEND, PBT_POWERSETTINGCHANGE,
+                WM_POWERBROADCAST, WM_WTSSESSION_CHANGE, WNDCLASSW, WTS_SESSION_LOCK,
             },
         },
     };
@@ -118,6 +130,11 @@ mod os {
 
     /// `NOTIFY_FOR_THIS_SESSION` (wtsapi32.h).
     const NOTIFY_FOR_THIS_SESSION: u32 = 0;
+
+    /// `GUID_CONSOLE_DISPLAY_STATE` (winnt.h), defined here to avoid the large
+    /// `Win32_System_SystemServices` feature.
+    const GUID_CONSOLE_DISPLAY_STATE: windows_sys::core::GUID =
+        windows_sys::core::GUID::from_u128(0x6fe69556_704a_47a0_8f24_c28d936fda47);
 
     /// Window class of the hidden message-only window (also used by manual tests).
     pub const CLASS_NAME: &str = "xpass-lock-watch";
@@ -131,13 +148,47 @@ mod os {
     }
 
     unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+        #[cfg(debug_assertions)]
+        if msg == WM_POWERBROADCAST || msg == WM_WTSSESSION_CHANGE {
+            eprintln!("xpass: lock watcher msg=0x{msg:04x} wparam={wparam}");
+        }
         match msg {
             WM_WTSSESSION_CHANGE if wparam as u32 == WTS_SESSION_LOCK => send(LockReason::SessionLocked),
             WM_POWERBROADCAST if wparam as u32 == PBT_APMSUSPEND => send(LockReason::Suspend),
+            WM_POWERBROADCAST if wparam as u32 == PBT_POWERSETTINGCHANGE && lparam != 0 => {
+                // SAFETY: for PBT_POWERSETTINGCHANGE, lparam points to a POWERBROADCAST_SETTING
+                // owned by the system and valid for the duration of this call.
+                let state = unsafe { display_state(lparam as *const POWERBROADCAST_SETTING) };
+                #[cfg(debug_assertions)]
+                eprintln!("xpass: lock watcher display state={state:?}");
+                if state.is_some_and(super::display_turned_off) {
+                    send(LockReason::DisplayOff);
+                }
+            }
             _ => {}
         }
         // SAFETY: forwarding the unmodified message to the default handler.
         unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
+    }
+
+    /// Reads the console display state from a power setting notification.
+    ///
+    /// # Safety
+    /// `setting` must point to a valid `POWERBROADCAST_SETTING` with `DataLength`
+    /// bytes of data.
+    unsafe fn display_state(setting: *const POWERBROADCAST_SETTING) -> Option<u32> {
+        // SAFETY: guaranteed by the caller.
+        let s = unsafe { &*setting };
+        if s.PowerSetting.data1 != GUID_CONSOLE_DISPLAY_STATE.data1
+            || s.PowerSetting.data2 != GUID_CONSOLE_DISPLAY_STATE.data2
+            || s.PowerSetting.data3 != GUID_CONSOLE_DISPLAY_STATE.data3
+            || s.PowerSetting.data4 != GUID_CONSOLE_DISPLAY_STATE.data4
+            || (s.DataLength as usize) < size_of::<u32>()
+        {
+            return None;
+        }
+        // SAFETY: DataLength >= 4, so 4 bytes of data follow; the field may be unaligned.
+        Some(unsafe { std::ptr::read_unaligned(s.Data.as_ptr().cast::<u32>()) })
     }
 
     /// Creates the message-only window and pumps its messages (blocks forever).
@@ -182,6 +233,9 @@ mod os {
             }
             if RegisterSuspendResumeNotification(hwnd, DEVICE_NOTIFY_WINDOW_HANDLE) == 0 {
                 eprintln!("xpass: lock watcher: RegisterSuspendResumeNotification failed");
+            }
+            if RegisterPowerSettingNotification(hwnd, &GUID_CONSOLE_DISPLAY_STATE, DEVICE_NOTIFY_WINDOW_HANDLE) == 0 {
+                eprintln!("xpass: lock watcher: RegisterPowerSettingNotification failed");
             }
             #[cfg(debug_assertions)]
             eprintln!("xpass: lock watcher window hwnd={hwnd:?}");
@@ -233,6 +287,13 @@ mod tests {
         assert!(!idle_exceeded(Duration::from_secs(299), Some(five)));
         assert!(idle_exceeded(Duration::from_secs(300), Some(five)));
         assert!(!idle_exceeded(Duration::from_secs(100_000), None), "never");
+    }
+
+    #[test]
+    fn only_display_off_locks() {
+        assert!(display_turned_off(0));
+        assert!(!display_turned_off(1), "on");
+        assert!(!display_turned_off(2), "dimmed");
     }
 
     #[test]
