@@ -1,7 +1,9 @@
 mod commands;
+mod entries;
 mod error;
 mod paths;
 mod session;
+mod shell;
 mod state;
 mod storage;
 mod strength;
@@ -29,6 +31,12 @@ pub fn run() {
             commands::session::new_recovery_key,
             commands::session::password_strength,
             commands::session::lock,
+            commands::entries::list_entries,
+            commands::entries::get_entry,
+            commands::entries::save_entry,
+            commands::entries::delete_entry,
+            commands::entries::set_favorite,
+            commands::entries::open_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running xpass");

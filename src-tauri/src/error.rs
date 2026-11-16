@@ -15,6 +15,10 @@ pub enum AppError {
     VaultExists,
     #[error("the vault is locked")]
     Locked,
+    #[error("entry not found")]
+    NotFound,
+    #[error("could not open the link")]
+    OpenFailed,
     #[error("the password is too weak")]
     WeakPassword,
     #[error("invalid input: {field}")]

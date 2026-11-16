@@ -1,3 +1,4 @@
+pub mod entries;
 pub mod session;
 
 use serde::Serialize;

@@ -1,4 +1,4 @@
-import {type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, useState} from 'react'
+import {type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type Ref, useState} from 'react'
 import {AlertTriangle, Eye, EyeOff, Loader2} from 'lucide-react'
 import clsx from 'clsx'
 import {useTranslation} from 'react-i18next'
@@ -18,8 +18,9 @@ export function Card({title, children}: {title: string; children: ReactNode}) {
 }
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-    variant?: 'primary' | 'secondary' | 'link'
+    variant?: 'primary' | 'secondary' | 'danger' | 'link'
     busy?: boolean
+    ref?: Ref<HTMLButtonElement>
 }
 
 export function Button({variant = 'primary', busy, disabled, className, children, ...rest}: ButtonProps) {
@@ -32,6 +33,7 @@ export function Button({variant = 'primary', busy, disabled, className, children
                 variant === 'primary' && 'bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700',
                 variant === 'secondary' &&
                     'border border-neutral-300 px-4 py-2 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800',
+                variant === 'danger' && 'bg-red-600 px-4 py-2 text-white hover:bg-red-700',
                 variant === 'link' && 'text-emerald-700 hover:underline dark:text-emerald-400',
                 className,
             )}

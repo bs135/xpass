@@ -10,7 +10,7 @@ use std::{
 
 use rand::rngs::OsRng;
 use serde::Serialize;
-use xpass_core::{crypto::KdfParams, Unlock, UnlockedVault};
+use xpass_core::{crypto::KdfParams, model::Payload, Unlock, UnlockedVault};
 use zeroize::Zeroizing;
 
 use crate::{
@@ -152,6 +152,21 @@ impl AppState {
             .map_err(|wait| AppError::Throttled {
                 retry_after_ms: u64::try_from(wait.as_millis()).unwrap_or(u64::MAX).max(1),
             })
+    }
+
+    /// Runs `f` on the unlocked payload (`Locked` otherwise).
+    pub fn read<T>(&self, f: impl FnOnce(&Payload) -> AppResult<T>) -> AppResult<T> {
+        let guard = lock(&self.0.session);
+        let session = guard.as_ref().ok_or(AppError::Locked)?;
+        f(&session.vault().payload)
+    }
+
+    /// Applies `f` to the payload with a D2 timestamp, then saves and writes the
+    /// vault atomically. Nothing changes if `f` or the write fails.
+    pub fn edit<T>(&self, f: impl FnOnce(&mut Payload, i64) -> AppResult<T>) -> AppResult<T> {
+        let mut guard = lock(&self.0.session);
+        let session = guard.as_mut().ok_or(AppError::Locked)?;
+        session.apply(&self.0.storage, now_ms(), f)
     }
 
     /// Drops the session (wiping keys and secrets). Returns whether it was unlocked.
@@ -391,6 +406,7 @@ mod tests {
                 let mut e = Entry::new("GitHub", ts);
                 e.password = "s3cret".into();
                 p.entries.push(e);
+                Ok(())
             })
             .unwrap();
         assert_eq!(session.vault().payload.entries[0].updated_at, 5_001);
@@ -415,7 +431,10 @@ mod tests {
         let mut guard = lock(&state.0.session);
         let session = guard.as_mut().unwrap();
         let err = session
-            .apply(&storage, 1_000, |p, ts| p.entries.push(Entry::new("x", ts)))
+            .apply(&storage, 1_000, |p, ts| {
+                p.entries.push(Entry::new("x", ts));
+                Ok(())
+            })
             .unwrap_err();
         assert!(matches!(err, AppError::Io { .. }), "{err:?}");
         assert!(session.vault().payload.entries.is_empty());
@@ -485,5 +504,45 @@ mod tests {
         state.lock();
         assert_eq!(state.change_password(Some(PW), NEW_PW).unwrap_err(), AppError::Locked);
         assert_eq!(state.new_recovery_key(Some(PW)).unwrap_err(), AppError::Locked);
+    }
+
+    #[test]
+    fn entry_commands_need_an_unlocked_vault_and_persist() {
+        use crate::entries::{self, EntryInput};
+        let (_tmp, _paths, state, _) = created();
+        let input = EntryInput {
+            id: None,
+            title: "GitHub".into(),
+            username: "alice".into(),
+            password: Some("gh-secret".into()),
+            urls: vec!["github.com".into()],
+            notes: String::new(),
+            tags: Vec::new(),
+            favorite: false,
+        };
+        let id = state.edit(|p, ts| entries::save(p, &input, ts)).unwrap();
+        // A failing edit leaves the vault unchanged.
+        assert_eq!(
+            state
+                .edit(|p, ts| entries::delete(p, uuid::Uuid::nil(), ts))
+                .unwrap_err(),
+            AppError::NotFound
+        );
+
+        state.lock();
+        assert_eq!(state.read(|p| Ok(entries::list(p))).unwrap_err(), AppError::Locked);
+        assert_eq!(
+            state.edit(|p, ts| entries::delete(p, id, ts)).unwrap_err(),
+            AppError::Locked
+        );
+
+        state.unlock_password(PW).unwrap();
+        let rows = state.read(|p| Ok(entries::list(p))).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, id);
+        assert_eq!(
+            state.read(|p| entries::url_to_open(p, id, 0)).unwrap().as_str(),
+            "https://github.com/"
+        );
     }
 }
