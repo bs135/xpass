@@ -1,5 +1,6 @@
 pub mod entries;
 pub mod session;
+pub mod settings;
 pub mod tools;
 
 use serde::Serialize;

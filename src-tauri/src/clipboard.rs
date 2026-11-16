@@ -14,9 +14,6 @@ use std::{
 
 use crate::error::{AppError, AppResult};
 
-/// Default time before a copied secret is cleared (configurable in T9).
-pub const DEFAULT_CLEAR_AFTER: Duration = Duration::from_secs(20);
-
 /// OS clipboard operations, abstracted for tests.
 pub trait Backend: Send + Sync + 'static {
     /// Puts `text` on the clipboard, excluded from history, cloud and monitors.

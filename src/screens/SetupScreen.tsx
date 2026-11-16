@@ -18,6 +18,7 @@ export function SetupScreen() {
             showKit(recoveryKey)
         } catch (e) {
             setError(errorMessage(t, e))
+            throw e
         }
     }
 

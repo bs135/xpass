@@ -5,16 +5,21 @@ import App from './App'
 import {initI18n} from './i18n'
 import {disableWebviewDefaults} from './lib/disableWebviewDefaults'
 import {applyTheme, resolveTheme, systemPrefersDark} from './lib/theme'
-import {initialLanguage, initialTheme} from './stores/ui'
+import {initialState, loadSettings, useUi} from './stores/ui'
 
 disableWebviewDefaults()
-applyTheme(resolveTheme(initialTheme(), systemPrefersDark()))
-const language = initialLanguage()
-initI18n(language)
-document.documentElement.lang = language
 
-createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-        <App/>
-    </StrictMode>,
-)
+// The window stays hidden until App has rendered, so loading settings first causes no flash.
+void loadSettings().then((settings) => {
+    const state = initialState(settings)
+    useUi.setState(state)
+    applyTheme(resolveTheme(state.theme, systemPrefersDark()))
+    initI18n(state.language)
+    document.documentElement.lang = state.language
+
+    createRoot(document.getElementById('root')!).render(
+        <StrictMode>
+            <App/>
+        </StrictMode>,
+    )
+})

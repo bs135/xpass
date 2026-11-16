@@ -5,7 +5,39 @@
   },
   "settings": {
     "theme": "Theme",
-    "language": "Language"
+    "language": "Language",
+    "title": "Settings",
+    "general": "General",
+    "security": "Security",
+    "languageSystem": "Same as Windows",
+    "autoLock": "Lock after inactivity",
+    "minutes_one": "{{count}} minute",
+    "minutes_other": "{{count}} minutes",
+    "never": "Never",
+    "clipboard": "Clear copied secrets after",
+    "seconds_one": "{{count}} second",
+    "seconds_other": "{{count}} seconds",
+    "autoLockHint": "The vault also locks when Windows locks, when the screen turns off and when the computer sleeps.",
+    "saved": "Settings saved",
+    "currentPassword": "Current master password",
+    "changePassword": "Change master password",
+    "changePasswordSubmit": "Change password",
+    "passwordChanged": "Master password changed",
+    "kitLast": "Last Emergency Kit created on {{date}}.",
+    "kitUnknown": "No Emergency Kit has been created on this computer yet.",
+    "kitNew": "Create new Emergency Kit",
+    "kitNewConfirm": "Create kit",
+    "kitNewExplain": "A new recovery key replaces the old one. Destroy your old Emergency Kit afterwards.",
+    "rotateTitle": "Rotate vault key",
+    "rotateIntro": "Use this if your master password or recovery key may have been exposed. It replaces the key that encrypts your vault.",
+    "rotateButton": "Rotate vault key",
+    "rotateExplain": [
+      "Your vault is re-encrypted with a new key and you get a new recovery key (new Emergency Kit).",
+      "Your master password stays the same. Change it as well if it may have been exposed.",
+      "The old recovery key stops working for the vault from now on.",
+      "Older copies of the vault (the backups folder) still open with the old password and recovery key. Delete them if they may be exposed."
+    ],
+    "newPassword": "New master password"
   },
   "theme": {
     "system": "System",
@@ -25,7 +57,8 @@
     "edit": "Edit",
     "delete": "Delete",
     "copy": "Copy",
-    "close": "Close"
+    "close": "Close",
+    "back": "Back"
   },
   "password": {
     "new": "Master password",

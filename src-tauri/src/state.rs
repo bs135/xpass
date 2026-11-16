@@ -4,6 +4,7 @@
 //! directory. The Tauri commands in `commands::session` are thin wrappers.
 
 use std::{
+    path::PathBuf,
     sync::{Arc, Mutex, MutexGuard, PoisonError},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -14,12 +15,13 @@ use xpass_core::{crypto::KdfParams, model::Payload, Unlock, UnlockedVault};
 use zeroize::Zeroizing;
 
 use crate::{
-    clipboard::{SecureClipboard, DEFAULT_CLEAR_AFTER},
+    clipboard::SecureClipboard,
     entries::{self, FieldRef},
     error::{AppError, AppResult},
     lock_watch::LockReason,
     paths::Paths,
     session::VaultSession,
+    settings::{self, Settings},
     storage::Storage,
     strength,
     throttle::Throttle,
@@ -57,16 +59,18 @@ struct Inner {
     /// Serializes create/unlock so concurrent attempts cannot bypass the throttle.
     gate: Mutex<()>,
     clipboard: SecureClipboard,
-    /// Lock after this much system-wide inactivity; `None` = never (T8, set in T9).
+    settings_path: PathBuf,
+    settings: Mutex<Settings>,
+    /// Lock after this much system-wide inactivity; `None` = never. From settings,
+    /// or `XPASS_IDLE_SECS` in debug builds.
     idle_timeout: Mutex<Option<Duration>>,
     last_lock_reason: Mutex<Option<LockReason>>,
 }
 
-/// Default auto-lock after inactivity.
-pub const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_secs(5 * 60);
-
 impl AppState {
     pub fn new(paths: Paths, target_kdf: KdfParams, clipboard: SecureClipboard) -> Self {
+        let settings_path = paths.settings();
+        let loaded = settings::load(&settings_path);
         Self(Arc::new(Inner {
             storage: Storage::new(paths),
             target_kdf,
@@ -74,9 +78,37 @@ impl AppState {
             throttle: Mutex::new(Throttle::default()),
             gate: Mutex::new(()),
             clipboard,
-            idle_timeout: Mutex::new(Some(DEFAULT_IDLE_TIMEOUT)),
+            settings_path,
+            idle_timeout: Mutex::new(loaded.idle_timeout()),
+            settings: Mutex::new(loaded),
             last_lock_reason: Mutex::new(None),
         }))
+    }
+
+    pub fn settings(&self) -> Settings {
+        lock(&self.0.settings).clone()
+    }
+
+    /// Validates, saves and applies new settings. `last_kit_at` is kept as is (it is
+    /// owned by the app, not the user).
+    pub fn update_settings(&self, mut new: Settings) -> AppResult<Settings> {
+        new.validate()?;
+        let mut current = lock(&self.0.settings);
+        new.last_kit_at = current.last_kit_at;
+        settings::save(&self.0.settings_path, &new)?;
+        self.set_idle_timeout(new.idle_timeout());
+        *current = new.clone();
+        Ok(new)
+    }
+
+    /// Records that a new Emergency Kit was shown. Best effort: the kit date is
+    /// informational only.
+    fn mark_kit_generated(&self) {
+        let mut current = lock(&self.0.settings);
+        current.last_kit_at = Some(now_ms());
+        if let Err(e) = settings::save(&self.0.settings_path, &current) {
+            eprintln!("xpass: saving settings failed: {e}");
+        }
     }
 
     pub fn status(&self) -> VaultStatus {
@@ -113,6 +145,7 @@ impl AppState {
         let bytes = vault.save(&mut OsRng)?;
         self.0.storage.write(&bytes, now_ms())?;
         *lock(&self.0.session) = Some(VaultSession::new(vault, false));
+        self.mark_kit_generated();
         Ok(recovery_key)
     }
 
@@ -154,7 +187,28 @@ impl AppState {
             recovery_key = Some(vault.replace_recovery_key(&mut OsRng));
             Ok(())
         })?;
+        drop(guard);
+        self.mark_kit_generated();
         recovery_key.ok_or(AppError::Internal)
+    }
+
+    /// Compromise response: new VaultKey, password slot re-created with the same
+    /// password, new recovery key (returned for a new Emergency Kit). Always needs the
+    /// current password. Older files (backups) still open with the old credentials.
+    pub fn rotate_vault_key(&self, current: &str) -> AppResult<Zeroizing<String>> {
+        let _gate = lock(&self.0.gate);
+        let mut guard = lock(&self.0.session);
+        let session = guard.as_mut().ok_or(AppError::Locked)?;
+        self.verify_password(session, current)?;
+        let target = self.0.target_kdf;
+        let recovery_key = session.persist_with(&self.0.storage, now_ms(), |vault| {
+            vault
+                .rotate(&mut OsRng, current.as_bytes(), target)
+                .map_err(AppError::from)
+        })?;
+        drop(guard);
+        self.mark_kit_generated();
+        Ok(recovery_key)
     }
 
     /// Checks the current password for a sensitive action, with the same throttle
@@ -166,6 +220,11 @@ impl AppState {
         let current = current.ok_or(AppError::InvalidInput {
             field: "currentPassword",
         })?;
+        self.verify_password(session, current)
+    }
+
+    /// Checks the password against the password slot, throttled like unlock.
+    fn verify_password(&self, session: &VaultSession, current: &str) -> AppResult<()> {
         self.check_throttle()?;
         match session.vault().check_password(current.as_bytes()) {
             Ok(()) => {
@@ -203,7 +262,6 @@ impl AppState {
         session.apply(&self.0.storage, now_ms(), f)
     }
 
-    /// Drops the session (wiping keys and secrets). Returns whether it was unlocked.
     pub fn idle_timeout(&self) -> Option<Duration> {
         *lock(&self.0.idle_timeout)
     }
@@ -212,7 +270,8 @@ impl AppState {
         *lock(&self.0.idle_timeout) = timeout;
     }
 
-    /// Also clears the clipboard if it still holds a secret we copied.
+    /// Drops the session (wiping keys and secrets) and clears the clipboard if it
+    /// still holds a secret we copied. Returns whether the vault was unlocked.
     pub fn lock(&self) -> bool {
         self.0.clipboard.clear_if_ours();
         lock(&self.0.session).take().is_some()
@@ -230,7 +289,7 @@ impl AppState {
     /// Copies an entry field to the clipboard; it is cleared after the timeout.
     pub fn copy_field(&self, id: uuid::Uuid, field: FieldRef) -> AppResult<()> {
         let value = self.read(|p| entries::field_value(p, id, field))?;
-        self.0.clipboard.copy(&value, DEFAULT_CLEAR_AFTER)
+        self.0.clipboard.copy(&value, self.settings().clipboard_clear())
     }
 
     /// Copies arbitrary secret text (e.g. a generated password) the same secure way.
@@ -238,7 +297,7 @@ impl AppState {
         if text.is_empty() {
             return Err(AppError::InvalidInput { field: "text" });
         }
-        self.0.clipboard.copy(text, DEFAULT_CLEAR_AFTER)
+        self.0.clipboard.copy(text, self.settings().clipboard_clear())
     }
 
     /// Returns the password or a secret custom field for display.
@@ -676,5 +735,53 @@ mod tests {
         state.unlock_password(PW).unwrap();
         state.lock();
         assert_eq!(state.session_info().lock_reason, None, "reason cleared by the unlock");
+    }
+
+    #[test]
+    fn rotate_invalidates_the_old_recovery_key_but_not_old_backups() {
+        let (_tmp, paths, state, old_rec) = created();
+        assert!(state.settings().last_kit_at.is_some(), "kit date set on create");
+        let before = fs::read(paths.vault()).unwrap();
+
+        assert_eq!(state.rotate_vault_key("wrong").unwrap_err(), AppError::BadCredentials);
+        let new_rec = state.rotate_vault_key(PW).unwrap();
+        assert_ne!(*new_rec, old_rec);
+
+        state.lock();
+        assert_eq!(state.unlock_recovery(&old_rec).unwrap_err(), AppError::BadCredentials);
+        state.unlock_recovery(&new_rec).unwrap();
+        state.lock();
+        state.unlock_password(PW).unwrap();
+
+        // A file saved before the rotation (backups, git history) still opens with
+        // the old credentials: expected, and explained in the UI.
+        let backups = Storage::new(paths.clone()).backups().unwrap();
+        assert!(backups.iter().any(|b| fs::read(b).unwrap() == before));
+        UnlockedVault::unlock(&before, Unlock::Recovery(&old_rec)).unwrap();
+        UnlockedVault::unlock(&before, Unlock::Password(PW.as_bytes())).unwrap();
+    }
+
+    #[test]
+    fn settings_are_saved_applied_and_reloaded() {
+        let (_tmp, paths, state, _) = created();
+        let kit_at = state.settings().last_kit_at;
+        let mut s = state.settings();
+        s.auto_lock_minutes = Some(15);
+        s.clipboard_clear_seconds = 45;
+        s.last_kit_at = Some(1); // ignored: owned by the app
+        let saved = state.update_settings(s).unwrap();
+        assert_eq!(saved.last_kit_at, kit_at);
+        assert_eq!(state.idle_timeout(), Some(Duration::from_secs(15 * 60)));
+
+        let mut bad = state.settings();
+        bad.auto_lock_minutes = Some(7);
+        assert!(matches!(
+            state.update_settings(bad).unwrap_err(),
+            AppError::InvalidInput { .. }
+        ));
+
+        let restarted = AppState::new(paths, TEST_KDF, test_clipboard());
+        assert_eq!(restarted.settings().clipboard_clear_seconds, 45);
+        assert_eq!(restarted.idle_timeout(), Some(Duration::from_secs(15 * 60)));
     }
 }

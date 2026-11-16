@@ -76,6 +76,18 @@ pub async fn new_recovery_key(state: State<'_, AppState>, current_password: Opti
     })
 }
 
+/// Compromise response: new VaultKey and recovery key (returned for a new Emergency
+/// Kit). Requires the current password, which stays the master password.
+#[tauri::command]
+pub async fn rotate_vault_key(state: State<'_, AppState>, current_password: String) -> AppResult<RecoveryKit> {
+    let current = Zeroizing::new(current_password);
+    let state = state.inner().clone();
+    let recovery_key = blocking(move || state.rotate_vault_key(&current)).await?;
+    Ok(RecoveryKit {
+        recovery_key: recovery_key.to_string(),
+    })
+}
+
 #[tauri::command]
 pub fn password_strength(password: String) -> Strength {
     let password = Zeroizing::new(password);

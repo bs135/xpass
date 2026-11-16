@@ -9,6 +9,7 @@ import {applyTheme, resolveTheme} from './lib/theme'
 import {EmergencyKitScreen} from './screens/EmergencyKitScreen'
 import {EntriesScreen} from './screens/entries/EntriesScreen'
 import {NewPasswordScreen} from './screens/NewPasswordScreen'
+import {SettingsScreen} from './screens/settings/SettingsScreen'
 import {SetupScreen} from './screens/SetupScreen'
 import {UnlockScreen} from './screens/UnlockScreen'
 import {type Screen, useSession} from './stores/session'
@@ -81,5 +82,7 @@ function ScreenView({screen}: {screen: Screen}) {
             return <NewPasswordScreen/>
         case 'unlocked':
             return <EntriesScreen/>
+        case 'settings':
+            return <SettingsScreen/>
     }
 }
