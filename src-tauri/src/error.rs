@@ -19,6 +19,8 @@ pub enum AppError {
     NotFound,
     #[error("could not open the link")]
     OpenFailed,
+    #[error("the clipboard is not available")]
+    Clipboard,
     #[error("the password is too weak")]
     WeakPassword,
     #[error("invalid input: {field}")]

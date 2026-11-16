@@ -1,6 +1,8 @@
+mod clipboard;
 mod commands;
 mod entries;
 mod error;
+mod generator;
 mod paths;
 mod session;
 mod shell;
@@ -9,16 +11,16 @@ mod storage;
 mod strength;
 mod throttle;
 
-use tauri::Manager;
+use tauri::{Manager, RunEvent};
 use xpass_core::crypto::KdfParams;
 
-use crate::{paths::Paths, state::AppState};
+use crate::{clipboard::SecureClipboard, paths::Paths, state::AppState};
 
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let paths = data_dir_override().map_or_else(|| Paths::from_app(app.handle()), |dir| Ok(Paths::new(dir)))?;
-            app.manage(AppState::new(paths, KdfParams::DEFAULT));
+            app.manage(AppState::new(paths, KdfParams::DEFAULT, SecureClipboard::system()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -37,9 +39,21 @@ pub fn run() {
             commands::entries::delete_entry,
             commands::entries::set_favorite,
             commands::entries::open_url,
+            commands::entries::copy_field,
+            commands::entries::reveal_secret,
+            commands::tools::generate_password,
+            commands::tools::copy_text,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running xpass");
+        .build(tauri::generate_context!())
+        .expect("error while building xpass")
+        .run(|app, event| {
+            if let RunEvent::Exit = event {
+                // Wipe the session and our clipboard copy before the process ends.
+                if let Some(state) = app.try_state::<AppState>() {
+                    state.lock();
+                }
+            }
+        });
 }
 
 /// Debug builds only: `XPASS_DATA_DIR` points the app at a throwaway directory so

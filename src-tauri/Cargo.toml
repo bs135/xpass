@@ -17,6 +17,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+arboard = { version = "3.7", default-features = false }
 xpass-core = { path = "../crates/xpass-core" }
 serde = { version = "1", features = ["derive"] }
 rand = "0.8"
@@ -29,7 +30,7 @@ zeroize = { version = "1", features = ["derive"] }
 zxcvbn = "3.1.1"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61", features = ["Win32_System_DataExchange", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 [dev-dependencies]
 tempfile = "3"

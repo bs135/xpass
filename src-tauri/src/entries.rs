@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 use uuid::Uuid;
 use xpass_core::model::{Entry, HistoryItem, Payload};
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use crate::error::{AppError, AppResult};
 
@@ -75,6 +75,49 @@ pub struct EntryInput {
     pub tags: Vec<String>,
     #[serde(default)]
     pub favorite: bool,
+}
+
+/// A copyable/revealable part of an entry.
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum FieldRef {
+    Username,
+    Password,
+    Url { index: usize },
+    Field { index: usize },
+}
+
+/// Value to copy. Empty values are rejected so a copy never just clears the clipboard.
+pub fn field_value(payload: &Payload, id: Uuid, field: FieldRef) -> AppResult<Zeroizing<String>> {
+    let e = find(payload, id)?;
+    let value = match field {
+        FieldRef::Username => &e.username,
+        FieldRef::Password => &e.password,
+        FieldRef::Url { index } => e.urls.get(index).ok_or(AppError::NotFound)?,
+        FieldRef::Field { index } => &e.fields.get(index).ok_or(AppError::NotFound)?.value,
+    };
+    if value.is_empty() {
+        return Err(AppError::InvalidInput { field: "field" });
+    }
+    Ok(Zeroizing::new(value.clone()))
+}
+
+/// Value to reveal: only the password and secret custom fields (everything else is
+/// already in the entry details).
+pub fn secret_value(payload: &Payload, id: Uuid, field: FieldRef) -> AppResult<Zeroizing<String>> {
+    let e = find(payload, id)?;
+    match field {
+        FieldRef::Password => Ok(Zeroizing::new(e.password.clone())),
+        FieldRef::Field { index } => {
+            let f = e.fields.get(index).ok_or(AppError::NotFound)?;
+            if f.secret {
+                Ok(Zeroizing::new(f.value.clone()))
+            } else {
+                Err(AppError::InvalidInput { field: "field" })
+            }
+        }
+        FieldRef::Username | FieldRef::Url { .. } => Err(AppError::InvalidInput { field: "field" }),
+    }
 }
 
 pub fn list(payload: &Payload) -> Vec<EntrySummary> {
@@ -396,5 +439,46 @@ mod tests {
         );
         assert_eq!(url_to_open(&p, id, 1).unwrap().as_str(), "https://example.com/");
         assert_eq!(url_to_open(&p, id, 2).unwrap_err(), AppError::NotFound);
+    }
+
+    #[test]
+    fn copy_and_reveal_values() {
+        let mut p = Payload::default();
+        let id = save(&mut p, &input("Bank", Some("pw")), 1).unwrap();
+        p.entries[0].fields = vec![
+            CustomField {
+                name: "PIN".into(),
+                value: "1234".into(),
+                secret: true,
+            },
+            CustomField {
+                name: "Branch".into(),
+                value: "Main".into(),
+                secret: false,
+            },
+        ];
+        let v = |f| field_value(&p, id, f).map(|z| z.to_string());
+        assert_eq!(v(FieldRef::Username).unwrap(), "alice");
+        assert_eq!(v(FieldRef::Password).unwrap(), "pw");
+        assert_eq!(v(FieldRef::Url { index: 0 }).unwrap(), "github.com/login");
+        assert_eq!(v(FieldRef::Field { index: 0 }).unwrap(), "1234");
+        assert_eq!(v(FieldRef::Url { index: 5 }).unwrap_err(), AppError::NotFound);
+
+        let r = |f| secret_value(&p, id, f).map(|z| z.to_string());
+        assert_eq!(r(FieldRef::Password).unwrap(), "pw");
+        assert_eq!(r(FieldRef::Field { index: 0 }).unwrap(), "1234");
+        assert!(
+            r(FieldRef::Field { index: 1 }).is_err(),
+            "non-secret field is not revealed"
+        );
+        assert!(r(FieldRef::Username).is_err());
+
+        let empty = save(&mut p, &input("Empty", None), 2).unwrap();
+        assert_eq!(
+            field_value(&p, empty, FieldRef::Password).unwrap_err(),
+            AppError::InvalidInput { field: "field" }
+        );
+        let parsed: FieldRef = serde_json::from_str(r#"{"kind":"url","index":1}"#).unwrap();
+        assert_eq!(parsed, FieldRef::Url { index: 1 });
     }
 }

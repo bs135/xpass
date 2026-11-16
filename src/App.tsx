@@ -3,6 +3,7 @@ import {useTranslation} from 'react-i18next'
 import {listen} from '@tauri-apps/api/event'
 import {getCurrentWindow} from '@tauri-apps/api/window'
 import {Header} from './components/Header'
+import {Toast} from './components/Toast'
 import {api, type AppInfo, EVENT_LOCKED} from './lib/api'
 import {applyTheme, resolveTheme} from './lib/theme'
 import {EmergencyKitScreen} from './screens/EmergencyKitScreen'
@@ -43,6 +44,7 @@ export default function App() {
         <div className="flex h-full flex-col">
             <Header/>
             <ScreenView screen={screen}/>
+            <Toast/>
             <footer className="px-4 py-2 text-xs text-neutral-500 print:hidden">
                 {info && t('about.version', {version: info.version, format: info.formatVersion})}
             </footer>

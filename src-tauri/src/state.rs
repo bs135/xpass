@@ -14,6 +14,8 @@ use xpass_core::{crypto::KdfParams, model::Payload, Unlock, UnlockedVault};
 use zeroize::Zeroizing;
 
 use crate::{
+    clipboard::{SecureClipboard, DEFAULT_CLEAR_AFTER},
+    entries::{self, FieldRef},
     error::{AppError, AppResult},
     paths::Paths,
     session::VaultSession,
@@ -42,16 +44,18 @@ struct Inner {
     throttle: Mutex<Throttle>,
     /// Serializes create/unlock so concurrent attempts cannot bypass the throttle.
     gate: Mutex<()>,
+    clipboard: SecureClipboard,
 }
 
 impl AppState {
-    pub fn new(paths: Paths, target_kdf: KdfParams) -> Self {
+    pub fn new(paths: Paths, target_kdf: KdfParams, clipboard: SecureClipboard) -> Self {
         Self(Arc::new(Inner {
             storage: Storage::new(paths),
             target_kdf,
             session: Mutex::new(None),
             throttle: Mutex::new(Throttle::default()),
             gate: Mutex::new(()),
+            clipboard,
         }))
     }
 
@@ -170,8 +174,29 @@ impl AppState {
     }
 
     /// Drops the session (wiping keys and secrets). Returns whether it was unlocked.
+    /// Also clears the clipboard if it still holds a secret we copied.
     pub fn lock(&self) -> bool {
+        self.0.clipboard.clear_if_ours();
         lock(&self.0.session).take().is_some()
+    }
+
+    /// Copies an entry field to the clipboard; it is cleared after the timeout.
+    pub fn copy_field(&self, id: uuid::Uuid, field: FieldRef) -> AppResult<()> {
+        let value = self.read(|p| entries::field_value(p, id, field))?;
+        self.0.clipboard.copy(&value, DEFAULT_CLEAR_AFTER)
+    }
+
+    /// Copies arbitrary secret text (e.g. a generated password) the same secure way.
+    pub fn copy_text(&self, text: &str) -> AppResult<()> {
+        if text.is_empty() {
+            return Err(AppError::InvalidInput { field: "text" });
+        }
+        self.0.clipboard.copy(text, DEFAULT_CLEAR_AFTER)
+    }
+
+    /// Returns the password or a secret custom field for display.
+    pub fn reveal_secret(&self, id: uuid::Uuid, field: FieldRef) -> AppResult<Zeroizing<String>> {
+        self.read(|p| entries::secret_value(p, id, field))
     }
 
     fn unlock(&self, how: Unlock<'_>, password: Option<&str>) -> AppResult<()> {
@@ -254,10 +279,14 @@ mod tests {
     };
     const PW: &str = "correct horse battery staple";
 
+    fn test_clipboard() -> SecureClipboard {
+        SecureClipboard::new(crate::clipboard::fake::FakeClipboard::default())
+    }
+
     fn setup() -> (tempfile::TempDir, Paths, AppState) {
         let tmp = tempfile::tempdir().unwrap();
         let paths = Paths::new(tmp.path().join("data"));
-        let state = AppState::new(paths.clone(), TEST_KDF);
+        let state = AppState::new(paths.clone(), TEST_KDF, test_clipboard());
         (tmp, paths, state)
     }
 
@@ -302,7 +331,7 @@ mod tests {
     #[test]
     fn new_app_instance_sees_a_locked_vault() {
         let (_tmp, paths, _state, _) = created();
-        let restarted = AppState::new(paths, TEST_KDF);
+        let restarted = AppState::new(paths, TEST_KDF, test_clipboard());
         assert_eq!(restarted.status(), VaultStatus::Locked);
         restarted.unlock_password(PW).unwrap();
     }
@@ -376,7 +405,7 @@ mod tests {
             m_kib: 16 * 1024,
             ..TEST_KDF
         };
-        let upgraded = AppState::new(paths.clone(), stronger);
+        let upgraded = AppState::new(paths.clone(), stronger, test_clipboard());
 
         upgraded.unlock_recovery(&rec).unwrap();
         assert_eq!(
@@ -543,6 +572,38 @@ mod tests {
         assert_eq!(
             state.read(|p| entries::url_to_open(p, id, 0)).unwrap().as_str(),
             "https://github.com/"
+        );
+    }
+
+    #[test]
+    fn copy_field_uses_the_clipboard_and_lock_clears_it() {
+        use crate::{clipboard::fake::FakeClipboard, entries::EntryInput};
+        let tmp = tempfile::tempdir().unwrap();
+        let fake = FakeClipboard::default();
+        let state = AppState::new(Paths::new(tmp.path()), TEST_KDF, SecureClipboard::new(fake.clone()));
+        state.create_vault(PW).unwrap();
+        let input = EntryInput {
+            id: None,
+            title: "GitHub".into(),
+            username: "alice".into(),
+            password: Some("gh-secret".into()),
+            urls: Vec::new(),
+            notes: String::new(),
+            tags: Vec::new(),
+            favorite: false,
+        };
+        let id = state.edit(|p, ts| entries::save(p, &input, ts)).unwrap();
+
+        state.copy_field(id, FieldRef::Password).unwrap();
+        assert_eq!(fake.text().as_deref(), Some("gh-secret"));
+        assert_eq!(&*state.reveal_secret(id, FieldRef::Password).unwrap(), "gh-secret");
+
+        state.lock();
+        assert_eq!(fake.text(), None, "lock clears our copy");
+        assert_eq!(state.copy_field(id, FieldRef::Password).unwrap_err(), AppError::Locked);
+        assert_eq!(
+            state.reveal_secret(id, FieldRef::Password).unwrap_err(),
+            AppError::Locked
         );
     }
 }

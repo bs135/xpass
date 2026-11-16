@@ -3,6 +3,7 @@ import {KeyRound} from 'lucide-react'
 import {useTranslation} from 'react-i18next'
 import {ConfirmDialog} from '../../components/ConfirmDialog'
 import {Alert} from '../../components/ui'
+import {copyField} from '../../lib/copy'
 import {errorMessage} from '../../lib/errors'
 import {filterEntries} from '../../lib/search'
 import {useEntries} from '../../stores/entries'
@@ -34,6 +35,14 @@ export function EntriesScreen() {
             if (s.selectedId && s.mode === 'view') setConfirmDelete(true)
         },
         lock: () => void lock().catch((e) => console.error('lock failed', e)),
+        copy: (kind) => {
+            const s = useEntries.getState()
+            if (!s.detail || s.mode !== 'view') return false
+            if (kind === 'password' && !s.detail.hasPassword) return false
+            if (kind === 'username' && !s.detail.username) return false
+            void copyField(t, s.detail.id, {kind})
+            return true
+        },
     })
 
     const doDelete = () => {
@@ -55,7 +64,7 @@ export function EntriesScreen() {
                 ) : mode === 'edit' && detail ? (
                     <EntryForm key={`edit-${detail.id}`} detail={detail}/>
                 ) : detail && detail.id === selectedId ? (
-                    <EntryView detail={detail} onDelete={() => setConfirmDelete(true)}/>
+                    <EntryView key={detail.id} detail={detail} onDelete={() => setConfirmDelete(true)}/>
                 ) : (
                     <EmptyState hasEntries={entries.length > 0}/>
                 )}
@@ -80,6 +89,7 @@ function EmptyState({hasEntries}: {hasEntries: boolean}) {
             <KeyRound className="size-10 text-neutral-300 dark:text-neutral-600" aria-hidden/>
             <p>{t(hasEntries ? 'entries.selectHint' : 'entries.emptyHint')}</p>
             <p className="text-xs">{t('entries.shortcuts')}</p>
+            <p className="text-xs">{t('entries.shortcutsCopy')}</p>
         </div>
     )
 }
@@ -90,9 +100,15 @@ interface Shortcuts {
     edit: () => void
     remove: () => void
     lock: () => void
+    /** Returns false when there is nothing to copy (the key then keeps its default). */
+    copy: (kind: 'username' | 'password') => boolean
 }
 
-/** Ctrl+F search, Ctrl+N new, Ctrl+E edit, Del delete (outside inputs), Ctrl+L lock. */
+/**
+ * Ctrl+F search, Ctrl+N new, Ctrl+E edit, Del delete (outside inputs), Ctrl+L lock,
+ * Ctrl+B copy username, Ctrl+C copy password (only when no text is selected and the
+ * focus is not in a field, so normal copying keeps working).
+ */
 function useShortcuts(actions: Shortcuts) {
     const ref = useRef(actions)
     useEffect(() => {
@@ -100,7 +116,7 @@ function useShortcuts(actions: Shortcuts) {
     })
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
-            if (document.querySelector('[role=alertdialog]')) return
+            if (document.querySelector('[role=alertdialog], [role=dialog]')) return
             const key = e.key.toLowerCase()
             const ctrl = e.ctrlKey || e.metaKey
             const target = e.target as HTMLElement | null
@@ -111,7 +127,11 @@ function useShortcuts(actions: Shortcuts) {
             else if (ctrl && key === 'e') a.edit()
             else if (ctrl && key === 'l') a.lock()
             else if (key === 'delete' && !typing) a.remove()
-            else return
+            else if (ctrl && key === 'b') {
+                if (!a.copy('username')) return
+            } else if (ctrl && key === 'c' && !typing && !window.getSelection()?.toString()) {
+                if (!a.copy('password')) return
+            } else return
             e.preventDefault()
         }
         window.addEventListener('keydown', onKey)

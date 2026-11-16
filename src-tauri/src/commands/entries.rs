@@ -1,10 +1,12 @@
 //! Entry commands (PLAN.md §3.5). Metadata and details never include secrets.
 
+use serde::Serialize;
 use tauri::State;
 use uuid::Uuid;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{
-    entries::{self, EntryDetail, EntryInput, EntrySummary},
+    entries::{self, EntryDetail, EntryInput, EntrySummary, FieldRef},
     error::{AppError, AppResult},
     shell,
     state::AppState,
@@ -43,4 +45,25 @@ pub async fn open_url(state: State<'_, AppState>, id: Uuid, index: usize) -> App
     tauri::async_runtime::spawn_blocking(move || shell::open_url(&url))
         .await
         .map_err(|_| AppError::Internal)?
+}
+
+/// Copies a field to the clipboard (excluded from history and cloud); cleared after
+/// the timeout, on lock and on exit unless the user copied something else.
+#[tauri::command]
+pub fn copy_field(state: State<'_, AppState>, id: Uuid, field: FieldRef) -> AppResult<()> {
+    state.copy_field(id, field)
+}
+
+#[derive(Serialize, Zeroize, ZeroizeOnDrop)]
+pub struct Secret {
+    pub value: String,
+}
+
+/// Returns the password or a secret custom field; the UI hides it again after 15 s.
+#[tauri::command]
+pub fn reveal_secret(state: State<'_, AppState>, id: Uuid, field: FieldRef) -> AppResult<Secret> {
+    let value = state.reveal_secret(id, field)?;
+    Ok(Secret {
+        value: value.to_string(),
+    })
 }
