@@ -1,0 +1,58 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "xpass",
+  "version": "../package.json",
+  "identifier": "com.bs135.xpass",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "xpass",
+        "width": 1000,
+        "height": 700,
+        "minWidth": 720,
+        "minHeight": 480,
+        "resizable": true,
+        "visible": false,
+        "dragDropEnabled": false,
+        "backgroundColor": "#171717"
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data:",
+        "font-src": "'self'",
+        "connect-src": "ipc: http://ipc.localhost",
+        "object-src": "'none'",
+        "base-uri": "'none'",
+        "frame-ancestors": "'none'",
+        "form-action": "'none'"
+      },
+      "devCsp": null,
+      "freezePrototype": true
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "publisher": "bs135",
+    "copyright": "Copyright 2026 bs135",
+    "category": "Utility",
+    "shortDescription": "Zero-knowledge personal password manager",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ]
+  }
+}
