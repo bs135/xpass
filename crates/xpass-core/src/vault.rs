@@ -187,6 +187,35 @@ impl UnlockedVault {
         self.set_password_slot(rng, new_password, kdf)
     }
 
+    /// Verifies `password` against the password slot without changing anything
+    /// (e.g. before a sensitive action while unlocked). Costs one Argon2 run.
+    pub fn check_password(&self, password: &[u8]) -> Result<()> {
+        let slot = self
+            .slots
+            .iter()
+            .find(|s| s.params.kind() == SlotKind::Password)
+            .ok_or(Error::NoSuchSlot)?;
+        let SlotParams::Password { kdf, salt } = &slot.params else {
+            unreachable!("slot kind checked above")
+        };
+        let kek = crypto::kek_from_password(password, salt, *kdf)?;
+        let aad = Header::slot_aad(&self.vault_id, &slot.params);
+        let vk = crypto::open(&kek, &slot.nonce, &slot.wrapped, &aad).ok_or(Error::BadCredentials)?;
+        if vk.as_slice() == self.vault_key.as_slice() {
+            Ok(())
+        } else {
+            Err(Error::BadCredentials)
+        }
+    }
+
+    /// Replaces only the recovery slot (new Emergency Kit). The VaultKey and the
+    /// other slots stay the same, so the old recovery key stops working for files
+    /// saved from now on but still opens older copies (backups, git history).
+    /// Returns the new printable recovery key.
+    pub fn replace_recovery_key(&mut self, rng: &mut (impl RngCore + CryptoRng)) -> Zeroizing<String> {
+        self.new_recovery_slot(rng)
+    }
+
     /// Compromise response (docs/IDEA.md §3.3): new VaultKey, new password slot,
     /// new recovery key. The Hello slot is dropped and must be re-enrolled,
     /// because wrapping needs a fresh Hello signature.

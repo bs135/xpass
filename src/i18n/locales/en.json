@@ -16,9 +16,96 @@
     "en": "English",
     "vi": "Tiếng Việt"
   },
-  "placeholder": {
-    "title": "Your vault will live here",
-    "body": "Vault creation and unlock arrive in the next tasks of v0.1."
+  "actions": {
+    "lock": "Lock",
+    "show": "Show",
+    "hide": "Hide"
+  },
+  "password": {
+    "new": "Master password",
+    "confirm": "Confirm master password",
+    "mismatch": "The passwords do not match.",
+    "tooWeak": "Choose a stronger password to continue."
+  },
+  "strength": {
+    "hint": "Use 4 or more random words, or 12+ mixed characters.",
+    "level0": "Very weak",
+    "level1": "Weak",
+    "level2": "Fair",
+    "level3": "Strong",
+    "level4": "Very strong"
+  },
+  "setup": {
+    "title": "Create your vault",
+    "intro": "Choose a master password. It encrypts your vault and is never stored or sent anywhere. If you forget it, only your Emergency Kit can open the vault.",
+    "submit": "Create vault",
+    "creating": "Creating vault…"
+  },
+  "kit": {
+    "title": "Your Emergency Kit",
+    "intro": "This recovery key opens your vault if you forget the master password. It is shown only now. Print it or save it as a PDF, and keep it offline somewhere safe.",
+    "warning": "Anyone with this key and your vault file can read your passwords.",
+    "print": "Print / Save as PDF",
+    "saved": "I have saved it",
+    "confirmTitle": "Confirm your recovery key",
+    "confirmIntro": "Type groups {{a}} and {{b}} of your recovery key.",
+    "group": "Group {{n}}",
+    "confirmMismatch": "These groups do not match. Check your Emergency Kit.",
+    "back": "Show the key again",
+    "done": "Continue",
+    "printTitle": "xpass Emergency Kit",
+    "printCreated": "Created on {{date}}",
+    "printKeyLabel": "Recovery key",
+    "printHowTo": "If you forget your master password",
+    "printSteps": [
+      "Open xpass and choose “Use recovery key” on the unlock screen.",
+      "Type the recovery key above. Dashes, spaces and letter case do not matter.",
+      "Set a new master password."
+    ],
+    "printKeep": "Keep this sheet offline. Do not store it on the same computer or in the same cloud account as your vault."
+  },
+  "unlock": {
+    "title": "Unlock xpass",
+    "password": "Master password",
+    "submit": "Unlock",
+    "unlocking": "Unlocking…",
+    "useRecovery": "Forgot your password? Use recovery key"
+  },
+  "recovery": {
+    "title": "Unlock with recovery key",
+    "intro": "Enter the recovery key from your Emergency Kit.",
+    "key": "Recovery key",
+    "back": "Back to password"
+  },
+  "newPassword": {
+    "title": "Set a new master password",
+    "intro": "You unlocked the vault with the recovery key. Choose a new master password to continue.",
+    "submit": "Save password",
+    "saving": "Saving…",
+    "kitTitle": "Create a new Emergency Kit?",
+    "kitIntro": "Your old recovery key still works. Create a new kit if the old one was lost or someone else may have seen it.",
+    "kitCreate": "Create new kit",
+    "kitSkip": "Not now"
+  },
+  "unlocked": {
+    "title": "Vault unlocked",
+    "body": "Entries arrive in the next task of v0.1."
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "no_vault": "No vault was found.",
+    "vault_exists": "A vault already exists.",
+    "locked": "The vault is locked.",
+    "weak_password": "The password is too weak.",
+    "invalid_input": "Some input is missing or invalid.",
+    "bad_credentials": "Wrong password.",
+    "wrong_recovery_key": "This recovery key does not open this vault. It may have been replaced by a newer Emergency Kit.",
+    "bad_recovery_key": "This recovery key is not valid. Check it for typos.",
+    "throttled": "Too many attempts. Try again in {{seconds}} s.",
+    "tampered": "The vault file was modified or is corrupted. Restore a copy from the backups folder.",
+    "invalid_file": "This is not a valid xpass vault file.",
+    "unsupported_version": "This vault was created by a newer version of xpass (format v{{version}}). Update the app.",
+    "io": "Could not read or write the vault file ({{kind}})."
   },
   "about": {
     "version": "Version {{version}} · vault format v{{format}}"

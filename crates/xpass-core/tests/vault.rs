@@ -271,6 +271,34 @@ fn parser_never_panics_on_garbage() {
     }
 }
 
+#[test]
+fn check_password_verifies_without_changes() {
+    let (file, _) = sample(22);
+    let v = UnlockedVault::unlock(&file, Unlock::Password(PW)).unwrap();
+    v.check_password(PW).unwrap();
+    assert_eq!(v.check_password(b"nope").unwrap_err(), Error::BadCredentials);
+}
+
+#[test]
+fn replace_recovery_key_keeps_vault_key_and_password() {
+    let (file, old_rec) = sample(23);
+    let mut r = rng(230);
+    let mut v = UnlockedVault::unlock(&file, Unlock::Password(PW)).unwrap();
+    let fp = v.vault_key_fingerprint();
+    let new_rec = v.replace_recovery_key(&mut r);
+    assert_ne!(*new_rec, old_rec);
+    let new_file = v.save(&mut r).unwrap();
+
+    assert_eq!(
+        err(UnlockedVault::unlock(&new_file, Unlock::Recovery(&old_rec))),
+        Error::BadCredentials
+    );
+    let by_rec = UnlockedVault::unlock(&new_file, Unlock::Recovery(&new_rec)).unwrap();
+    assert_eq!(by_rec.vault_key_fingerprint(), fp);
+    UnlockedVault::unlock(&new_file, Unlock::Password(PW)).unwrap();
+    assert_eq!(v.slot_kinds(), vec![SlotKind::Password, SlotKind::Recovery]);
+}
+
 // ---- open_sibling (used by sync in v0.3) ----
 
 #[test]
