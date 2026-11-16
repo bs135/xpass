@@ -1,0 +1,26 @@
+{
+  "app": {
+    "name": "xpass",
+    "tagline": "Trình quản lý mật khẩu cá nhân zero-knowledge"
+  },
+  "settings": {
+    "theme": "Giao diện",
+    "language": "Ngôn ngữ"
+  },
+  "theme": {
+    "system": "Theo hệ thống",
+    "light": "Sáng",
+    "dark": "Tối"
+  },
+  "language": {
+    "en": "English",
+    "vi": "Tiếng Việt"
+  },
+  "placeholder": {
+    "title": "Kho mật khẩu của bạn sẽ ở đây",
+    "body": "Tạo và mở khoá vault sẽ có ở các task tiếp theo của v0.1."
+  },
+  "about": {
+    "version": "Phiên bản {{version}} · định dạng vault v{{format}}"
+  }
+}

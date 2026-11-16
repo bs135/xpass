@@ -1,0 +1,16 @@
+# Node / frontend
+node_modules/
+dist/
+
+# Rust
+/target/
+src-tauri/gen/schemas/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.log
+.tmp/

@@ -1,0 +1,12 @@
+[package]
+name = "xpass-core"
+version = "0.1.0"
+description = "xpass vault format, crypto, model, merge and sync engine (no UI, no OS bindings)"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
