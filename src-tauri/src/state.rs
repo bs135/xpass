@@ -1,4 +1,4 @@
-//! App state and the vault lifecycle (create, unlock, lock).
+//! App state and the vault lifecycle (create, unlock, lock, change password, new kit).
 //!
 //! Plain Rust, no Tauri types, so the command handlers can be tested with a temp
 //! directory. The Tauri commands in `commands::session` are thin wrappers.
@@ -18,6 +18,7 @@ use crate::{
     paths::Paths,
     session::VaultSession,
     storage::Storage,
+    strength,
     throttle::Throttle,
 };
 
@@ -71,13 +72,13 @@ impl AppState {
         if self.0.storage.exists() {
             return Err(AppError::VaultExists);
         }
-        if password.is_empty() {
-            return Err(AppError::InvalidInput { field: "password" });
+        if !strength::is_strong_enough(password) {
+            return Err(AppError::WeakPassword);
         }
         let (mut vault, recovery_key) = UnlockedVault::create(&mut OsRng, password.as_bytes(), self.0.target_kdf)?;
         let bytes = vault.save(&mut OsRng)?;
         self.0.storage.write(&bytes, now_ms())?;
-        *lock(&self.0.session) = Some(VaultSession::new(vault));
+        *lock(&self.0.session) = Some(VaultSession::new(vault, false));
         Ok(recovery_key)
     }
 
@@ -87,6 +88,70 @@ impl AppState {
 
     pub fn unlock_recovery(&self, recovery_key: &str) -> AppResult<()> {
         self.unlock(Unlock::Recovery(recovery_key), None)
+    }
+
+    /// Sets a new master password. `current` is required unless the session was
+    /// unlocked with the recovery key (forgotten password).
+    pub fn change_password(&self, current: Option<&str>, new: &str) -> AppResult<()> {
+        let _gate = lock(&self.0.gate);
+        if !strength::is_strong_enough(new) {
+            return Err(AppError::WeakPassword);
+        }
+        let mut guard = lock(&self.0.session);
+        let session = guard.as_mut().ok_or(AppError::Locked)?;
+        self.authorize(session, current)?;
+        let target = self.0.target_kdf;
+        session.persist_with(&self.0.storage, now_ms(), |vault| {
+            vault
+                .change_password(&mut OsRng, new.as_bytes(), target)
+                .map_err(AppError::from)
+        })
+    }
+
+    /// Replaces the recovery key (new Emergency Kit) and returns it. `current` is
+    /// required unless the session was unlocked with the recovery key.
+    pub fn new_recovery_key(&self, current: Option<&str>) -> AppResult<Zeroizing<String>> {
+        let _gate = lock(&self.0.gate);
+        let mut guard = lock(&self.0.session);
+        let session = guard.as_mut().ok_or(AppError::Locked)?;
+        self.authorize(session, current)?;
+        let mut recovery_key = None;
+        session.persist_with(&self.0.storage, now_ms(), |vault| {
+            recovery_key = Some(vault.replace_recovery_key(&mut OsRng));
+            Ok(())
+        })?;
+        recovery_key.ok_or(AppError::Internal)
+    }
+
+    /// Checks the current password for a sensitive action, with the same throttle
+    /// as unlock. Skipped right after a recovery-key unlock.
+    fn authorize(&self, session: &VaultSession, current: Option<&str>) -> AppResult<()> {
+        if session.recovered() {
+            return Ok(());
+        }
+        let current = current.ok_or(AppError::InvalidInput {
+            field: "currentPassword",
+        })?;
+        self.check_throttle()?;
+        match session.vault().check_password(current.as_bytes()) {
+            Ok(()) => {
+                lock(&self.0.throttle).record_success();
+                Ok(())
+            }
+            Err(xpass_core::Error::BadCredentials) => {
+                lock(&self.0.throttle).record_failure(Instant::now());
+                Err(AppError::BadCredentials)
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    fn check_throttle(&self) -> AppResult<()> {
+        lock(&self.0.throttle)
+            .check(Instant::now())
+            .map_err(|wait| AppError::Throttled {
+                retry_after_ms: u64::try_from(wait.as_millis()).unwrap_or(u64::MAX).max(1),
+            })
     }
 
     /// Drops the session (wiping keys and secrets). Returns whether it was unlocked.
@@ -99,11 +164,7 @@ impl AppState {
         if lock(&self.0.session).is_some() {
             return Ok(());
         }
-        lock(&self.0.throttle)
-            .check(Instant::now())
-            .map_err(|wait| AppError::Throttled {
-                retry_after_ms: u64::try_from(wait.as_millis()).unwrap_or(u64::MAX).max(1),
-            })?;
+        self.check_throttle()?;
         let file = self.0.storage.read()?.ok_or(AppError::NoVault)?;
 
         let vault = match UnlockedVault::unlock(&file, how) {
@@ -117,7 +178,7 @@ impl AppState {
         };
         lock(&self.0.throttle).record_success();
 
-        let mut session = VaultSession::new(vault);
+        let mut session = VaultSession::new(vault, password.is_none());
         if let Some(password) = password {
             self.rewrap_if_weak(&mut session, password);
         }
@@ -234,10 +295,9 @@ mod tests {
     #[test]
     fn create_rejects_existing_vault_and_empty_password() {
         let (_tmp, _paths, state) = setup();
-        assert_eq!(
-            state.create_vault("").unwrap_err(),
-            AppError::InvalidInput { field: "password" }
-        );
+        assert_eq!(state.create_vault("").unwrap_err(), AppError::WeakPassword);
+        assert_eq!(state.create_vault("password1").unwrap_err(), AppError::WeakPassword);
+        assert_eq!(state.status(), VaultStatus::NoVault);
         state.create_vault(PW).unwrap();
         assert_eq!(state.create_vault(PW).unwrap_err(), AppError::VaultExists);
     }
@@ -360,5 +420,70 @@ mod tests {
         assert!(matches!(err, AppError::Io { .. }), "{err:?}");
         assert!(session.vault().payload.entries.is_empty());
         assert_eq!(session.vault().payload.revision, 1);
+    }
+
+    const NEW_PW: &str = "another long passphrase 2026";
+
+    #[test]
+    fn change_password_needs_the_current_one() {
+        let (_tmp, _paths, state, rec) = created();
+        assert_eq!(
+            state.change_password(None, NEW_PW).unwrap_err(),
+            AppError::InvalidInput {
+                field: "currentPassword"
+            }
+        );
+        assert_eq!(
+            state.change_password(Some("wrong"), NEW_PW).unwrap_err(),
+            AppError::BadCredentials
+        );
+        assert_eq!(
+            state.change_password(Some(PW), "short").unwrap_err(),
+            AppError::WeakPassword
+        );
+        state.change_password(Some(PW), NEW_PW).unwrap();
+
+        state.lock();
+        assert_eq!(state.unlock_password(PW).unwrap_err(), AppError::BadCredentials);
+        state.unlock_password(NEW_PW).unwrap();
+        state.lock();
+        state.unlock_recovery(&rec).unwrap();
+    }
+
+    #[test]
+    fn recovery_unlock_allows_reset_without_current_password() {
+        let (_tmp, _paths, state, old_rec) = created();
+        state.lock();
+        state.unlock_recovery(&old_rec).unwrap();
+        state.change_password(None, NEW_PW).unwrap();
+        let new_rec = state.new_recovery_key(None).unwrap();
+
+        state.lock();
+        assert_eq!(state.unlock_recovery(&old_rec).unwrap_err(), AppError::BadCredentials);
+        state.unlock_recovery(&new_rec).unwrap();
+        state.lock();
+        state.unlock_password(NEW_PW).unwrap();
+        // A normal unlock requires the password again.
+        assert!(matches!(
+            state.new_recovery_key(None).unwrap_err(),
+            AppError::InvalidInput { .. }
+        ));
+    }
+
+    #[test]
+    fn new_recovery_key_with_password() {
+        let (_tmp, _paths, state, old_rec) = created();
+        let new_rec = state.new_recovery_key(Some(PW)).unwrap();
+        assert_ne!(*new_rec, old_rec);
+        state.lock();
+        state.unlock_recovery(&new_rec).unwrap();
+    }
+
+    #[test]
+    fn sensitive_actions_need_an_unlocked_vault() {
+        let (_tmp, _paths, state, _) = created();
+        state.lock();
+        assert_eq!(state.change_password(Some(PW), NEW_PW).unwrap_err(), AppError::Locked);
+        assert_eq!(state.new_recovery_key(Some(PW)).unwrap_err(), AppError::Locked);
     }
 }

@@ -10,12 +10,23 @@ pub struct VaultSession {
     vault: UnlockedVault,
     /// Highest `updated_at` seen in this vault (D2).
     pub(crate) last_seen_ts: i64,
+    /// Unlocked with the recovery key: the user may set a new password and a new
+    /// Emergency Kit without the (forgotten) current password until the next lock.
+    recovered: bool,
 }
 
 impl VaultSession {
-    pub fn new(vault: UnlockedVault) -> Self {
+    pub fn new(vault: UnlockedVault, recovered: bool) -> Self {
         let last_seen_ts = vault.payload.max_updated_at();
-        Self { vault, last_seen_ts }
+        Self {
+            vault,
+            last_seen_ts,
+            recovered,
+        }
+    }
+
+    pub fn recovered(&self) -> bool {
+        self.recovered
     }
 
     pub fn vault(&self) -> &UnlockedVault {

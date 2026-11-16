@@ -31,3 +31,9 @@ html.dark body {
 input, textarea, [data-selectable] {
     user-select: text;
 }
+
+/* WebView2 (Edge) adds its own reveal/clear buttons to inputs; the app has its own Show/Hide toggle. */
+input::-ms-reveal,
+input::-ms-clear {
+    display: none;
+}

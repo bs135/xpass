@@ -1,15 +1,22 @@
 import {useEffect, useState} from 'react'
-import {ShieldCheck} from 'lucide-react'
 import {useTranslation} from 'react-i18next'
+import {listen} from '@tauri-apps/api/event'
 import {getCurrentWindow} from '@tauri-apps/api/window'
 import {Header} from './components/Header'
-import {api, type AppInfo} from './lib/api'
+import {api, type AppInfo, EVENT_LOCKED} from './lib/api'
 import {applyTheme, resolveTheme} from './lib/theme'
+import {EmergencyKitScreen} from './screens/EmergencyKitScreen'
+import {NewPasswordScreen} from './screens/NewPasswordScreen'
+import {SetupScreen} from './screens/SetupScreen'
+import {UnlockedScreen} from './screens/UnlockedScreen'
+import {UnlockScreen} from './screens/UnlockScreen'
+import {type Screen, useSession} from './stores/session'
 import {useUi} from './stores/ui'
 
 export default function App() {
     const {t} = useTranslation()
     const theme = useUi((s) => s.theme)
+    const screen = useSession((s) => s.screen)
     const [info, setInfo] = useState<AppInfo | null>(null)
 
     // Follow OS theme changes while the "system" theme is selected.
@@ -21,23 +28,44 @@ export default function App() {
         return () => media.removeEventListener('change', update)
     }, [theme])
 
-    // The window starts hidden (tauri.conf.json) to avoid a white flash; show it once rendered.
     useEffect(() => {
-        void getCurrentWindow().show()
+        const {init, onLocked} = useSession.getState()
+        // The window starts hidden (tauri.conf.json) to avoid a white flash; show it once the first screen is known.
+        init()
+            .catch((e) => console.error('vault_status failed', e))
+            .finally(() => void getCurrentWindow().show())
         api.appInfo().then(setInfo).catch((e) => console.error('app_info failed', e))
+        const unlisten = listen(EVENT_LOCKED, onLocked)
+        return () => void unlisten.then((off) => off())
     }, [])
 
     return (
         <div className="flex h-full flex-col">
             <Header/>
-            <main className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-                <ShieldCheck className="size-12 text-emerald-600 dark:text-emerald-400" aria-hidden/>
-                <h1 className="text-xl font-semibold">{t('placeholder.title')}</h1>
-                <p className="max-w-md text-neutral-500 dark:text-neutral-400">{t('placeholder.body')}</p>
-            </main>
-            <footer className="px-4 py-2 text-xs text-neutral-500 dark:text-neutral-500">
+            <ScreenView screen={screen}/>
+            <footer className="px-4 py-2 text-xs text-neutral-500 print:hidden">
                 {info && t('about.version', {version: info.version, format: info.formatVersion})}
             </footer>
         </div>
     )
+}
+
+function ScreenView({screen}: {screen: Screen}) {
+    switch (screen) {
+        case 'loading':
+            return <div className="flex-1"/>
+        case 'setup':
+            return <SetupScreen/>
+        case 'kit':
+            return <EmergencyKitScreen/>
+        case 'unlock':
+            // `key` remounts the form so a typed password never carries over.
+            return <UnlockScreen key="password" mode="password"/>
+        case 'recovery':
+            return <UnlockScreen key="recovery" mode="recovery"/>
+        case 'newPassword':
+            return <NewPasswordScreen/>
+        case 'unlocked':
+            return <UnlockedScreen/>
+    }
 }

@@ -13,6 +13,10 @@ pub enum AppError {
     NoVault,
     #[error("a vault already exists")]
     VaultExists,
+    #[error("the vault is locked")]
+    Locked,
+    #[error("the password is too weak")]
+    WeakPassword,
     #[error("invalid input: {field}")]
     InvalidInput { field: &'static str },
     #[error("wrong credentials")]
