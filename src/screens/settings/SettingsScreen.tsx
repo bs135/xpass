@@ -1,9 +1,9 @@
-import {type ReactNode, useState} from 'react'
-import {ArrowLeft} from 'lucide-react'
+import {type ReactNode, useEffect, useState} from 'react'
+import {ArrowLeft, ExternalLink} from 'lucide-react'
 import {useTranslation} from 'react-i18next'
 import {NewPasswordForm} from '../../components/NewPasswordForm'
 import {Button, Field, PasswordInput} from '../../components/ui'
-import {api, AUTO_LOCK_CHOICES, CLIPBOARD_CHOICES} from '../../lib/api'
+import {api, type AppInfo, AUTO_LOCK_CHOICES, CLIPBOARD_CHOICES} from '../../lib/api'
 import {errorMessage} from '../../lib/errors'
 import {THEMES, type Theme} from '../../lib/theme'
 import {useSession} from '../../stores/session'
@@ -29,6 +29,7 @@ export function SettingsScreen() {
                 </div>
                 <GeneralSection/>
                 <SecuritySection/>
+                <AboutSection/>
             </div>
         </div>
     )
@@ -105,7 +106,25 @@ function GeneralSection() {
                     </select>
                 </Field>
             </div>
-            <p className="text-xs text-neutral-500">{t('settings.autoLockHint')}</p>
+            <p className="mb-4 text-xs text-neutral-500">{t('settings.autoLockHint')}</p>
+            <label className="mb-2 flex items-center gap-2 text-sm">
+                <input
+                    type="checkbox"
+                    className="accent-emerald-600"
+                    checked={settings.closeToTray}
+                    onChange={(e) => void save({closeToTray: e.target.checked})}
+                />
+                {t('settings.closeToTray')}
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+                <input
+                    type="checkbox"
+                    className="accent-emerald-600"
+                    checked={settings.lockOnMinimize}
+                    onChange={(e) => void save({lockOnMinimize: e.target.checked})}
+                />
+                {t('settings.lockOnMinimize')}
+            </label>
         </Section>
     )
 }
@@ -205,6 +224,36 @@ function SecuritySection() {
                     </ul>
                 </PasswordPrompt>
             )}
+        </Section>
+    )
+}
+
+function AboutSection() {
+    const {t} = useTranslation()
+    const show = useToast((s) => s.show)
+    const [info, setInfo] = useState<AppInfo | null>(null)
+
+    useEffect(() => {
+        api.appInfo().then(setInfo).catch((e) => console.error('app_info failed', e))
+    }, [])
+
+    return (
+        <Section title={t('settings.about')}>
+            <dl className="mb-4 grid grid-cols-[10rem_1fr] gap-y-1 text-sm">
+                <dt className="text-neutral-500">{t('settings.version')}</dt>
+                <dd>{info?.version ?? '…'}</dd>
+                <dt className="text-neutral-500">{t('settings.vaultFormat')}</dt>
+                <dd>{info ? `v${info.formatVersion}` : '…'}</dd>
+                <dt className="text-neutral-500">{t('settings.license')}</dt>
+                <dd>MIT</dd>
+            </dl>
+            <Button
+                variant="secondary"
+                onClick={() => api.openProjectPage().catch((e) => show(errorMessage(t, e), 4000))}
+            >
+                <ExternalLink className="size-4" aria-hidden/>
+                {t('settings.projectPage')}
+            </Button>
         </Section>
     )
 }

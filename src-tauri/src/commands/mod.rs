@@ -4,6 +4,15 @@ pub mod settings;
 pub mod tools;
 
 use serde::Serialize;
+use url::Url;
+
+use crate::{
+    error::{AppError, AppResult},
+    shell,
+};
+
+/// Project page shown in About.
+pub const PROJECT_URL: &str = "https://github.com/bs135/xpass";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,6 +28,15 @@ pub fn app_info() -> AppInfo {
         version: env!("CARGO_PKG_VERSION"),
         format_version: xpass_core::FORMAT_VERSION,
     }
+}
+
+/// Opens the project page (About) in the default browser.
+#[tauri::command]
+pub async fn open_project_page() -> AppResult<()> {
+    let url = Url::parse(PROJECT_URL).map_err(|_| AppError::Internal)?;
+    tauri::async_runtime::spawn_blocking(move || shell::open_url(&url))
+        .await
+        .map_err(|_| AppError::Internal)?
 }
 
 #[cfg(test)]

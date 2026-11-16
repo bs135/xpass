@@ -25,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
     language: null,
     autoLockMinutes: 5,
     clipboardClearSeconds: 20,
+    closeToTray: true,
     lockOnMinimize: false,
     lastKitAt: null,
 }

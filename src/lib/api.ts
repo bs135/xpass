@@ -98,6 +98,9 @@ export interface Settings {
     /** null = never. */
     autoLockMinutes: number | null
     clipboardClearSeconds: number
+    /** The close button hides xpass to the tray instead of quitting. */
+    closeToTray: boolean
+    /** Lock when minimized or hidden to the tray. */
     lockOnMinimize: boolean
     /** Set by the app when an Emergency Kit is generated (Unix ms). */
     lastKitAt: number | null
@@ -136,10 +139,11 @@ export function isAppError(e: unknown): e is AppError {
 export const EVENT_LOCKED = 'vault://locked'
 
 /** Why the vault locked (payload of `vault://locked`). */
-export type LockReason = 'manual' | 'idle' | 'sessionLocked' | 'displayOff' | 'suspend' | 'exit'
+export type LockReason = 'manual' | 'idle' | 'sessionLocked' | 'displayOff' | 'suspend' | 'minimized' | 'exit'
 
 export const api = {
     appInfo: () => invoke<AppInfo>('app_info'),
+    openProjectPage: () => invoke<void>('open_project_page'),
     /** Status and, while locked, why the vault was locked. */
     vaultStatus: () => invoke<{status: VaultStatus; lockReason: LockReason | null}>('vault_status'),
     createVault: (password: string) => invoke<RecoveryKit>('create_vault', {password}),
