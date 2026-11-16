@@ -9,6 +9,8 @@
 //! written by a newer one. **`extra` is not zeroized** on drop (`serde_json::Value`
 //! does not support it); only unknown future fields live there.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use uuid::Uuid;
@@ -18,6 +20,9 @@ pub const SCHEMA_VERSION: u32 = 1;
 
 /// Maximum number of [`HistoryItem`]s kept per entry; the oldest are dropped first.
 pub const HISTORY_LIMIT: usize = 20;
+
+/// `HistoryItem::note` for a version that lost a merge conflict (D1).
+pub const HISTORY_NOTE_CONFLICT: &str = "conflict";
 
 /// Unknown JSON fields preserved across load/save (D5).
 pub type Extra = Map<String, Value>;
@@ -31,6 +36,14 @@ pub struct Payload {
     #[serde(flatten)]
     #[zeroize(skip)]
     pub extra: Extra,
+}
+
+impl Payload {
+    /// Highest `updated_at` of any entry (tombstones included), or 0 when empty.
+    /// Seeds the D2 clock (`clock::next_timestamp`) after unlock or merge.
+    pub fn max_updated_at(&self) -> i64 {
+        self.entries.iter().map(|e| e.updated_at).max().unwrap_or(0)
+    }
 }
 
 impl Default for Payload {
@@ -87,7 +100,9 @@ pub struct CustomField {
     pub secret: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
+/// Field order matters: the derived `Ord` (at, password, username, note) is the
+/// canonical history order used by [`Entry::normalize_history`] and the merge.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Zeroize, ZeroizeOnDrop)]
 pub struct HistoryItem {
     /// Unix milliseconds when this value was replaced.
     pub at: i64,
@@ -127,6 +142,13 @@ impl Entry {
         self.history.drain(..excess);
     }
 
+    /// Brings `history` into canonical form (see [`normalized_history`]).
+    /// Call after editing credentials; the merge relies on this invariant.
+    pub fn normalize_history(&mut self) {
+        let history = normalized_history(&self.history, self);
+        self.history = history;
+    }
+
     /// Turns the entry into a tombstone: keeps id and timestamps, wipes all content,
     /// including history, custom fields and unknown fields.
     pub fn delete(&mut self, now_ms: i64) {
@@ -139,4 +161,61 @@ impl Entry {
         self.updated_at = now_ms;
         self.deleted = true;
     }
+}
+
+impl HistoryItem {
+    /// History item recording `entry`'s current credentials (an empty username is `None`).
+    pub fn credentials_of(entry: &Entry, note: Option<&str>) -> Self {
+        Self {
+            at: entry.updated_at,
+            password: entry.password.clone(),
+            username: (!entry.username.is_empty()).then(|| entry.username.clone()),
+            note: note.map(str::to_owned),
+        }
+    }
+
+    /// Deduplication key. Two items with the same key describe the same credentials.
+    fn key(&self) -> (&str, Option<&str>) {
+        (&self.password, self.username.as_deref())
+    }
+
+    /// True when this item has the same key as the entry's current credentials.
+    /// Exact key match (not "any username") keeps the merge associative.
+    fn matches(&self, entry: &Entry) -> bool {
+        let username = (!entry.username.is_empty()).then_some(entry.username.as_str());
+        self.key() == (entry.password.as_str(), username)
+    }
+
+    fn is_empty(&self) -> bool {
+        self.password.is_empty() && self.username.as_deref().is_none_or(str::is_empty)
+    }
+}
+
+/// Canonical history for `current`:
+/// 1. drop empty items and items equal to the current credentials;
+/// 2. deduplicate by `(password, username)` (exact match, `None` is its own key),
+///    keeping the greatest item;
+/// 3. sort ascending by `(at, password, username, note)`;
+/// 4. keep the newest [`HISTORY_LIMIT`].
+///
+/// The result depends only on the *set* of input items, which keeps the merge
+/// commutative and idempotent.
+pub fn normalized_history<'a>(items: impl IntoIterator<Item = &'a HistoryItem>, current: &Entry) -> Vec<HistoryItem> {
+    let mut best: BTreeMap<(&str, Option<&str>), &HistoryItem> = BTreeMap::new();
+    for item in items {
+        if item.is_empty() || item.matches(current) {
+            continue;
+        }
+        best.entry(item.key())
+            .and_modify(|cur| {
+                if item > *cur {
+                    *cur = item;
+                }
+            })
+            .or_insert(item);
+    }
+    let mut kept: Vec<&HistoryItem> = best.into_values().collect();
+    kept.sort();
+    let start = kept.len().saturating_sub(HISTORY_LIMIT);
+    kept[start..].iter().map(|item| (*item).clone()).collect()
 }

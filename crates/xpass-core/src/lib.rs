@@ -1,4 +1,4 @@
-//! xpass core: vault file format, crypto and data model (merge and sync come later).
+//! xpass core: vault file format, crypto, data model and merge (the sync engine comes in v0.3).
 //!
 //! This crate has no UI or OS dependencies so the security-critical code can be
 //! unit-tested on any platform. Layout and rationale: `docs/spikes/vault-format.md`.
@@ -8,10 +8,16 @@
 //! - [`recovery`]: printable recovery key with checksum.
 //! - [`model`]: decrypted payload (entries with merge-ready metadata).
 //! - [`vault`]: high-level operations (create, unlock, save, change password, rotate).
+//! - [`merge`]: per-entry LWW merge with conflict history (D1).
+//! - [`clock`]: HLC-lite timestamps (D2).
+//! - [`maintenance`]: tombstone purge (D3).
 
+pub mod clock;
 pub mod crypto;
 pub mod error;
 pub mod format;
+pub mod maintenance;
+pub mod merge;
 pub mod model;
 pub mod recovery;
 pub mod vault;
