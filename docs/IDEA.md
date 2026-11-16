@@ -197,5 +197,5 @@ Feasibility spikes (~1–2 days each):
 
 Optional spike (post-MVP): auto-type via global hotkey (`SendInput`, target window detection, focus handling).
 
-Decisions: see the table in section 2. All open questions are resolved and all three feasibility spikes passed;
-the next phase is implementation planning.
+Decisions: see the table in section 2. All open questions are resolved and all three feasibility spikes passed.
+Implementation plan: [PLAN.md](PLAN.md).
