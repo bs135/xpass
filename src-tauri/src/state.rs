@@ -17,6 +17,7 @@ use crate::{
     clipboard::{SecureClipboard, DEFAULT_CLEAR_AFTER},
     entries::{self, FieldRef},
     error::{AppError, AppResult},
+    lock_watch::LockReason,
     paths::Paths,
     session::VaultSession,
     storage::Storage,
@@ -30,6 +31,17 @@ pub enum VaultStatus {
     NoVault,
     Locked,
     Unlocked,
+}
+
+/// Status plus why the vault was last locked. The frontend re-reads this when the
+/// window becomes visible again, so it does not depend on receiving `vault://locked`
+/// (WebView2 can be frozen while Windows sleeps).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionInfo {
+    pub status: VaultStatus,
+    /// Set only while locked, after a lock in this run of the app.
+    pub lock_reason: Option<LockReason>,
 }
 
 /// Shared app state, cheap to clone (moved into `spawn_blocking` for Argon2).
@@ -47,6 +59,7 @@ struct Inner {
     clipboard: SecureClipboard,
     /// Lock after this much system-wide inactivity; `None` = never (T8, set in T9).
     idle_timeout: Mutex<Option<Duration>>,
+    last_lock_reason: Mutex<Option<LockReason>>,
 }
 
 /// Default auto-lock after inactivity.
@@ -62,6 +75,7 @@ impl AppState {
             gate: Mutex::new(()),
             clipboard,
             idle_timeout: Mutex::new(Some(DEFAULT_IDLE_TIMEOUT)),
+            last_lock_reason: Mutex::new(None),
         }))
     }
 
@@ -73,6 +87,16 @@ impl AppState {
         } else {
             VaultStatus::NoVault
         }
+    }
+
+    pub fn session_info(&self) -> SessionInfo {
+        let status = self.status();
+        let lock_reason = if status == VaultStatus::Locked {
+            *lock(&self.0.last_lock_reason)
+        } else {
+            None
+        };
+        SessionInfo { status, lock_reason }
     }
 
     /// Creates the vault and unlocks it. Returns the printable recovery key, which
@@ -194,6 +218,15 @@ impl AppState {
         lock(&self.0.session).take().is_some()
     }
 
+    /// Locks and remembers why, if the vault was unlocked. Returns whether it was.
+    pub fn lock_with(&self, reason: LockReason) -> bool {
+        let was_unlocked = self.lock();
+        if was_unlocked {
+            *lock(&self.0.last_lock_reason) = Some(reason);
+        }
+        was_unlocked
+    }
+
     /// Copies an entry field to the clipboard; it is cleared after the timeout.
     pub fn copy_field(&self, id: uuid::Uuid, field: FieldRef) -> AppResult<()> {
         let value = self.read(|p| entries::field_value(p, id, field))?;
@@ -237,6 +270,7 @@ impl AppState {
             self.rewrap_if_weak(&mut session, password);
         }
         *lock(&self.0.session) = Some(session);
+        *lock(&self.0.last_lock_reason) = None;
         Ok(())
     }
 
@@ -619,5 +653,28 @@ mod tests {
             state.reveal_secret(id, FieldRef::Password).unwrap_err(),
             AppError::Locked
         );
+    }
+
+    #[test]
+    fn session_info_keeps_the_lock_reason_until_unlock() {
+        let (_tmp, _paths, state, _) = created();
+        let info = state.session_info();
+        assert_eq!((info.status, info.lock_reason), (VaultStatus::Unlocked, None));
+
+        assert!(state.lock_with(LockReason::DisplayOff));
+        assert!(!state.lock_with(LockReason::Suspend), "already locked: reason kept");
+        let info = state.session_info();
+        assert_eq!(
+            (info.status, info.lock_reason),
+            (VaultStatus::Locked, Some(LockReason::DisplayOff))
+        );
+        assert_eq!(
+            serde_json::to_string(&info).unwrap(),
+            r#"{"status":"locked","lockReason":"displayOff"}"#
+        );
+
+        state.unlock_password(PW).unwrap();
+        state.lock();
+        assert_eq!(state.session_info().lock_reason, None, "reason cleared by the unlock");
     }
 }

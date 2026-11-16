@@ -47,7 +47,9 @@ pub fn lock_app(app: &AppHandle, reason: LockReason) -> bool {
     let Some(state) = app.try_state::<AppState>() else {
         return false;
     };
-    let was_unlocked = state.lock();
+    let was_unlocked = state.lock_with(reason);
+    #[cfg(debug_assertions)]
+    eprintln!("xpass: lock ({reason:?}) was_unlocked={was_unlocked}");
     if was_unlocked {
         // Best effort: the session is gone even if no window receives this.
         let _ = app.emit(EVENT_LOCKED, LockedPayload { reason });

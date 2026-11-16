@@ -127,7 +127,8 @@ export type LockReason = 'manual' | 'idle' | 'sessionLocked' | 'displayOff' | 's
 
 export const api = {
     appInfo: () => invoke<AppInfo>('app_info'),
-    vaultStatus: () => invoke<VaultStatus>('vault_status'),
+    /** Status and, while locked, why the vault was locked. */
+    vaultStatus: () => invoke<{status: VaultStatus; lockReason: LockReason | null}>('vault_status'),
     createVault: (password: string) => invoke<RecoveryKit>('create_vault', {password}),
     unlockPassword: (password: string) => invoke<void>('unlock_password', {password}),
     unlockRecovery: (recoveryKey: string) => invoke<void>('unlock_recovery', {recoveryKey}),

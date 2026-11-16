@@ -11,7 +11,7 @@ use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 use crate::{
     error::{AppError, AppResult},
     lock_watch::{self, LockReason},
-    state::{AppState, VaultStatus},
+    state::{AppState, SessionInfo},
     strength::{self, Strength},
 };
 
@@ -23,8 +23,8 @@ pub struct RecoveryKit {
 }
 
 #[tauri::command]
-pub fn vault_status(state: State<'_, AppState>) -> VaultStatus {
-    state.status()
+pub fn vault_status(state: State<'_, AppState>) -> SessionInfo {
+    state.session_info()
 }
 
 #[tauri::command]

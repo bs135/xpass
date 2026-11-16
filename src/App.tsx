@@ -37,7 +37,19 @@ export default function App() {
             .finally(() => void getCurrentWindow().show())
         api.appInfo().then(setInfo).catch((e) => console.error('app_info failed', e))
         const unlisten = listen<{reason: LockReason}>(EVENT_LOCKED, (e) => onLocked(e.payload?.reason))
-        return () => void unlisten.then((off) => off())
+        // Events can be lost while the WebView is frozen (sleep): re-check when shown again.
+        const resync = () => {
+            if (document.visibilityState === 'visible') {
+                useSession.getState().sync().catch((e) => console.error('vault_status failed', e))
+            }
+        }
+        document.addEventListener('visibilitychange', resync)
+        window.addEventListener('focus', resync)
+        return () => {
+            void unlisten.then((off) => off())
+            document.removeEventListener('visibilitychange', resync)
+            window.removeEventListener('focus', resync)
+        }
     }, [])
 
     return (
