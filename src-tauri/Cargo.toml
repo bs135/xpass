@@ -1,6 +1,6 @@
 [package]
 name = "xpass"
-version = "0.1.0"
+version = "0.2.0"
 description = "Zero-knowledge personal password manager"
 edition.workspace = true
 license.workspace = true
