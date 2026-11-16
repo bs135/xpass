@@ -56,8 +56,10 @@ export function NewPasswordForm({submitLabel, busyLabel, onSubmit, error, label,
             <Field label={t('password.confirm')}>
                 <PasswordInput value={confirm} onChange={(e) => setConfirm(e.target.value)}/>
             </Field>
-            {mismatch && <Alert tone="warning">{t('password.mismatch')}</Alert>}
-            {score !== null && score < MIN_STRENGTH && <Alert tone="warning">{t('password.tooWeak')}</Alert>}
+            {/* Reserved line: the mismatch hint appears without moving the form. */}
+            <div aria-live="polite" className="-mt-2 mb-3 h-4 text-xs text-amber-700 dark:text-amber-400">
+                {mismatch && t('password.mismatch')}
+            </div>
             {error && <Alert>{error}</Alert>}
             <Button type="submit" className="w-full" disabled={!canSubmit} busy={busy}>
                 {busy ? busyLabel : submitLabel}

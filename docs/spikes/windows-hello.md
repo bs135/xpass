@@ -5,7 +5,7 @@ Related: [IDEA.md §3.1](../IDEA.md#31-windows-hello--credential-manager-critica
 
 ## Goal
 
-Confirm that Windows Hello can produce a **stable key-wrapping key (KEK)** for xpass, instead of acting as a
+Confirm that Windows Hello can produce a **stable key-wrapping key (KEK)** for xPass, instead of acting as a
 yes/no prompt in front of a secret stored in Credential Manager.
 
 Questions:

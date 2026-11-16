@@ -39,6 +39,20 @@ without weakening the security baseline from v0.1 (strict CSP, minimal capabilit
 
 **Done when:** the manual checklist below passes and CI is green.
 
+### T12 — UI polish
+
+**Change**
+- New master password form (setup, forced reset, change password): no layout jumps while typing. The strength
+  meter keeps the last result while the next one is computed, and the "too weak" and "do not match" hints use
+  reserved lines instead of alerts that appear and disappear.
+- Display name `xPass` everywhere the user reads it: window title, HTML title, title bar, tray tooltip and menu,
+  i18n texts, README / CHANGELOG / plan headings. Code names stay `xpass`: crate and package names,
+  `productName` (installer, exe name and install folder; renaming it would install side by side with 0.1.0),
+  identifier and data folder, env vars, credential names, log prefixes, localStorage keys.
+- Status bar (version) separated from the body by a top border.
+
+**Done when:** the manual checklist below passes and CI is green.
+
 ## Manual test checklist (v0.2.0)
 
 - [ ] No native title bar; the header is the title bar and matches light, dark and system themes (also when the
@@ -55,6 +69,12 @@ without weakening the security baseline from v0.1 (strict CSP, minimal capabilit
 - [ ] 125 % and 150 % display scaling: buttons aligned and crisp; maximized window does not overflow the screen
       or cover the taskbar.
 - [ ] Tooltips (theme, language, Generator, Settings, Lock, window buttons) in English and Vietnamese.
+- [ ] Setup, forced new password (recovery) and Settings → change password: typing a weak, then a strong password
+      does not move the confirm field or the button; "too weak" shows below the meter, "do not match" below the
+      confirm field.
+- [ ] App name reads "xPass" in the title bar, taskbar / Alt+Tab, tray tooltip and menu, unlock screen, settings
+      and the printed Emergency Kit (en and vi).
+- [ ] Status bar has a separator line above it in light and dark themes.
 - [ ] Release build: devtools, context menu and reload still disabled.
 
 ## Out of scope
