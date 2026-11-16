@@ -19,5 +19,11 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 xpass-core = { path = "../crates/xpass-core" }
 serde = { version = "1", features = ["derive"] }
+rand = "0.8"
 serde_json = "1"
 tauri = { version = "2", features = [] }
+thiserror = "2"
+zeroize = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3"
