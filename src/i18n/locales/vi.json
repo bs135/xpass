@@ -215,5 +215,15 @@
   },
   "about": {
     "version": "Phiên bản {{version}} · định dạng vault v{{format}}"
+  },
+  "window": {
+    "minimize": "Thu nhỏ",
+    "maximize": "Phóng to",
+    "restore": "Khôi phục",
+    "close": "Đóng"
+  },
+  "titleBar": {
+    "theme": "Giao diện: {{current}} (bấm để chuyển sang {{next}})",
+    "language": "Ngôn ngữ: {{current}} (bấm để chuyển sang {{next}})"
   }
 }
