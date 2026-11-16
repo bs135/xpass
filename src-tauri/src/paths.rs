@@ -28,6 +28,11 @@ impl Paths {
         self.dir.join("vault.xpv")
     }
 
+    /// App settings (no secrets).
+    pub fn settings(&self) -> PathBuf {
+        self.dir.join("settings.json")
+    }
+
     /// Copies of previous vault files (see `storage::BACKUPS_KEPT`).
     pub fn backups(&self) -> PathBuf {
         self.dir.join("backups")

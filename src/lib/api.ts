@@ -90,8 +90,21 @@ export interface Generated {
     entropyBits: number
 }
 
-/** Seconds before a copied secret is cleared from the clipboard. */
-export const CLIPBOARD_CLEAR_SECONDS = 20
+/** App settings (`settings.json`, no secrets). */
+export interface Settings {
+    theme: 'system' | 'light' | 'dark'
+    /** null follows the OS language. */
+    language: 'en' | 'vi' | null
+    /** null = never. */
+    autoLockMinutes: number | null
+    clipboardClearSeconds: number
+    lockOnMinimize: boolean
+    /** Set by the app when an Emergency Kit is generated (Unix ms). */
+    lastKitAt: number | null
+}
+
+export const AUTO_LOCK_CHOICES = [1, 5, 15, 30, 60] as const
+export const CLIPBOARD_CHOICES = [10, 20, 30, 60, 90] as const
 
 /** Error shape returned by every command (`src-tauri/src/error.rs`). */
 export type AppError =
@@ -137,6 +150,10 @@ export const api = {
         invoke<void>('change_password', {currentPassword, newPassword}),
     /** New Emergency Kit. `currentPassword` may be null right after a recovery-key unlock. */
     newRecoveryKey: (currentPassword: string | null) => invoke<RecoveryKit>('new_recovery_key', {currentPassword}),
+    /** Compromise response: new VaultKey and recovery key; the password stays the same. */
+    rotateVaultKey: (currentPassword: string) => invoke<RecoveryKit>('rotate_vault_key', {currentPassword}),
+    getSettings: () => invoke<Settings>('get_settings'),
+    updateSettings: (settings: Settings) => invoke<Settings>('update_settings', {settings}),
     passwordStrength: (password: string) => invoke<Strength>('password_strength', {password}),
     lock: () => invoke<void>('lock'),
     listEntries: () => invoke<EntrySummary[]>('list_entries'),

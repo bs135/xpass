@@ -6,6 +6,7 @@ mod generator;
 mod lock_watch;
 mod paths;
 mod session;
+mod settings;
 mod shell;
 mod state;
 mod storage;
@@ -37,6 +38,9 @@ pub fn run() {
             commands::session::unlock_recovery,
             commands::session::change_password,
             commands::session::new_recovery_key,
+            commands::session::rotate_vault_key,
+            commands::settings::get_settings,
+            commands::settings::update_settings,
             commands::session::password_strength,
             commands::session::lock,
             commands::entries::list_entries,

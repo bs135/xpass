@@ -7,13 +7,17 @@ import {Alert, Button, Field, PasswordInput} from './ui'
 interface Props {
     submitLabel: string
     busyLabel: string
-    /** Receives the new password; throw to show `error` below. */
+    /** Receives the new password; set `error` and throw on failure (fields are kept). */
     onSubmit: (password: string) => Promise<void>
     error: string | null
+    /** Label of the first field (default: "Master password"). */
+    label?: string
+    /** Focus the first field on mount (default true). */
+    autoFocus?: boolean
 }
 
 /** New master password + confirmation + strength gate (setup and reset). */
-export function NewPasswordForm({submitLabel, busyLabel, onSubmit, error}: Props) {
+export function NewPasswordForm({submitLabel, busyLabel, onSubmit, error, label, autoFocus = true}: Props) {
     const {t} = useTranslation()
     const [password, setPassword] = useState('')
     const [confirm, setConfirm] = useState('')
@@ -32,9 +36,12 @@ export function NewPasswordForm({submitLabel, busyLabel, onSubmit, error}: Props
         setBusy(true)
         try {
             await onSubmit(password)
+            // Clear only on success, so a failed attempt keeps what the user typed.
             setPassword('')
             setConfirm('')
             setScored(null)
+        } catch {
+            // The parent shows the error (`error` prop).
         } finally {
             setBusy(false)
         }
@@ -42,8 +49,8 @@ export function NewPasswordForm({submitLabel, busyLabel, onSubmit, error}: Props
 
     return (
         <form onSubmit={submit}>
-            <Field label={t('password.new')}>
-                <PasswordInput autoFocus value={password} onChange={(e) => setPassword(e.target.value)}/>
+            <Field label={label ?? t('password.new')}>
+                <PasswordInput autoFocus={autoFocus} value={password} onChange={(e) => setPassword(e.target.value)}/>
             </Field>
             <StrengthMeter password={password} onScore={onScore}/>
             <Field label={t('password.confirm')}>

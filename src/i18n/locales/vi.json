@@ -5,7 +5,39 @@
   },
   "settings": {
     "theme": "Giao diện",
-    "language": "Ngôn ngữ"
+    "language": "Ngôn ngữ",
+    "title": "Cài đặt",
+    "general": "Chung",
+    "security": "Bảo mật",
+    "languageSystem": "Theo Windows",
+    "autoLock": "Khoá khi không thao tác",
+    "minutes_one": "{{count}} phút",
+    "minutes_other": "{{count}} phút",
+    "never": "Không bao giờ",
+    "clipboard": "Xoá mật khẩu đã sao chép sau",
+    "seconds_one": "{{count}} giây",
+    "seconds_other": "{{count}} giây",
+    "autoLockHint": "Kho cũng tự khoá khi Windows khoá, khi màn hình tắt và khi máy ngủ.",
+    "saved": "Đã lưu cài đặt",
+    "currentPassword": "Mật khẩu chính hiện tại",
+    "changePassword": "Đổi mật khẩu chính",
+    "changePasswordSubmit": "Đổi mật khẩu",
+    "passwordChanged": "Đã đổi mật khẩu chính",
+    "kitLast": "Emergency Kit gần nhất được tạo ngày {{date}}.",
+    "kitUnknown": "Chưa có Emergency Kit nào được tạo trên máy này.",
+    "kitNew": "Tạo Emergency Kit mới",
+    "kitNewConfirm": "Tạo kit",
+    "kitNewExplain": "Mã khôi phục mới sẽ thay mã cũ. Sau đó hãy huỷ Emergency Kit cũ.",
+    "rotateTitle": "Đổi khoá mã hoá kho",
+    "rotateIntro": "Dùng khi mật khẩu chính hoặc mã khôi phục có thể đã bị lộ. Thao tác này thay khoá dùng để mã hoá kho.",
+    "rotateButton": "Đổi khoá mã hoá",
+    "rotateExplain": [
+      "Kho được mã hoá lại bằng khoá mới và bạn nhận mã khôi phục mới (Emergency Kit mới).",
+      "Mật khẩu chính giữ nguyên. Hãy đổi luôn nếu nó có thể đã bị lộ.",
+      "Mã khôi phục cũ không còn mở được kho từ giờ.",
+      "Các bản sao cũ của kho (thư mục backups) vẫn mở được bằng mật khẩu và mã khôi phục cũ. Hãy xoá chúng nếu có thể đã bị lộ."
+    ],
+    "newPassword": "Mật khẩu chính mới"
   },
   "theme": {
     "system": "Theo hệ thống",
@@ -25,7 +57,8 @@
     "edit": "Sửa",
     "delete": "Xoá",
     "copy": "Sao chép",
-    "close": "Đóng"
+    "close": "Đóng",
+    "back": "Quay lại"
   },
   "password": {
     "new": "Mật khẩu chính",

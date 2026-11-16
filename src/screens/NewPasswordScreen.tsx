@@ -24,6 +24,7 @@ export function NewPasswordScreen() {
             setStep('kit')
         } catch (e) {
             setError(errorMessage(t, e))
+            throw e
         }
     }
 

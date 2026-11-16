@@ -1,5 +1,5 @@
 import {useState} from 'react'
-import {KeyRound, Lock, Monitor, Moon, Sun, Wand2} from 'lucide-react'
+import {KeyRound, Lock, Monitor, Moon, Settings, Sun, Wand2} from 'lucide-react'
 import clsx from 'clsx'
 import {useTranslation} from 'react-i18next'
 import {LANGUAGES} from '../i18n'
@@ -16,6 +16,8 @@ export function Header() {
     const {theme, language, setTheme, setLanguage} = useUi()
     const screen = useSession((s) => s.screen)
     const lock = useSession((s) => s.lock)
+    const go = useSession((s) => s.go)
+    const unlocked = screen === 'unlocked' || screen === 'settings'
     const [generator, setGenerator] = useState(false)
 
     return (
@@ -25,7 +27,7 @@ export function Header() {
                 {t('app.name')}
             </div>
             <div className="flex items-center gap-3">
-                {screen === 'unlocked' && (
+                {unlocked && (
                     <button
                         type="button"
                         onClick={() => setGenerator(true)}
@@ -37,6 +39,17 @@ export function Header() {
                     </button>
                 )}
                 {screen === 'unlocked' && (
+                    <button
+                        type="button"
+                        onClick={() => go('settings')}
+                        title={t('settings.title')}
+                        aria-label={t('settings.title')}
+                        className="rounded-md border border-neutral-200 p-1.5 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                    >
+                        <Settings className="size-4" aria-hidden/>
+                    </button>
+                )}
+                {unlocked && (
                     <button
                         type="button"
                         onClick={() => void lock().catch((e) => console.error('lock failed', e))}
