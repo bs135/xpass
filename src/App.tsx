@@ -6,9 +6,9 @@ import {Header} from './components/Header'
 import {api, type AppInfo, EVENT_LOCKED} from './lib/api'
 import {applyTheme, resolveTheme} from './lib/theme'
 import {EmergencyKitScreen} from './screens/EmergencyKitScreen'
+import {EntriesScreen} from './screens/entries/EntriesScreen'
 import {NewPasswordScreen} from './screens/NewPasswordScreen'
 import {SetupScreen} from './screens/SetupScreen'
-import {UnlockedScreen} from './screens/UnlockedScreen'
 import {UnlockScreen} from './screens/UnlockScreen'
 import {type Screen, useSession} from './stores/session'
 import {useUi} from './stores/ui'
@@ -66,6 +66,6 @@ function ScreenView({screen}: {screen: Screen}) {
         case 'newPassword':
             return <NewPasswordScreen/>
         case 'unlocked':
-            return <UnlockedScreen/>
+            return <EntriesScreen/>
     }
 }

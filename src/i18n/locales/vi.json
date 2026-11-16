@@ -19,7 +19,11 @@
   "actions": {
     "lock": "Khoá",
     "show": "Hiện",
-    "hide": "Ẩn"
+    "hide": "Ẩn",
+    "cancel": "Huỷ",
+    "save": "Lưu",
+    "edit": "Sửa",
+    "delete": "Xoá"
   },
   "password": {
     "new": "Mật khẩu chính",
@@ -87,9 +91,35 @@
     "kitCreate": "Tạo kit mới",
     "kitSkip": "Để sau"
   },
-  "unlocked": {
-    "title": "Kho đã mở khoá",
-    "body": "Danh sách mật khẩu sẽ có ở task tiếp theo của v0.1."
+  "entries": {
+    "search": "Tìm kiếm (Ctrl+F)",
+    "list": "Danh sách mục",
+    "favoritesOnly": "Chỉ hiện mục yêu thích",
+    "new": "Mục mới",
+    "favorite": "Yêu thích",
+    "markFavorite": "Thêm vào yêu thích",
+    "unfavorite": "Bỏ khỏi yêu thích",
+    "count": "{{count}} mục",
+    "countFiltered": "{{shown}} / {{count}} mục",
+    "emptyVault": "Chưa có mục nào",
+    "selectHint": "Chọn một mục để xem chi tiết.",
+    "emptyHint": "Kho đang trống. Hãy tạo mục đầu tiên.",
+    "shortcuts": "Ctrl+N tạo mới · Ctrl+F tìm · Ctrl+E sửa · Del xoá · Ctrl+L khoá",
+    "title": "Tiêu đề",
+    "username": "Tên đăng nhập",
+    "password": "Mật khẩu",
+    "urls": "Trang web",
+    "urlsHint": "Trang web (mỗi dòng một địa chỉ)",
+    "tags": "Thẻ",
+    "tagsHint": "Thẻ (phân cách bằng dấu phẩy)",
+    "notes": "Ghi chú",
+    "openUrl": "Mở trong trình duyệt",
+    "updated": "Sửa lần cuối {{date}}",
+    "newTitle": "Mục mới",
+    "editTitle": "Sửa mục",
+    "passwordKeep": "Để trống để giữ mật khẩu hiện tại",
+    "deleteTitle": "Xoá mục này?",
+    "deleteMessage": "“{{title}}” sẽ bị xoá."
   },
   "errors": {
     "generic": "Đã xảy ra lỗi. Vui lòng thử lại.",
@@ -105,7 +135,9 @@
     "tampered": "File kho đã bị sửa đổi hoặc bị hỏng. Hãy khôi phục một bản trong thư mục backups.",
     "invalid_file": "Đây không phải file kho xpass hợp lệ.",
     "unsupported_version": "Kho này được tạo bởi phiên bản xpass mới hơn (định dạng v{{version}}). Hãy cập nhật ứng dụng.",
-    "io": "Không đọc hoặc ghi được file kho ({{kind}})."
+    "io": "Không đọc hoặc ghi được file kho ({{kind}}).",
+    "not_found": "Mục này không còn tồn tại.",
+    "open_failed": "Không mở được liên kết."
   },
   "about": {
     "version": "Phiên bản {{version}} · định dạng vault v{{format}}"

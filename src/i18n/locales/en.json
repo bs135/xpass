@@ -19,7 +19,11 @@
   "actions": {
     "lock": "Lock",
     "show": "Show",
-    "hide": "Hide"
+    "hide": "Hide",
+    "cancel": "Cancel",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete"
   },
   "password": {
     "new": "Master password",
@@ -87,9 +91,35 @@
     "kitCreate": "Create new kit",
     "kitSkip": "Not now"
   },
-  "unlocked": {
-    "title": "Vault unlocked",
-    "body": "Entries arrive in the next task of v0.1."
+  "entries": {
+    "search": "Search (Ctrl+F)",
+    "list": "Entries",
+    "favoritesOnly": "Show favorites only",
+    "new": "New entry",
+    "favorite": "Favorite",
+    "markFavorite": "Add to favorites",
+    "unfavorite": "Remove from favorites",
+    "count": "{{count}} entries",
+    "countFiltered": "{{shown}} of {{count}} entries",
+    "emptyVault": "No entries yet",
+    "selectHint": "Select an entry to see its details.",
+    "emptyHint": "Your vault is empty. Create your first entry.",
+    "shortcuts": "Ctrl+N new · Ctrl+F search · Ctrl+E edit · Del delete · Ctrl+L lock",
+    "title": "Title",
+    "username": "Username",
+    "password": "Password",
+    "urls": "Websites",
+    "urlsHint": "Websites (one per line)",
+    "tags": "Tags",
+    "tagsHint": "Tags (comma-separated)",
+    "notes": "Notes",
+    "openUrl": "Open in browser",
+    "updated": "Last changed {{date}}",
+    "newTitle": "New entry",
+    "editTitle": "Edit entry",
+    "passwordKeep": "Leave empty to keep the current password",
+    "deleteTitle": "Delete entry?",
+    "deleteMessage": "“{{title}}” will be deleted."
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
@@ -105,7 +135,9 @@
     "tampered": "The vault file was modified or is corrupted. Restore a copy from the backups folder.",
     "invalid_file": "This is not a valid xpass vault file.",
     "unsupported_version": "This vault was created by a newer version of xpass (format v{{version}}). Update the app.",
-    "io": "Could not read or write the vault file ({{kind}})."
+    "io": "Could not read or write the vault file ({{kind}}).",
+    "not_found": "This entry no longer exists.",
+    "open_failed": "Could not open the link."
   },
   "about": {
     "version": "Version {{version}} · vault format v{{format}}"

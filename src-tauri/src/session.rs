@@ -35,31 +35,32 @@ impl VaultSession {
 
     /// Applies an edit to the payload, saves and writes the file atomically.
     /// `edit` receives the D2 timestamp to stamp on changed entries.
-    /// On any error the session keeps its previous state.
-    #[allow(dead_code)] // Used by the entry commands (T6).
-    pub fn apply(&mut self, storage: &Storage, now_ms: i64, edit: impl FnOnce(&mut Payload, i64)) -> AppResult<()> {
+    /// On any error (from `edit` or I/O) the session keeps its previous state.
+    pub fn apply<T>(
+        &mut self,
+        storage: &Storage,
+        now_ms: i64,
+        edit: impl FnOnce(&mut Payload, i64) -> AppResult<T>,
+    ) -> AppResult<T> {
         let ts = next_timestamp(now_ms, self.last_seen_ts);
-        self.persist_with(storage, now_ms, |vault| {
-            edit(&mut vault.payload, ts);
-            Ok(())
-        })?;
+        let out = self.persist_with(storage, now_ms, |vault| edit(&mut vault.payload, ts))?;
         self.last_seen_ts = ts.max(self.vault.payload.max_updated_at());
-        Ok(())
+        Ok(out)
     }
 
     /// Changes a copy of the vault (payload or key slots), saves and writes it,
     /// then swaps it in. On any error the session keeps its previous state.
-    pub fn persist_with(
+    pub fn persist_with<T>(
         &mut self,
         storage: &Storage,
         now_ms: i64,
-        change: impl FnOnce(&mut UnlockedVault) -> AppResult<()>,
-    ) -> AppResult<()> {
+        change: impl FnOnce(&mut UnlockedVault) -> AppResult<T>,
+    ) -> AppResult<T> {
         let mut next = self.vault.clone();
-        change(&mut next)?;
+        let out = change(&mut next)?;
         let bytes = next.save(&mut OsRng)?;
         storage.write(&bytes, now_ms)?;
         self.vault = next;
-        Ok(())
+        Ok(out)
     }
 }

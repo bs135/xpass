@@ -1,0 +1,103 @@
+import {type FormEvent, useState} from 'react'
+import {useTranslation} from 'react-i18next'
+import {Alert, Button, Field, PasswordInput, TextInput} from '../../components/ui'
+import type {EntryDetail} from '../../lib/api'
+import {errorMessage} from '../../lib/errors'
+import {parseLines, parseTags} from '../../lib/search'
+import {useEntries} from '../../stores/entries'
+
+const areaClass =
+    'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 dark:border-neutral-700 dark:bg-neutral-900'
+
+/**
+ * Create (no `detail`) or edit form. The current password is not loaded: leaving
+ * the field empty keeps it. A typed password lives only in this component's state.
+ */
+export function EntryForm({detail}: {detail: EntryDetail | null}) {
+    const {t} = useTranslation()
+    const {save, cancelEdit} = useEntries()
+    const [title, setTitle] = useState(detail?.title ?? '')
+    const [username, setUsername] = useState(detail?.username ?? '')
+    const [password, setPassword] = useState('')
+    const [urls, setUrls] = useState(detail?.urls.join('\n') ?? '')
+    const [tags, setTags] = useState(detail?.tags.join(', ') ?? '')
+    const [notes, setNotes] = useState(detail?.notes ?? '')
+    const [favorite, setFavorite] = useState(detail?.favorite ?? false)
+    const [busy, setBusy] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    const submit = async (e: FormEvent) => {
+        e.preventDefault()
+        if (!title.trim() || busy) return
+        setBusy(true)
+        setError(null)
+        try {
+            await save({
+                id: detail?.id ?? null,
+                title,
+                username,
+                // Editing: empty keeps the current password. Creating: empty means none.
+                password: detail && password === '' ? null : password,
+                urls: parseLines(urls),
+                notes,
+                tags: parseTags(tags),
+                favorite,
+            })
+            setPassword('')
+        } catch (err) {
+            setError(errorMessage(t, err))
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    return (
+        <form
+            onSubmit={submit}
+            onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                    e.preventDefault()
+                    cancelEdit()
+                }
+            }}
+            className="mx-auto w-full max-w-2xl p-6"
+        >
+            <h1 className="mb-5 text-xl font-semibold">{t(detail ? 'entries.editTitle' : 'entries.newTitle')}</h1>
+            <Field label={t('entries.title')}>
+                <TextInput autoFocus required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)}/>
+            </Field>
+            <Field label={t('entries.username')}>
+                <TextInput value={username} onChange={(e) => setUsername(e.target.value)}/>
+            </Field>
+            <Field label={t('entries.password')}>
+                <PasswordInput
+                    value={password}
+                    placeholder={detail?.hasPassword ? t('entries.passwordKeep') : ''}
+                    onChange={(e) => setPassword(e.target.value)}
+                />
+            </Field>
+            <Field label={t('entries.urlsHint')}>
+                <textarea rows={2} spellCheck={false} className={areaClass} value={urls} onChange={(e) => setUrls(e.target.value)}/>
+            </Field>
+            <Field label={t('entries.tagsHint')}>
+                <TextInput value={tags} onChange={(e) => setTags(e.target.value)}/>
+            </Field>
+            <Field label={t('entries.notes')}>
+                <textarea rows={5} className={areaClass} value={notes} onChange={(e) => setNotes(e.target.value)}/>
+            </Field>
+            <label className="mb-5 flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={favorite} onChange={(e) => setFavorite(e.target.checked)}/>
+                {t('entries.favorite')}
+            </label>
+            {error && <Alert>{error}</Alert>}
+            <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={cancelEdit}>
+                    {t('actions.cancel')}
+                </Button>
+                <Button type="submit" busy={busy} disabled={!title.trim()}>
+                    {t('actions.save')}
+                </Button>
+            </div>
+        </form>
+    )
+}

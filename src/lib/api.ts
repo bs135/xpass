@@ -26,11 +26,53 @@ export interface Strength {
 
 export const MIN_STRENGTH = 3
 
+/** Row in the entry list: metadata only. */
+export interface EntrySummary {
+    id: string
+    title: string
+    username: string
+    urlHost: string | null
+    tags: string[]
+    favorite: boolean
+    updatedAt: number
+}
+
+/** Entry details without the password or secret custom field values. */
+export interface EntryDetail {
+    id: string
+    title: string
+    username: string
+    hasPassword: boolean
+    urls: string[]
+    notes: string
+    tags: string[]
+    favorite: boolean
+    fields: {name: string; value: string | null; secret: boolean}[]
+    historyCount: number
+    createdAt: number
+    updatedAt: number
+}
+
+export interface EntryInput {
+    /** null creates a new entry. */
+    id: string | null
+    title: string
+    username: string
+    /** null keeps the current password. */
+    password: string | null
+    urls: string[]
+    notes: string
+    tags: string[]
+    favorite: boolean
+}
+
 /** Error shape returned by every command (`src-tauri/src/error.rs`). */
 export type AppError =
     | {code: 'no_vault'}
     | {code: 'vault_exists'}
     | {code: 'locked'}
+    | {code: 'not_found'}
+    | {code: 'open_failed'}
     | {code: 'weak_password'}
     | {code: 'invalid_input'; field: string}
     | {code: 'bad_credentials'}
@@ -65,4 +107,11 @@ export const api = {
     newRecoveryKey: (currentPassword: string | null) => invoke<RecoveryKit>('new_recovery_key', {currentPassword}),
     passwordStrength: (password: string) => invoke<Strength>('password_strength', {password}),
     lock: () => invoke<void>('lock'),
+    listEntries: () => invoke<EntrySummary[]>('list_entries'),
+    getEntry: (id: string) => invoke<EntryDetail>('get_entry', {id}),
+    /** Returns the entry id. */
+    saveEntry: (input: EntryInput) => invoke<string>('save_entry', {input}),
+    deleteEntry: (id: string) => invoke<void>('delete_entry', {id}),
+    setFavorite: (id: string, favorite: boolean) => invoke<void>('set_favorite', {id, favorite}),
+    openUrl: (id: string, index: number) => invoke<void>('open_url', {id, index}),
 }

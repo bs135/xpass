@@ -1,5 +1,6 @@
 import {create} from 'zustand'
 import {api} from '../lib/api'
+import {useEntries} from './entries'
 
 /**
  * Which screen the app shows. Secrets never live here except the recovery key
@@ -31,9 +32,13 @@ export const useSession = create<SessionState>((set) => ({
     go: (screen) => set({screen}),
     showKit: (recoveryKey) => set({screen: 'kit', recoveryKey}),
     finishKit: () => set({screen: 'unlocked', recoveryKey: null}),
-    onLocked: () => set({screen: 'unlock', recoveryKey: null}),
+    onLocked: () => {
+        useEntries.getState().reset()
+        set({screen: 'unlock', recoveryKey: null})
+    },
     lock: async () => {
         await api.lock()
+        useEntries.getState().reset()
         set({screen: 'unlock', recoveryKey: null})
     },
 }))
