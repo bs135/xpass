@@ -77,6 +77,11 @@
     "unlocking": "Đang mở khoá…",
     "useRecovery": "Quên mật khẩu? Dùng mã khôi phục"
   },
+  "lockReason": {
+    "idle": "Đã tự khoá sau một thời gian không thao tác.",
+    "sessionLocked": "Đã tự khoá vì Windows bị khoá.",
+    "suspend": "Đã tự khoá vì máy chuyển sang chế độ ngủ."
+  },
   "recovery": {
     "title": "Mở khoá bằng mã khôi phục",
     "intro": "Nhập mã khôi phục trong Emergency Kit của bạn.",

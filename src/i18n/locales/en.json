@@ -77,6 +77,11 @@
     "unlocking": "Unlocking…",
     "useRecovery": "Forgot your password? Use recovery key"
   },
+  "lockReason": {
+    "idle": "Locked after a period of inactivity.",
+    "sessionLocked": "Locked because Windows was locked.",
+    "suspend": "Locked because the computer went to sleep."
+  },
   "recovery": {
     "title": "Unlock with recovery key",
     "intro": "Enter the recovery key from your Emergency Kit.",

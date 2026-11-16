@@ -5,7 +5,7 @@
 
 use std::{
     sync::{Arc, Mutex, MutexGuard, PoisonError},
-    time::{Instant, SystemTime, UNIX_EPOCH},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use rand::rngs::OsRng;
@@ -45,7 +45,12 @@ struct Inner {
     /// Serializes create/unlock so concurrent attempts cannot bypass the throttle.
     gate: Mutex<()>,
     clipboard: SecureClipboard,
+    /// Lock after this much system-wide inactivity; `None` = never (T8, set in T9).
+    idle_timeout: Mutex<Option<Duration>>,
 }
+
+/// Default auto-lock after inactivity.
+pub const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
 impl AppState {
     pub fn new(paths: Paths, target_kdf: KdfParams, clipboard: SecureClipboard) -> Self {
@@ -56,6 +61,7 @@ impl AppState {
             throttle: Mutex::new(Throttle::default()),
             gate: Mutex::new(()),
             clipboard,
+            idle_timeout: Mutex::new(Some(DEFAULT_IDLE_TIMEOUT)),
         }))
     }
 
@@ -174,6 +180,14 @@ impl AppState {
     }
 
     /// Drops the session (wiping keys and secrets). Returns whether it was unlocked.
+    pub fn idle_timeout(&self) -> Option<Duration> {
+        *lock(&self.0.idle_timeout)
+    }
+
+    pub fn set_idle_timeout(&self, timeout: Option<Duration>) {
+        *lock(&self.0.idle_timeout) = timeout;
+    }
+
     /// Also clears the clipboard if it still holds a secret we copied.
     pub fn lock(&self) -> bool {
         self.0.clipboard.clear_if_ours();

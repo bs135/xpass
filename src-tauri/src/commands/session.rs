@@ -5,17 +5,15 @@
 //! made by the IPC layer itself are outside our control.
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use crate::{
     error::{AppError, AppResult},
+    lock_watch::{self, LockReason},
     state::{AppState, VaultStatus},
     strength::{self, Strength},
 };
-
-/// Emitted to all windows when the vault locks; the frontend clears entry state.
-pub const EVENT_LOCKED: &str = "vault://locked";
 
 #[derive(Serialize, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
@@ -84,12 +82,10 @@ pub fn password_strength(password: String) -> Strength {
     strength::estimate(&password)
 }
 
+/// Locks now; emits `vault://locked` with reason `manual`.
 #[tauri::command]
-pub fn lock(app: AppHandle, state: State<'_, AppState>) {
-    if state.lock() {
-        // Best effort: the session is already gone even if no window receives this.
-        let _ = app.emit(EVENT_LOCKED, ());
-    }
+pub fn lock(app: AppHandle) {
+    lock_watch::lock_app(&app, LockReason::Manual);
 }
 
 async fn blocking<T: Send + 'static>(f: impl FnOnce() -> AppResult<T> + Send + 'static) -> AppResult<T> {

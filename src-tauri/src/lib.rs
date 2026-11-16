@@ -3,6 +3,7 @@ mod commands;
 mod entries;
 mod error;
 mod generator;
+mod lock_watch;
 mod paths;
 mod session;
 mod shell;
@@ -14,13 +15,18 @@ mod throttle;
 use tauri::{Manager, RunEvent};
 use xpass_core::crypto::KdfParams;
 
-use crate::{clipboard::SecureClipboard, paths::Paths, state::AppState};
+use crate::{clipboard::SecureClipboard, lock_watch::LockReason, paths::Paths, state::AppState};
 
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let paths = data_dir_override().map_or_else(|| Paths::from_app(app.handle()), |dir| Ok(Paths::new(dir)))?;
-            app.manage(AppState::new(paths, KdfParams::DEFAULT, SecureClipboard::system()));
+            let state = AppState::new(paths, KdfParams::DEFAULT, SecureClipboard::system());
+            if let Some(timeout) = idle_timeout_override() {
+                state.set_idle_timeout(Some(timeout));
+            }
+            app.manage(state);
+            lock_watch::start(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -49,9 +55,7 @@ pub fn run() {
         .run(|app, event| {
             if let RunEvent::Exit = event {
                 // Wipe the session and our clipboard copy before the process ends.
-                if let Some(state) = app.try_state::<AppState>() {
-                    state.lock();
-                }
+                lock_watch::lock_app(app, LockReason::Exit);
             }
         });
 }
@@ -64,4 +68,13 @@ fn data_dir_override() -> Option<std::path::PathBuf> {
     } else {
         None
     }
+}
+
+/// Debug builds only: `XPASS_IDLE_SECS` shortens the inactivity timeout for manual tests.
+fn idle_timeout_override() -> Option<std::time::Duration> {
+    if !cfg!(debug_assertions) {
+        return None;
+    }
+    let secs: u64 = std::env::var("XPASS_IDLE_SECS").ok()?.parse().ok()?;
+    Some(std::time::Duration::from_secs(secs))
 }

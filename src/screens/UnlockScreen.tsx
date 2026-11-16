@@ -10,6 +10,7 @@ import {useSession} from '../stores/session'
 export function UnlockScreen({mode}: {mode: 'password' | 'recovery'}) {
     const {t} = useTranslation()
     const go = useSession((s) => s.go)
+    const lockReason = useSession((s) => s.lockReason)
     const [secret, setSecret] = useState('')
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<unknown>(null)
@@ -52,6 +53,9 @@ export function UnlockScreen({mode}: {mode: 'password' | 'recovery'}) {
     return (
         <Card title={t(recovery ? 'recovery.title' : 'unlock.title')}>
             {recovery && <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">{t('recovery.intro')}</p>}
+            {!recovery && lockReason && lockReason !== 'manual' && lockReason !== 'exit' && (
+                <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">{t(`lockReason.${lockReason}`)}</p>
+            )}
             <form onSubmit={submit}>
                 <Field label={t(recovery ? 'recovery.key' : 'unlock.password')}>
                     {recovery ? (

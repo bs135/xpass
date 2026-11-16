@@ -4,7 +4,7 @@ import {listen} from '@tauri-apps/api/event'
 import {getCurrentWindow} from '@tauri-apps/api/window'
 import {Header} from './components/Header'
 import {Toast} from './components/Toast'
-import {api, type AppInfo, EVENT_LOCKED} from './lib/api'
+import {api, type AppInfo, EVENT_LOCKED, type LockReason} from './lib/api'
 import {applyTheme, resolveTheme} from './lib/theme'
 import {EmergencyKitScreen} from './screens/EmergencyKitScreen'
 import {EntriesScreen} from './screens/entries/EntriesScreen'
@@ -36,7 +36,7 @@ export default function App() {
             .catch((e) => console.error('vault_status failed', e))
             .finally(() => void getCurrentWindow().show())
         api.appInfo().then(setInfo).catch((e) => console.error('app_info failed', e))
-        const unlisten = listen(EVENT_LOCKED, onLocked)
+        const unlisten = listen<{reason: LockReason}>(EVENT_LOCKED, (e) => onLocked(e.payload?.reason))
         return () => void unlisten.then((off) => off())
     }, [])
 

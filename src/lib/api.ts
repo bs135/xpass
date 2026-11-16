@@ -122,6 +122,9 @@ export function isAppError(e: unknown): e is AppError {
 /** Emitted when the vault locks; clear all entry state when received. */
 export const EVENT_LOCKED = 'vault://locked'
 
+/** Why the vault locked (payload of `vault://locked`). */
+export type LockReason = 'manual' | 'idle' | 'sessionLocked' | 'suspend' | 'exit'
+
 export const api = {
     appInfo: () => invoke<AppInfo>('app_info'),
     vaultStatus: () => invoke<VaultStatus>('vault_status'),
