@@ -15,3 +15,9 @@ rust-version = "1.85"
 codegen-units = 1
 lto = true
 strip = true
+
+# Argon2 at 128 MiB is unusably slow unoptimized; keep debug builds and tests fast.
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3
