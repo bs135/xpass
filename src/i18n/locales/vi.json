@@ -37,7 +37,14 @@
       "Mã khôi phục cũ không còn mở được kho từ giờ.",
       "Các bản sao cũ của kho (thư mục backups) vẫn mở được bằng mật khẩu và mã khôi phục cũ. Hãy xoá chúng nếu có thể đã bị lộ."
     ],
-    "newPassword": "Mật khẩu chính mới"
+    "newPassword": "Mật khẩu chính mới",
+    "closeToTray": "Nút đóng sẽ ẩn xpass xuống khay hệ thống",
+    "lockOnMinimize": "Khoá khi thu nhỏ hoặc ẩn xpass xuống khay",
+    "about": "Giới thiệu",
+    "version": "Phiên bản",
+    "vaultFormat": "Định dạng kho",
+    "license": "Giấy phép",
+    "projectPage": "Trang dự án trên GitHub"
   },
   "theme": {
     "system": "Theo hệ thống",
@@ -114,7 +121,8 @@
     "idle": "Đã tự khoá sau một thời gian không thao tác.",
     "sessionLocked": "Đã tự khoá vì Windows bị khoá.",
     "displayOff": "Đã tự khoá vì màn hình tắt (máy ngủ hoặc hết thời gian chờ màn hình).",
-    "suspend": "Đã tự khoá vì máy chuyển sang chế độ ngủ."
+    "suspend": "Đã tự khoá vì máy chuyển sang chế độ ngủ.",
+    "minimized": "Đã tự khoá vì xpass bị thu nhỏ hoặc ẩn."
   },
   "recovery": {
     "title": "Mở khoá bằng mã khôi phục",

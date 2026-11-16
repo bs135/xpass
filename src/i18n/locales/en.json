@@ -37,7 +37,14 @@
       "The old recovery key stops working for the vault from now on.",
       "Older copies of the vault (the backups folder) still open with the old password and recovery key. Delete them if they may be exposed."
     ],
-    "newPassword": "New master password"
+    "newPassword": "New master password",
+    "closeToTray": "Close button hides xpass to the tray",
+    "lockOnMinimize": "Lock when xpass is minimized or hidden to the tray",
+    "about": "About",
+    "version": "Version",
+    "vaultFormat": "Vault format",
+    "license": "License",
+    "projectPage": "Project page on GitHub"
   },
   "theme": {
     "system": "System",
@@ -114,7 +121,8 @@
     "idle": "Locked after a period of inactivity.",
     "sessionLocked": "Locked because Windows was locked.",
     "displayOff": "Locked because the screen turned off (sleep or display timeout).",
-    "suspend": "Locked because the computer went to sleep."
+    "suspend": "Locked because the computer went to sleep.",
+    "minimized": "Locked because xpass was minimized or hidden."
   },
   "recovery": {
     "title": "Unlock with recovery key",

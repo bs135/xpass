@@ -12,6 +12,7 @@ mod state;
 mod storage;
 mod strength;
 mod throttle;
+mod tray;
 
 use tauri::{Manager, RunEvent};
 use xpass_core::crypto::KdfParams;
@@ -19,7 +20,12 @@ use xpass_core::crypto::KdfParams;
 use crate::{clipboard::SecureClipboard, lock_watch::LockReason, paths::Paths, state::AppState};
 
 pub fn run() {
+    install_panic_hook();
     tauri::Builder::default()
+        // Must be the first plugin: a second launch focuses the running app instead.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            tray::show_main(app)
+        }))
         .setup(|app| {
             let paths = data_dir_override().map_or_else(|| Paths::from_app(app.handle()), |dir| Ok(Paths::new(dir)))?;
             let state = AppState::new(paths, KdfParams::DEFAULT, SecureClipboard::system());
@@ -28,10 +34,13 @@ pub fn run() {
             }
             app.manage(state);
             lock_watch::start(app.handle().clone());
+            tray::setup(app)?;
             Ok(())
         })
+        .on_window_event(tray::on_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
+            commands::open_project_page,
             commands::session::vault_status,
             commands::session::create_vault,
             commands::session::unlock_password,
@@ -81,4 +90,15 @@ fn idle_timeout_override() -> Option<std::time::Duration> {
     }
     let secs: u64 = std::env::var("XPASS_IDLE_SECS").ok()?.parse().ok()?;
     Some(std::time::Duration::from_secs(secs))
+}
+
+/// Panic messages could in theory include data; log only where it happened.
+fn install_panic_hook() {
+    std::panic::set_hook(Box::new(|info| {
+        let location = info
+            .location()
+            .map(|l| format!("{}:{}", l.file(), l.line()))
+            .unwrap_or_else(|| "unknown location".into());
+        eprintln!("xpass: internal error at {location}");
+    }));
 }

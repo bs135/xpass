@@ -44,7 +44,9 @@ pub struct Settings {
     /// Lock after this many minutes without input; `None` = never.
     pub auto_lock_minutes: Option<u32>,
     pub clipboard_clear_seconds: u32,
-    /// Lock when the window is minimized to the tray (used from T10).
+    /// The close button hides xpass to the tray instead of quitting.
+    pub close_to_tray: bool,
+    /// Lock when the window is minimized or hidden to the tray.
     pub lock_on_minimize: bool,
     /// When the current Emergency Kit was generated (Unix ms); set by the app only.
     pub last_kit_at: Option<i64>,
@@ -57,6 +59,7 @@ impl Default for Settings {
             language: None,
             auto_lock_minutes: Some(5),
             clipboard_clear_seconds: 20,
+            close_to_tray: true,
             lock_on_minimize: false,
             last_kit_at: None,
         }
@@ -132,6 +135,7 @@ mod tests {
             language: Some(Language::Vi),
             auto_lock_minutes: None,
             clipboard_clear_seconds: 45,
+            close_to_tray: false,
             lock_on_minimize: true,
             last_kit_at: Some(123),
         };

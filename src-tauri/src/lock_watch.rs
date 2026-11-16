@@ -34,6 +34,7 @@ pub enum LockReason {
     SessionLocked,
     DisplayOff,
     Suspend,
+    Minimized,
     Exit,
 }
 
