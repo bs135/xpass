@@ -2,7 +2,7 @@
 
 Zero-knowledge personal password manager for Windows, built with Tauri (Rust + React).
 
-> Status: **v0.1 — local vault**. Windows Hello (v0.2) and GitHub sync (v0.3) are next. See [docs/PLAN.md](docs/PLAN.md).
+> Status: **v0.1 — local vault**. Custom title bar (v0.2), Windows Hello (v0.3) and GitHub sync (v0.4) are next. See [docs/PLAN.md](docs/PLAN.md).
 
 ## Features (v0.1)
 
@@ -80,6 +80,7 @@ spikes/              feasibility spikes (reference only)
 - [docs/IDEA.md](docs/IDEA.md) — concept review and design decisions
 - [docs/PLAN.md](docs/PLAN.md) — implementation plan and milestones
 - [docs/plan-v0.1.0.md](docs/plan-v0.1.0.md) — v0.1 tasks and manual test checklist
+- [docs/plan-v0.2.0.md](docs/plan-v0.2.0.md) — v0.2 tasks (custom title bar) and manual test checklist
 - [docs/spikes/](docs/spikes) — feasibility spikes (Windows Hello, vault format, GitHub sync)
 - [CHANGELOG.md](CHANGELOG.md)
 

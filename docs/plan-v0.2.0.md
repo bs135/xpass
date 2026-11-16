@@ -1,6 +1,6 @@
-# v0.1.1 Plan: Custom title bar
+# v0.2.0 Plan: Custom title bar
 
-Status: **in progress** (2026-11-16). Parent: [PLAN.md §4 v0.1.1](PLAN.md#v011--custom-title-bar-size-s).
+Status: **in progress** (2026-11-16). Parent: [PLAN.md §4 v0.2](PLAN.md#v02--custom-title-bar-size-s).
 
 ## Goal
 
@@ -39,7 +39,7 @@ without weakening the security baseline from v0.1 (strict CSP, minimal capabilit
 
 **Done when:** the manual checklist below passes and CI is green.
 
-## Manual test checklist (v0.1.1)
+## Manual test checklist (v0.2.0)
 
 - [ ] No native title bar; the header is the title bar and matches light, dark and system themes (also when the
       theme changes while the app runs).

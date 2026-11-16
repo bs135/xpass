@@ -3,26 +3,27 @@
 Status: **approved** (2026-11-16). Inputs: [IDEA.md](IDEA.md) (decisions) and the three passed spikes:
 [windows-hello](spikes/windows-hello.md), [vault-format](spikes/vault-format.md), [github-sync](spikes/github-sync.md).
 
-Each milestone is a runnable, releasable app. MVP = **v0.1 → v0.3**.
+Each milestone is a runnable, releasable app. MVP = **v0.1 → v0.4**.
 
 ---
 
 ## 1. Scope
 
-### MVP (v0.1 – v0.3)
+### MVP (v0.1 – v0.4)
 
 - Local encrypted vault: create, unlock (password / recovery key), lock, entry CRUD, search.
 - Key hierarchy with Emergency Kit (recovery key), change password, rotate VaultKey.
 - Secure copy: clipboard excluded from history/cloud, auto-clear only if unchanged.
 - Password generator.
+- Custom title bar that follows the app theme.
 - Auto-lock: idle timeout, Windows lock, sleep/hibernate, app close.
 - Windows Hello quick unlock.
 - GitHub sync: offline-first, multi-device, conflict merge.
 
 ### After MVP
 
-- v0.4: CSV import (Bitwarden, Chrome, KeePassXC), CSV + KDBX export, password history UI.
-- v0.5 → 1.0: hardening, security review, signed auto-update.
+- v0.5: CSV import (Bitwarden, Chrome, KeePassXC), CSV + KDBX export, password history UI.
+- v0.6 → 1.0: hardening, security review, signed auto-update.
 - Later: auto-type (global hotkey), TOTP, password health (weak/reused), custom fields UI, Touch ID (macOS).
 
 ### Out of scope
@@ -61,7 +62,7 @@ xpass/
 ├── src-tauri/               # Tauri app: commands, state, Hello, clipboard, keyring, GitHub store, auto-lock, tray
 ├── src/                     # React + TS frontend
 ├── docs/                    # IDEA, PLAN, spikes, THREAT_MODEL, release notes
-├── spikes/                  # kept as reference until v0.3, then removed
+├── spikes/                  # kept as reference until v0.4, then removed
 └── .github/workflows/       # ci.yml (lint + test), release.yml (Windows build, from xmark)
 ```
 
@@ -156,12 +157,12 @@ Sizes assume one developer working part-time; they are for ordering, not commitm
 **Acceptance:** vault survives restart; any byte flip in `vault.xpv` is reported, not crashed on; copied password
 absent from `Win+V` and cleared after timeout; lock triggers verified manually; all core tests green.
 
-### v0.1.1 — Custom title bar (size: S)
+### v0.2 — Custom title bar (size: S)
 
 Self-drawn title bar merged into the header, following the app theme; no new plugins, minimal window
-permissions. Details: [plan-v0.1.1.md](plan-v0.1.1.md).
+permissions. Details: [plan-v0.2.0.md](plan-v0.2.0.md).
 
-### v0.2 — Windows Hello (size: M, ~1–2 weeks)
+### v0.3 — Windows Hello (size: M, ~1–2 weeks)
 
 1. `hello.rs`: port spike (create/open/sign via `windows` crate, async `join` off the UI thread), focus watcher.
 2. Enable flow (after password unlock): salt → sign → `set_hello_slot` → save. Disable: remove slot + delete credential.
@@ -173,7 +174,7 @@ permissions. Details: [plan-v0.1.1.md](plan-v0.1.1.md).
 **Acceptance:** Hello unlock works after reboot; Hello reset falls back cleanly; rotate drops Hello and prompts
 re-enroll.
 
-### v0.3 — GitHub sync (size: L, ~3 weeks) → **MVP complete**
+### v0.4 — GitHub sync (size: L, ~3 weeks) → **MVP complete**
 
 1. `github.rs`: async port of the spike store (raw GET + local blob SHA, PUT with SHA, 409/422 → Conflict), retry
    unreadable GET once after 2 s.
@@ -190,12 +191,12 @@ re-enroll.
 **Acceptance:** two machines converge after concurrent offline edits; race (both sync at once) converges; PAT never
 appears in logs/settings; app fully usable offline.
 
-### v0.4 — Import / Export (size: M, ~2 weeks)
+### v0.5 — Import / Export (size: M, ~2 weeks)
 
 CSV import with column mapping presets (Bitwarden, Chrome, KeePassXC, generic), duplicate detection; CSV export
 (plaintext warning + confirm); KDBX4 export via `keepass` crate; password history UI per entry.
 
-### v0.5 → v1.0 — Hardening & release (size: M, ~2 weeks)
+### v0.6 → v1.0 — Hardening & release (size: M, ~2 weeks)
 
 - `docs/THREAT_MODEL.md`; security self-review against IDEA.md §3; `cargo audit`, `cargo deny`, `npm audit`
   in CI; `cargo-fuzz` target for the header parser.
@@ -210,7 +211,7 @@ CSV import with column mapping presets (Bitwarden, Chrome, KeePassXC, generic), 
 
 | Layer | How |
 |---|---|
-| `xpass-core` | Unit tests ported from spikes (format, tamper, rotation, merge algebra, races, offline); golden vector freezes format v1; fuzz target (v0.5). |
+| `xpass-core` | Unit tests ported from spikes (format, tamper, rotation, merge algebra, races, offline); golden vector freezes format v1; fuzz target (v0.6). |
 | Sync | Engine tests with `MemoryStore`; manual two-device checklist against a private test repo each release touching sync. |
 | Tauri commands | Rust tests on command handlers with a temp app dir. |
 | Windows-specific | Manual checklist per release: Hello enroll/unlock/reset, clipboard history exclusion, lock triggers, tray. |
@@ -224,7 +225,7 @@ CSV import with column mapping presets (Bitwarden, Chrome, KeePassXC, generic), 
 |---|---|---|
 | Frontend supply chain (npm) | Secrets exfiltrated from WebView | Minimal deps, lockfile, `npm audit`, strict CSP + no network from WebView, no secrets in frontend state. |
 | Bug in merge loses data | High | Algebraic tests, history copy (D1), local backups, git history as last resort. |
-| Hello prompt behind Tauri window | UX | Focus watcher from spike; verify in v0.2. |
+| Hello prompt behind Tauri window | UX | Focus watcher from spike; verify in v0.3. |
 | Forgotten master password and lost Emergency Kit | Total loss | Kit is mandatory at setup with confirmation; reminder in Settings. |
 | GitHub PAT expiry | Sync stops | Clear status + re-enter flow; no data loss (offline-first). |
 | Clock skew | Wrong LWW winner | D2 + history copy (D1). |
@@ -234,5 +235,7 @@ CSV import with column mapping presets (Bitwarden, Chrome, KeePassXC, generic), 
 ## 7. Workflow
 
 - Branches: `main` (releases) ← `develop` ← feature branches, PRs as in xmark/logledge.
-- Conventional Commits; release workflow bumps version and tags from commit types (as in xmark).
+- Conventional Commits; release workflow bumps version and tags from commit types (as in xmark): `feat` → minor,
+  `fix`/`perf` → patch. A milestone with a `feat` is therefore a minor release (`v0.X.0`); milestones are numbered
+  to match.
 - One `docs/plan-vX.Y.Z.md` per milestone with the detailed task list, written when the milestone starts.

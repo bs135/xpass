@@ -1,4 +1,4 @@
-//! xpass core: vault file format, crypto, data model and merge (the sync engine comes in v0.3).
+//! xpass core: vault file format, crypto, data model and merge (the sync engine comes in v0.4).
 //!
 //! This crate has no UI or OS dependencies so the security-critical code can be
 //! unit-tested on any platform. Layout and rationale: `docs/spikes/vault-format.md`.
