@@ -1,6 +1,6 @@
 # v0.2.0 Plan: Custom title bar
 
-Status: **in progress** (2026-11-16). Parent: [PLAN.md §4 v0.2](PLAN.md#v02--custom-title-bar-size-s).
+Status: **done** (2026-11-16). Parent: [PLAN.md §4 v0.2](PLAN.md#v02--custom-title-bar-size-s).
 
 ## Goal
 

@@ -2,9 +2,9 @@
 
 Zero-knowledge personal password manager for Windows, built with Tauri (Rust + React).
 
-> Status: **v0.1 — local vault**. Custom title bar (v0.2), Windows Hello (v0.3) and GitHub sync (v0.4) are next. See [docs/PLAN.md](docs/PLAN.md).
+> Status: **v0.2 — local vault with a custom title bar**. Windows Hello (v0.3) and GitHub sync (v0.4) are next. See [docs/PLAN.md](docs/PLAN.md).
 
-## Features (v0.1)
+## Features (v0.2)
 
 - **Encrypted local vault** — one file, `%APPDATA%\com.bs135.xpass\vault.xpv`, with the last 10 versions kept in
   `backups\`.
@@ -17,7 +17,7 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
 - **Auto-lock** — on Windows lock, when the screen turns off or the PC sleeps, after inactivity (default 5 min),
   optionally when minimized; tray icon with Open / Lock / Quit.
 - **Security settings** — change the master password, create a new Emergency Kit, rotate the vault key.
-- English and Vietnamese UI, light/dark theme.
+- English and Vietnamese UI, light/dark theme, self-drawn title bar that follows the theme.
 
 ## Security model (summary)
 
