@@ -2,6 +2,7 @@ import {type ReactNode, useEffect} from 'react'
 import {createPortal} from 'react-dom'
 import {X} from 'lucide-react'
 import {useTranslation} from 'react-i18next'
+import {BackdropDragStrip} from './WindowControls'
 
 /**
  * Simple modal with a title; Esc and the backdrop close it. Rendered into <body> so a
@@ -23,6 +24,7 @@ export function Modal({title, onClose, children}: {title: string; onClose: () =>
 
     return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={onClose}>
+            <BackdropDragStrip/>
             <div
                 role="dialog"
                 aria-modal="true"

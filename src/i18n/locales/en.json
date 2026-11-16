@@ -215,5 +215,15 @@
   },
   "about": {
     "version": "Version {{version}} · vault format v{{format}}"
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "titleBar": {
+    "theme": "Theme: {{current}} (click for {{next}})",
+    "language": "Language: {{current}} (click for {{next}})"
   }
 }

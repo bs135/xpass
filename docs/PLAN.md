@@ -156,6 +156,11 @@ Sizes assume one developer working part-time; they are for ordering, not commitm
 **Acceptance:** vault survives restart; any byte flip in `vault.xpv` is reported, not crashed on; copied password
 absent from `Win+V` and cleared after timeout; lock triggers verified manually; all core tests green.
 
+### v0.1.1 — Custom title bar (size: S)
+
+Self-drawn title bar merged into the header, following the app theme; no new plugins, minimal window
+permissions. Details: [plan-v0.1.1.md](plan-v0.1.1.md).
+
 ### v0.2 — Windows Hello (size: M, ~1–2 weeks)
 
 1. `hello.rs`: port spike (create/open/sign via `windows` crate, async `join` off the UI thread), focus watcher.
