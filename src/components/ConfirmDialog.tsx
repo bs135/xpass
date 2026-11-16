@@ -1,6 +1,7 @@
 import {useEffect, useRef} from 'react'
 import {useTranslation} from 'react-i18next'
 import {Button} from './ui'
+import {BackdropDragStrip} from './WindowControls'
 
 interface Props {
     title: string
@@ -30,6 +31,7 @@ export function ConfirmDialog({title, message, confirmLabel, onConfirm, onCancel
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={onCancel}>
+            <BackdropDragStrip/>
             <div
                 role="alertdialog"
                 aria-modal="true"

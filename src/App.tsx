@@ -58,7 +58,7 @@ export default function App() {
             <Header/>
             <ScreenView screen={screen}/>
             <Toast/>
-            <footer className="px-4 py-2 text-xs text-neutral-500 print:hidden">
+            <footer className="shrink-0 border-t border-neutral-200 px-4 py-2 text-xs text-neutral-500 print:hidden dark:border-neutral-800">
                 {info && t('about.version', {version: info.version, format: info.formatVersion})}
             </footer>
         </div>

@@ -299,7 +299,7 @@ fn replace_recovery_key_keeps_vault_key_and_password() {
     assert_eq!(v.slot_kinds(), vec![SlotKind::Password, SlotKind::Recovery]);
 }
 
-// ---- open_sibling (used by sync in v0.3) ----
+// ---- open_sibling (used by sync in v0.4) ----
 
 #[test]
 fn open_sibling_reads_another_copy_without_credentials() {

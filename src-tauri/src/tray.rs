@@ -33,12 +33,12 @@ struct Labels {
 fn labels(language: Option<Language>) -> Labels {
     match language.unwrap_or_else(os_language) {
         Language::Vi => Labels {
-            open: "Mở xpass",
+            open: "Mở xPass",
             lock: "Khoá",
             quit: "Thoát",
         },
         Language::En => Labels {
-            open: "Open xpass",
+            open: "Open xPass",
             lock: "Lock",
             quit: "Quit",
         },
@@ -72,7 +72,7 @@ pub fn setup(app: &App) -> tauri::Result<()> {
     let menu = Menu::with_items(app, &[&open, &lock, &separator, &quit])?;
 
     let mut tray = TrayIconBuilder::with_id("main")
-        .tooltip("xpass")
+        .tooltip("xPass")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
@@ -133,6 +133,6 @@ mod tests {
     #[test]
     fn labels_follow_the_language_setting() {
         assert_eq!(labels(Some(Language::Vi)).quit, "Thoát");
-        assert_eq!(labels(Some(Language::En)).open, "Open xpass");
+        assert_eq!(labels(Some(Language::En)).open, "Open xPass");
     }
 }

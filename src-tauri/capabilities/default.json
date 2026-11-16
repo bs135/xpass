@@ -1,11 +1,17 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions for the main xpass window. Only what the frontend calls directly: event listen/unlisten (vault://locked) and showing the window after the first render. App commands are Rust-side and need no core permissions.",
+  "description": "Permissions for the main xpass window. Only what the frontend calls directly: event listen/unlisten (vault://locked, window resize), showing the window after the first render, and the self-drawn title bar (drag, double-click maximize, minimize / maximize-restore / close buttons, maximized state for the button icon). App commands are Rust-side and need no core permissions.",
   "windows": ["main"],
   "permissions": [
     "core:event:allow-listen",
     "core:event:allow-unlisten",
-    "core:window:allow-show"
+    "core:window:allow-show",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-close"
   ]
 }

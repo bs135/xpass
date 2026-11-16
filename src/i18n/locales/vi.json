@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "xpass",
+    "name": "xPass",
     "tagline": "Trình quản lý mật khẩu cá nhân zero-knowledge"
   },
   "settings": {
@@ -38,8 +38,8 @@
       "Các bản sao cũ của kho (thư mục backups) vẫn mở được bằng mật khẩu và mã khôi phục cũ. Hãy xoá chúng nếu có thể đã bị lộ."
     ],
     "newPassword": "Mật khẩu chính mới",
-    "closeToTray": "Nút đóng sẽ ẩn xpass xuống khay hệ thống",
-    "lockOnMinimize": "Khoá khi thu nhỏ hoặc ẩn xpass xuống khay",
+    "closeToTray": "Nút đóng sẽ ẩn xPass xuống khay hệ thống",
+    "lockOnMinimize": "Khoá khi thu nhỏ hoặc ẩn xPass xuống khay",
     "about": "Giới thiệu",
     "version": "Phiên bản",
     "vaultFormat": "Định dạng kho",
@@ -99,19 +99,19 @@
     "confirmMismatch": "Các nhóm này không khớp. Hãy kiểm tra lại Emergency Kit.",
     "back": "Xem lại mã",
     "done": "Tiếp tục",
-    "printTitle": "xpass Emergency Kit",
+    "printTitle": "xPass Emergency Kit",
     "printCreated": "Tạo ngày {{date}}",
     "printKeyLabel": "Mã khôi phục",
     "printHowTo": "Nếu bạn quên mật khẩu chính",
     "printSteps": [
-      "Mở xpass và chọn “Dùng mã khôi phục” ở màn hình mở khoá.",
+      "Mở xPass và chọn “Dùng mã khôi phục” ở màn hình mở khoá.",
       "Nhập mã khôi phục ở trên. Không phân biệt dấu gạch, khoảng trắng hay chữ hoa/thường.",
       "Đặt mật khẩu chính mới."
     ],
     "printKeep": "Cất tờ này ở nơi không kết nối mạng. Đừng lưu cùng máy tính hoặc cùng tài khoản cloud với kho mật khẩu."
   },
   "unlock": {
-    "title": "Mở khoá xpass",
+    "title": "Mở khoá xPass",
     "password": "Mật khẩu chính",
     "submit": "Mở khoá",
     "unlocking": "Đang mở khoá…",
@@ -122,7 +122,7 @@
     "sessionLocked": "Đã tự khoá vì Windows bị khoá.",
     "displayOff": "Đã tự khoá vì màn hình tắt (máy ngủ hoặc hết thời gian chờ màn hình).",
     "suspend": "Đã tự khoá vì máy chuyển sang chế độ ngủ.",
-    "minimized": "Đã tự khoá vì xpass bị thu nhỏ hoặc ẩn."
+    "minimized": "Đã tự khoá vì xPass bị thu nhỏ hoặc ẩn."
   },
   "recovery": {
     "title": "Mở khoá bằng mã khôi phục",
@@ -206,8 +206,8 @@
     "bad_recovery_key": "Mã khôi phục không hợp lệ. Hãy kiểm tra lỗi gõ.",
     "throttled": "Thử sai quá nhiều lần. Hãy thử lại sau {{seconds}} giây.",
     "tampered": "File kho đã bị sửa đổi hoặc bị hỏng. Hãy khôi phục một bản trong thư mục backups.",
-    "invalid_file": "Đây không phải file kho xpass hợp lệ.",
-    "unsupported_version": "Kho này được tạo bởi phiên bản xpass mới hơn (định dạng v{{version}}). Hãy cập nhật ứng dụng.",
+    "invalid_file": "Đây không phải file kho xPass hợp lệ.",
+    "unsupported_version": "Kho này được tạo bởi phiên bản xPass mới hơn (định dạng v{{version}}). Hãy cập nhật ứng dụng.",
     "io": "Không đọc hoặc ghi được file kho ({{kind}}).",
     "not_found": "Mục này không còn tồn tại.",
     "open_failed": "Không mở được liên kết.",
@@ -215,5 +215,15 @@
   },
   "about": {
     "version": "Phiên bản {{version}} · định dạng vault v{{format}}"
+  },
+  "window": {
+    "minimize": "Thu nhỏ",
+    "maximize": "Phóng to",
+    "restore": "Khôi phục",
+    "close": "Đóng"
+  },
+  "titleBar": {
+    "theme": "Giao diện: {{current}} (bấm để chuyển sang {{next}})",
+    "language": "Ngôn ngữ: {{current}} (bấm để chuyển sang {{next}})"
   }
 }

@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "xpass",
+    "name": "xPass",
     "tagline": "Zero-knowledge personal password manager"
   },
   "settings": {
@@ -38,8 +38,8 @@
       "Older copies of the vault (the backups folder) still open with the old password and recovery key. Delete them if they may be exposed."
     ],
     "newPassword": "New master password",
-    "closeToTray": "Close button hides xpass to the tray",
-    "lockOnMinimize": "Lock when xpass is minimized or hidden to the tray",
+    "closeToTray": "Close button hides xPass to the tray",
+    "lockOnMinimize": "Lock when xPass is minimized or hidden to the tray",
     "about": "About",
     "version": "Version",
     "vaultFormat": "Vault format",
@@ -99,19 +99,19 @@
     "confirmMismatch": "These groups do not match. Check your Emergency Kit.",
     "back": "Show the key again",
     "done": "Continue",
-    "printTitle": "xpass Emergency Kit",
+    "printTitle": "xPass Emergency Kit",
     "printCreated": "Created on {{date}}",
     "printKeyLabel": "Recovery key",
     "printHowTo": "If you forget your master password",
     "printSteps": [
-      "Open xpass and choose “Use recovery key” on the unlock screen.",
+      "Open xPass and choose “Use recovery key” on the unlock screen.",
       "Type the recovery key above. Dashes, spaces and letter case do not matter.",
       "Set a new master password."
     ],
     "printKeep": "Keep this sheet offline. Do not store it on the same computer or in the same cloud account as your vault."
   },
   "unlock": {
-    "title": "Unlock xpass",
+    "title": "Unlock xPass",
     "password": "Master password",
     "submit": "Unlock",
     "unlocking": "Unlocking…",
@@ -122,7 +122,7 @@
     "sessionLocked": "Locked because Windows was locked.",
     "displayOff": "Locked because the screen turned off (sleep or display timeout).",
     "suspend": "Locked because the computer went to sleep.",
-    "minimized": "Locked because xpass was minimized or hidden."
+    "minimized": "Locked because xPass was minimized or hidden."
   },
   "recovery": {
     "title": "Unlock with recovery key",
@@ -206,8 +206,8 @@
     "bad_recovery_key": "This recovery key is not valid. Check it for typos.",
     "throttled": "Too many attempts. Try again in {{seconds}} s.",
     "tampered": "The vault file was modified or is corrupted. Restore a copy from the backups folder.",
-    "invalid_file": "This is not a valid xpass vault file.",
-    "unsupported_version": "This vault was created by a newer version of xpass (format v{{version}}). Update the app.",
+    "invalid_file": "This is not a valid xPass vault file.",
+    "unsupported_version": "This vault was created by a newer version of xPass (format v{{version}}). Update the app.",
     "io": "Could not read or write the vault file ({{kind}}).",
     "not_found": "This entry no longer exists.",
     "open_failed": "Could not open the link.",
@@ -215,5 +215,15 @@
   },
   "about": {
     "version": "Version {{version}} · vault format v{{format}}"
+  },
+  "window": {
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "titleBar": {
+    "theme": "Theme: {{current}} (click for {{next}})",
+    "language": "Language: {{current}} (click for {{next}})"
   }
 }
