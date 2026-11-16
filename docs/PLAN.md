@@ -121,7 +121,7 @@ Frontend never holds the VaultKey; it receives passwords only for an explicit re
 | Group | Commands |
 |---|---|
 | Session | `vault_status`, `create_vault`, `unlock_password`, `unlock_recovery`, `unlock_hello`, `lock` |
-| Entries | `list_entries` (metadata), `get_entry` (no secrets), `save_entry`, `delete_entry`, `restore_entry` |
+| Entries | `list_entries` (metadata), `get_entry` (no secrets), `save_entry`, `delete_entry`, `set_favorite`, `open_url` |
 | Secrets | `copy_field(id, field)`, `reveal_secret(id, field)` (auto-hide in UI after 15 s) |
 | Tools | `generate_password(opts)`, `password_strength(pw)` |
 | Security | `change_password`, `rotate_vault_key`, `show_recovery_kit`, `hello_status`, `hello_enable`, `hello_disable` |
