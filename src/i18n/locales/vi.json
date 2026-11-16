@@ -1,0 +1,219 @@
+{
+  "app": {
+    "name": "xpass",
+    "tagline": "Trình quản lý mật khẩu cá nhân zero-knowledge"
+  },
+  "settings": {
+    "theme": "Giao diện",
+    "language": "Ngôn ngữ",
+    "title": "Cài đặt",
+    "general": "Chung",
+    "security": "Bảo mật",
+    "languageSystem": "Theo Windows",
+    "autoLock": "Khoá khi không thao tác",
+    "minutes_one": "{{count}} phút",
+    "minutes_other": "{{count}} phút",
+    "never": "Không bao giờ",
+    "clipboard": "Xoá mật khẩu đã sao chép sau",
+    "seconds_one": "{{count}} giây",
+    "seconds_other": "{{count}} giây",
+    "autoLockHint": "Kho cũng tự khoá khi Windows khoá, khi màn hình tắt và khi máy ngủ.",
+    "saved": "Đã lưu cài đặt",
+    "currentPassword": "Mật khẩu chính hiện tại",
+    "changePassword": "Đổi mật khẩu chính",
+    "changePasswordSubmit": "Đổi mật khẩu",
+    "passwordChanged": "Đã đổi mật khẩu chính",
+    "kitLast": "Emergency Kit gần nhất được tạo ngày {{date}}.",
+    "kitUnknown": "Chưa có Emergency Kit nào được tạo trên máy này.",
+    "kitNew": "Tạo Emergency Kit mới",
+    "kitNewConfirm": "Tạo kit",
+    "kitNewExplain": "Mã khôi phục mới sẽ thay mã cũ. Sau đó hãy huỷ Emergency Kit cũ.",
+    "rotateTitle": "Đổi khoá mã hoá kho",
+    "rotateIntro": "Dùng khi mật khẩu chính hoặc mã khôi phục có thể đã bị lộ. Thao tác này thay khoá dùng để mã hoá kho.",
+    "rotateButton": "Đổi khoá mã hoá",
+    "rotateExplain": [
+      "Kho được mã hoá lại bằng khoá mới và bạn nhận mã khôi phục mới (Emergency Kit mới).",
+      "Mật khẩu chính giữ nguyên. Hãy đổi luôn nếu nó có thể đã bị lộ.",
+      "Mã khôi phục cũ không còn mở được kho từ giờ.",
+      "Các bản sao cũ của kho (thư mục backups) vẫn mở được bằng mật khẩu và mã khôi phục cũ. Hãy xoá chúng nếu có thể đã bị lộ."
+    ],
+    "newPassword": "Mật khẩu chính mới",
+    "closeToTray": "Nút đóng sẽ ẩn xpass xuống khay hệ thống",
+    "lockOnMinimize": "Khoá khi thu nhỏ hoặc ẩn xpass xuống khay",
+    "about": "Giới thiệu",
+    "version": "Phiên bản",
+    "vaultFormat": "Định dạng kho",
+    "license": "Giấy phép",
+    "projectPage": "Trang dự án trên GitHub"
+  },
+  "theme": {
+    "system": "Theo hệ thống",
+    "light": "Sáng",
+    "dark": "Tối"
+  },
+  "language": {
+    "en": "English",
+    "vi": "Tiếng Việt"
+  },
+  "actions": {
+    "lock": "Khoá",
+    "show": "Hiện",
+    "hide": "Ẩn",
+    "cancel": "Huỷ",
+    "save": "Lưu",
+    "edit": "Sửa",
+    "delete": "Xoá",
+    "copy": "Sao chép",
+    "close": "Đóng",
+    "back": "Quay lại"
+  },
+  "password": {
+    "new": "Mật khẩu chính",
+    "confirm": "Nhập lại mật khẩu chính",
+    "mismatch": "Hai mật khẩu không khớp.",
+    "tooWeak": "Hãy chọn mật khẩu mạnh hơn để tiếp tục."
+  },
+  "strength": {
+    "hint": "Dùng từ 4 từ ngẫu nhiên trở lên, hoặc từ 12 ký tự hỗn hợp trở lên.",
+    "level0": "Rất yếu",
+    "level1": "Yếu",
+    "level2": "Trung bình",
+    "level3": "Mạnh",
+    "level4": "Rất mạnh"
+  },
+  "setup": {
+    "title": "Tạo kho mật khẩu",
+    "intro": "Chọn một mật khẩu chính. Mật khẩu này dùng để mã hoá kho và không bao giờ được lưu hay gửi đi đâu. Nếu quên, chỉ có Emergency Kit mới mở được kho.",
+    "submit": "Tạo kho",
+    "creating": "Đang tạo kho…"
+  },
+  "kit": {
+    "title": "Emergency Kit của bạn",
+    "intro": "Mã khôi phục này mở được kho nếu bạn quên mật khẩu chính. Mã chỉ hiện một lần duy nhất lúc này. Hãy in ra hoặc lưu thành PDF, rồi cất ở nơi an toàn, không để trên máy tính.",
+    "warning": "Ai có mã này và file kho đều đọc được toàn bộ mật khẩu của bạn.",
+    "print": "In / Lưu PDF",
+    "saved": "Tôi đã lưu lại",
+    "confirmTitle": "Xác nhận mã khôi phục",
+    "confirmIntro": "Nhập nhóm {{a}} và nhóm {{b}} của mã khôi phục.",
+    "group": "Nhóm {{n}}",
+    "confirmMismatch": "Các nhóm này không khớp. Hãy kiểm tra lại Emergency Kit.",
+    "back": "Xem lại mã",
+    "done": "Tiếp tục",
+    "printTitle": "xpass Emergency Kit",
+    "printCreated": "Tạo ngày {{date}}",
+    "printKeyLabel": "Mã khôi phục",
+    "printHowTo": "Nếu bạn quên mật khẩu chính",
+    "printSteps": [
+      "Mở xpass và chọn “Dùng mã khôi phục” ở màn hình mở khoá.",
+      "Nhập mã khôi phục ở trên. Không phân biệt dấu gạch, khoảng trắng hay chữ hoa/thường.",
+      "Đặt mật khẩu chính mới."
+    ],
+    "printKeep": "Cất tờ này ở nơi không kết nối mạng. Đừng lưu cùng máy tính hoặc cùng tài khoản cloud với kho mật khẩu."
+  },
+  "unlock": {
+    "title": "Mở khoá xpass",
+    "password": "Mật khẩu chính",
+    "submit": "Mở khoá",
+    "unlocking": "Đang mở khoá…",
+    "useRecovery": "Quên mật khẩu? Dùng mã khôi phục"
+  },
+  "lockReason": {
+    "idle": "Đã tự khoá sau một thời gian không thao tác.",
+    "sessionLocked": "Đã tự khoá vì Windows bị khoá.",
+    "displayOff": "Đã tự khoá vì màn hình tắt (máy ngủ hoặc hết thời gian chờ màn hình).",
+    "suspend": "Đã tự khoá vì máy chuyển sang chế độ ngủ.",
+    "minimized": "Đã tự khoá vì xpass bị thu nhỏ hoặc ẩn."
+  },
+  "recovery": {
+    "title": "Mở khoá bằng mã khôi phục",
+    "intro": "Nhập mã khôi phục trong Emergency Kit của bạn.",
+    "key": "Mã khôi phục",
+    "back": "Quay lại dùng mật khẩu"
+  },
+  "newPassword": {
+    "title": "Đặt mật khẩu chính mới",
+    "intro": "Bạn đã mở kho bằng mã khôi phục. Hãy chọn mật khẩu chính mới để tiếp tục.",
+    "submit": "Lưu mật khẩu",
+    "saving": "Đang lưu…",
+    "kitTitle": "Tạo Emergency Kit mới?",
+    "kitIntro": "Mã khôi phục cũ vẫn dùng được. Hãy tạo kit mới nếu kit cũ bị mất hoặc có thể đã bị người khác nhìn thấy.",
+    "kitCreate": "Tạo kit mới",
+    "kitSkip": "Để sau"
+  },
+  "copy": {
+    "done": "Đã sao chép",
+    "secret": "Đã sao chép. Sẽ tự xoá khỏi clipboard sau {{seconds}} giây.",
+    "username": "Sao chép tên đăng nhập (Ctrl+B)",
+    "password": "Sao chép mật khẩu (Ctrl+C)",
+    "url": "Sao chép địa chỉ web"
+  },
+  "generator": {
+    "title": "Tạo mật khẩu",
+    "open": "Tạo mật khẩu",
+    "chars": "Ký tự",
+    "passphrase": "Cụm từ",
+    "regenerate": "Tạo lại",
+    "entropy": "Khoảng {{bits}} bit entropy",
+    "length": "Độ dài",
+    "words": "Số từ",
+    "separator": "Dấu phân cách",
+    "capitalize": "Viết hoa chữ đầu",
+    "addDigit": "Thêm một chữ số",
+    "excludeAmbiguous": "Tránh ký tự dễ nhầm (l, 1, O, 0…)",
+    "noSet": "Hãy chọn ít nhất một nhóm ký tự.",
+    "use": "Dùng mật khẩu này"
+  },
+  "entries": {
+    "search": "Tìm kiếm (Ctrl+F)",
+    "list": "Danh sách mục",
+    "favoritesOnly": "Chỉ hiện mục yêu thích",
+    "new": "Mục mới",
+    "favorite": "Yêu thích",
+    "markFavorite": "Thêm vào yêu thích",
+    "unfavorite": "Bỏ khỏi yêu thích",
+    "count": "{{count}} mục",
+    "countFiltered": "{{shown}} / {{count}} mục",
+    "emptyVault": "Chưa có mục nào",
+    "selectHint": "Chọn một mục để xem chi tiết.",
+    "emptyHint": "Kho đang trống. Hãy tạo mục đầu tiên.",
+    "shortcuts": "Ctrl+N tạo mới · Ctrl+F tìm · Ctrl+E sửa · Del xoá · Ctrl+L khoá",
+    "title": "Tiêu đề",
+    "username": "Tên đăng nhập",
+    "password": "Mật khẩu",
+    "urls": "Trang web",
+    "urlsHint": "Trang web (mỗi dòng một địa chỉ)",
+    "tags": "Thẻ",
+    "tagsHint": "Thẻ (phân cách bằng dấu phẩy)",
+    "notes": "Ghi chú",
+    "openUrl": "Mở trong trình duyệt",
+    "updated": "Sửa lần cuối {{date}}",
+    "newTitle": "Mục mới",
+    "editTitle": "Sửa mục",
+    "passwordKeep": "Để trống để giữ mật khẩu hiện tại",
+    "deleteTitle": "Xoá mục này?",
+    "deleteMessage": "“{{title}}” sẽ bị xoá.",
+    "shortcutsCopy": "Ctrl+B sao chép tên đăng nhập · Ctrl+C sao chép mật khẩu"
+  },
+  "errors": {
+    "generic": "Đã xảy ra lỗi. Vui lòng thử lại.",
+    "no_vault": "Không tìm thấy kho mật khẩu.",
+    "vault_exists": "Kho mật khẩu đã tồn tại.",
+    "locked": "Kho đang khoá.",
+    "weak_password": "Mật khẩu quá yếu.",
+    "invalid_input": "Thiếu thông tin hoặc thông tin không hợp lệ.",
+    "bad_credentials": "Sai mật khẩu.",
+    "wrong_recovery_key": "Mã khôi phục này không mở được kho. Có thể nó đã được thay bằng một Emergency Kit mới hơn.",
+    "bad_recovery_key": "Mã khôi phục không hợp lệ. Hãy kiểm tra lỗi gõ.",
+    "throttled": "Thử sai quá nhiều lần. Hãy thử lại sau {{seconds}} giây.",
+    "tampered": "File kho đã bị sửa đổi hoặc bị hỏng. Hãy khôi phục một bản trong thư mục backups.",
+    "invalid_file": "Đây không phải file kho xpass hợp lệ.",
+    "unsupported_version": "Kho này được tạo bởi phiên bản xpass mới hơn (định dạng v{{version}}). Hãy cập nhật ứng dụng.",
+    "io": "Không đọc hoặc ghi được file kho ({{kind}}).",
+    "not_found": "Mục này không còn tồn tại.",
+    "open_failed": "Không mở được liên kết.",
+    "clipboard": "Không truy cập được clipboard. Hãy thử lại."
+  },
+  "about": {
+    "version": "Phiên bản {{version}} · định dạng vault v{{format}}"
+  }
+}

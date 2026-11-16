@@ -1,0 +1,26 @@
+[package]
+name = "xpass-core"
+version = "0.1.0"
+description = "xpass vault format, crypto, model, merge and sync engine (no UI, no OS bindings)"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+argon2 = { version = "0.5", features = ["zeroize"] }
+chacha20poly1305 = "0.10"
+data-encoding = "2"
+hkdf = "0.12"
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+uuid = { version = "1", features = ["v4", "serde"] }
+zeroize = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+rand_chacha = "0.3"

@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions for the main xpass window. Only what the frontend calls directly: event listen/unlisten (vault://locked) and showing the window after the first render. App commands are Rust-side and need no core permissions.",
+  "windows": ["main"],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-show"
+  ]
+}

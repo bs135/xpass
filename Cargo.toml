@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = ["crates/xpass-core", "src-tauri"]
+# Spikes are standalone crates kept for reference until v0.3.
+exclude = ["spikes"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+authors = ["bs135"]
+repository = "https://github.com/bs135/xpass"
+rust-version = "1.85"
+
+[profile.release]
+codegen-units = 1
+lto = true
+strip = true
+
+# Argon2 at 128 MiB is unusably slow unoptimized; keep debug builds and tests fast.
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3

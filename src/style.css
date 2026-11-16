@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+html, body, #root {
+    height: 100%;
+    margin: 0;
+}
+
+html.dark {
+    color-scheme: dark;
+}
+
+html.light {
+    color-scheme: light;
+}
+
+body {
+    font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    background-color: #fafafa;
+    color: #171717;
+    /* Desktop app: no text selection on chrome, enabled again on inputs/content below. */
+    user-select: none;
+}
+
+html.dark body {
+    background-color: #171717;
+    color: #e5e5e5;
+}
+
+input, textarea, [data-selectable] {
+    user-select: text;
+}
+
+/* WebView2 (Edge) adds its own reveal/clear buttons to inputs; the app has its own Show/Hide toggle. */
+input::-ms-reveal,
+input::-ms-clear {
+    display: none;
+}
