@@ -23,7 +23,9 @@
     "cancel": "Cancel",
     "save": "Save",
     "edit": "Edit",
-    "delete": "Delete"
+    "delete": "Delete",
+    "copy": "Copy",
+    "close": "Close"
   },
   "password": {
     "new": "Master password",
@@ -91,6 +93,29 @@
     "kitCreate": "Create new kit",
     "kitSkip": "Not now"
   },
+  "copy": {
+    "done": "Copied",
+    "secret": "Copied. Clears from the clipboard in {{seconds}} s.",
+    "username": "Copy username (Ctrl+B)",
+    "password": "Copy password (Ctrl+C)",
+    "url": "Copy website"
+  },
+  "generator": {
+    "title": "Password generator",
+    "open": "Generate",
+    "chars": "Characters",
+    "passphrase": "Passphrase",
+    "regenerate": "Generate again",
+    "entropy": "About {{bits}} bits of entropy",
+    "length": "Length",
+    "words": "Words",
+    "separator": "Separator",
+    "capitalize": "Capitalize words",
+    "addDigit": "Add a digit",
+    "excludeAmbiguous": "Avoid look-alike characters (l, 1, O, 0…)",
+    "noSet": "Choose at least one character set.",
+    "use": "Use this password"
+  },
   "entries": {
     "search": "Search (Ctrl+F)",
     "list": "Entries",
@@ -119,7 +144,8 @@
     "editTitle": "Edit entry",
     "passwordKeep": "Leave empty to keep the current password",
     "deleteTitle": "Delete entry?",
-    "deleteMessage": "“{{title}}” will be deleted."
+    "deleteMessage": "“{{title}}” will be deleted.",
+    "shortcutsCopy": "Ctrl+B copy username · Ctrl+C copy password"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
@@ -137,7 +163,8 @@
     "unsupported_version": "This vault was created by a newer version of xpass (format v{{version}}). Update the app.",
     "io": "Could not read or write the vault file ({{kind}}).",
     "not_found": "This entry no longer exists.",
-    "open_failed": "Could not open the link."
+    "open_failed": "Could not open the link.",
+    "clipboard": "The clipboard is not available. Try again."
   },
   "about": {
     "version": "Version {{version}} · vault format v{{format}}"

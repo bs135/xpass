@@ -1,5 +1,8 @@
 import {type FormEvent, useState} from 'react'
+import {Wand2} from 'lucide-react'
 import {useTranslation} from 'react-i18next'
+import {Generator} from '../../components/Generator'
+import {Modal} from '../../components/Modal'
 import {Alert, Button, Field, PasswordInput, TextInput} from '../../components/ui'
 import type {EntryDetail} from '../../lib/api'
 import {errorMessage} from '../../lib/errors'
@@ -25,6 +28,7 @@ export function EntryForm({detail}: {detail: EntryDetail | null}) {
     const [favorite, setFavorite] = useState(detail?.favorite ?? false)
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [generating, setGenerating] = useState(false)
 
     const submit = async (e: FormEvent) => {
         e.preventDefault()
@@ -70,11 +74,19 @@ export function EntryForm({detail}: {detail: EntryDetail | null}) {
                 <TextInput value={username} onChange={(e) => setUsername(e.target.value)}/>
             </Field>
             <Field label={t('entries.password')}>
-                <PasswordInput
-                    value={password}
-                    placeholder={detail?.hasPassword ? t('entries.passwordKeep') : ''}
-                    onChange={(e) => setPassword(e.target.value)}
-                />
+                <div className="flex gap-2">
+                    <div className="flex-1">
+                        <PasswordInput
+                            value={password}
+                            placeholder={detail?.hasPassword ? t('entries.passwordKeep') : ''}
+                            onChange={(e) => setPassword(e.target.value)}
+                        />
+                    </div>
+                    <Button variant="secondary" title={t('generator.title')} onClick={() => setGenerating(true)}>
+                        <Wand2 className="size-4" aria-hidden/>
+                        {t('generator.open')}
+                    </Button>
+                </div>
             </Field>
             <Field label={t('entries.urlsHint')}>
                 <textarea rows={2} spellCheck={false} className={areaClass} value={urls} onChange={(e) => setUrls(e.target.value)}/>
@@ -98,6 +110,16 @@ export function EntryForm({detail}: {detail: EntryDetail | null}) {
                     {t('actions.save')}
                 </Button>
             </div>
+            {generating && (
+                <Modal title={t('generator.title')} onClose={() => setGenerating(false)}>
+                    <Generator
+                        onUse={(generated) => {
+                            setPassword(generated)
+                            setGenerating(false)
+                        }}
+                    />
+                </Modal>
+            )}
         </form>
     )
 }

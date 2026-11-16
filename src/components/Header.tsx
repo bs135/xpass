@@ -1,9 +1,12 @@
-import {KeyRound, Lock, Monitor, Moon, Sun} from 'lucide-react'
+import {useState} from 'react'
+import {KeyRound, Lock, Monitor, Moon, Sun, Wand2} from 'lucide-react'
 import clsx from 'clsx'
 import {useTranslation} from 'react-i18next'
 import {LANGUAGES} from '../i18n'
 import {THEMES, type Theme} from '../lib/theme'
 import {useSession} from '../stores/session'
+import {Generator} from './Generator'
+import {Modal} from './Modal'
 import {useUi} from '../stores/ui'
 
 const THEME_ICONS: Record<Theme, typeof Sun> = {system: Monitor, light: Sun, dark: Moon}
@@ -13,6 +16,7 @@ export function Header() {
     const {theme, language, setTheme, setLanguage} = useUi()
     const screen = useSession((s) => s.screen)
     const lock = useSession((s) => s.lock)
+    const [generator, setGenerator] = useState(false)
 
     return (
         <header className="flex items-center justify-between border-b border-neutral-200 px-4 py-2 print:hidden dark:border-neutral-800">
@@ -21,6 +25,17 @@ export function Header() {
                 {t('app.name')}
             </div>
             <div className="flex items-center gap-3">
+                {screen === 'unlocked' && (
+                    <button
+                        type="button"
+                        onClick={() => setGenerator(true)}
+                        title={t('generator.title')}
+                        className="flex items-center gap-1.5 rounded-md border border-neutral-200 px-2 py-1 text-sm hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                    >
+                        <Wand2 className="size-4" aria-hidden/>
+                        {t('generator.open')}
+                    </button>
+                )}
                 {screen === 'unlocked' && (
                     <button
                         type="button"
@@ -68,6 +83,11 @@ export function Header() {
                     ))}
                 </select>
             </div>
+            {generator && (
+                <Modal title={t('generator.title')} onClose={() => setGenerator(false)}>
+                    <Generator/>
+                </Modal>
+            )}
         </header>
     )
 }

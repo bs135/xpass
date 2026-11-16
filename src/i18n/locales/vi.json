@@ -23,7 +23,9 @@
     "cancel": "Huỷ",
     "save": "Lưu",
     "edit": "Sửa",
-    "delete": "Xoá"
+    "delete": "Xoá",
+    "copy": "Sao chép",
+    "close": "Đóng"
   },
   "password": {
     "new": "Mật khẩu chính",
@@ -91,6 +93,29 @@
     "kitCreate": "Tạo kit mới",
     "kitSkip": "Để sau"
   },
+  "copy": {
+    "done": "Đã sao chép",
+    "secret": "Đã sao chép. Sẽ tự xoá khỏi clipboard sau {{seconds}} giây.",
+    "username": "Sao chép tên đăng nhập (Ctrl+B)",
+    "password": "Sao chép mật khẩu (Ctrl+C)",
+    "url": "Sao chép địa chỉ web"
+  },
+  "generator": {
+    "title": "Tạo mật khẩu",
+    "open": "Tạo mật khẩu",
+    "chars": "Ký tự",
+    "passphrase": "Cụm từ",
+    "regenerate": "Tạo lại",
+    "entropy": "Khoảng {{bits}} bit entropy",
+    "length": "Độ dài",
+    "words": "Số từ",
+    "separator": "Dấu phân cách",
+    "capitalize": "Viết hoa chữ đầu",
+    "addDigit": "Thêm một chữ số",
+    "excludeAmbiguous": "Tránh ký tự dễ nhầm (l, 1, O, 0…)",
+    "noSet": "Hãy chọn ít nhất một nhóm ký tự.",
+    "use": "Dùng mật khẩu này"
+  },
   "entries": {
     "search": "Tìm kiếm (Ctrl+F)",
     "list": "Danh sách mục",
@@ -119,7 +144,8 @@
     "editTitle": "Sửa mục",
     "passwordKeep": "Để trống để giữ mật khẩu hiện tại",
     "deleteTitle": "Xoá mục này?",
-    "deleteMessage": "“{{title}}” sẽ bị xoá."
+    "deleteMessage": "“{{title}}” sẽ bị xoá.",
+    "shortcutsCopy": "Ctrl+B sao chép tên đăng nhập · Ctrl+C sao chép mật khẩu"
   },
   "errors": {
     "generic": "Đã xảy ra lỗi. Vui lòng thử lại.",
@@ -137,7 +163,8 @@
     "unsupported_version": "Kho này được tạo bởi phiên bản xpass mới hơn (định dạng v{{version}}). Hãy cập nhật ứng dụng.",
     "io": "Không đọc hoặc ghi được file kho ({{kind}}).",
     "not_found": "Mục này không còn tồn tại.",
-    "open_failed": "Không mở được liên kết."
+    "open_failed": "Không mở được liên kết.",
+    "clipboard": "Không truy cập được clipboard. Hãy thử lại."
   },
   "about": {
     "version": "Phiên bản {{version}} · định dạng vault v{{format}}"

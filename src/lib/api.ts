@@ -66,6 +66,33 @@ export interface EntryInput {
     favorite: boolean
 }
 
+/** Part of an entry that can be copied (all) or revealed (password, secret field). */
+export type FieldRef =
+    | {kind: 'username'}
+    | {kind: 'password'}
+    | {kind: 'url'; index: number}
+    | {kind: 'field'; index: number}
+
+export type GeneratorOptions =
+    | {
+          mode: 'chars'
+          length: number
+          lower: boolean
+          upper: boolean
+          digits: boolean
+          symbols: boolean
+          excludeAmbiguous: boolean
+      }
+    | {mode: 'passphrase'; words: number; separator: string; capitalize: boolean; addDigit: boolean}
+
+export interface Generated {
+    password: string
+    entropyBits: number
+}
+
+/** Seconds before a copied secret is cleared from the clipboard. */
+export const CLIPBOARD_CLEAR_SECONDS = 20
+
 /** Error shape returned by every command (`src-tauri/src/error.rs`). */
 export type AppError =
     | {code: 'no_vault'}
@@ -73,6 +100,7 @@ export type AppError =
     | {code: 'locked'}
     | {code: 'not_found'}
     | {code: 'open_failed'}
+    | {code: 'clipboard'}
     | {code: 'weak_password'}
     | {code: 'invalid_input'; field: string}
     | {code: 'bad_credentials'}
@@ -114,4 +142,9 @@ export const api = {
     deleteEntry: (id: string) => invoke<void>('delete_entry', {id}),
     setFavorite: (id: string, favorite: boolean) => invoke<void>('set_favorite', {id, favorite}),
     openUrl: (id: string, index: number) => invoke<void>('open_url', {id, index}),
+    copyField: (id: string, field: FieldRef) => invoke<void>('copy_field', {id, field}),
+    revealSecret: (id: string, field: FieldRef) =>
+        invoke<{value: string}>('reveal_secret', {id, field}).then((s) => s.value),
+    generatePassword: (options: GeneratorOptions) => invoke<Generated>('generate_password', {options}),
+    copyText: (text: string) => invoke<void>('copy_text', {text}),
 }
