@@ -176,3 +176,5 @@ Use a throwaway vault: `$env:XPASS_DATA_DIR = "$env:TEMP\xpass-dev"; npm run tau
 
 Hello for sensitive actions while unlocked (reveal / copy / export re-auth), Hello on other platforms, a
 "require Hello every N days, then password" policy, `tauri-action` v1 migration, signed installers.
+Closing the Windows Hello dialog automatically when the password unlock wins the race (the dialog stays
+open until the user cancels or confirms it; either outcome is harmless because the vault is already open).

@@ -116,7 +116,10 @@
     "password": "Mật khẩu chính",
     "submit": "Mở khoá",
     "unlocking": "Đang mở khoá…",
-    "useRecovery": "Quên mật khẩu? Dùng mã khôi phục"
+    "useRecovery": "Quên mật khẩu? Dùng mã khôi phục",
+    "hello": "Mở khoá bằng Windows Hello",
+    "helloWaiting": "Đang chờ Windows Hello…",
+    "orPassword": "hoặc dùng mật khẩu chính"
   },
   "lockReason": {
     "idle": "Đã tự khoá sau một thời gian không thao tác.",
