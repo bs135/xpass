@@ -16,6 +16,33 @@ export interface RecoveryKit {
     recoveryKey: string
 }
 
+/** Rotation result: new Emergency Kit, and whether Windows Hello was turned off. */
+export interface RotatedKit extends RecoveryKit {
+    helloDropped: boolean
+}
+
+/** Windows Hello state of the vault (readable while locked). */
+export interface HelloInfo {
+    /** The vault has a Hello key slot. */
+    enrolled: boolean
+    /** A Hello unlock found the credential missing or changed; use the password. */
+    broken: boolean
+    /** Hello was turned off (VaultKey rotated or Hello reset): offer to set it up again. */
+    reenrollSuggested: boolean
+}
+
+export interface HelloStatus extends HelloInfo {
+    /** Windows Hello is set up and usable on this PC. */
+    supported: boolean
+}
+
+export interface SessionInfo {
+    status: VaultStatus
+    /** Set only while locked. */
+    lockReason: LockReason | null
+    hello: HelloInfo
+}
+
 export interface Strength {
     /** 0 (very weak) to 4 (very strong); setup requires at least 3. */
     score: number
@@ -128,6 +155,12 @@ export type AppError =
     | {code: 'no_such_slot'}
     | {code: 'different_vault'}
     | {code: 'key_changed'}
+    | {code: 'hello_unavailable'}
+    | {code: 'hello_not_found'}
+    | {code: 'hello_canceled'}
+    | {code: 'hello_device_locked'}
+    | {code: 'hello_busy'}
+    | {code: 'hello_failed'}
     | {code: 'io'; kind: string}
     | {code: 'internal'}
 
@@ -144,8 +177,8 @@ export type LockReason = 'manual' | 'idle' | 'sessionLocked' | 'displayOff' | 's
 export const api = {
     appInfo: () => invoke<AppInfo>('app_info'),
     openProjectPage: () => invoke<void>('open_project_page'),
-    /** Status and, while locked, why the vault was locked. */
-    vaultStatus: () => invoke<{status: VaultStatus; lockReason: LockReason | null}>('vault_status'),
+    /** Status, why the vault was locked (while locked) and the Windows Hello state. */
+    vaultStatus: () => invoke<SessionInfo>('vault_status'),
     createVault: (password: string) => invoke<RecoveryKit>('create_vault', {password}),
     unlockPassword: (password: string) => invoke<void>('unlock_password', {password}),
     unlockRecovery: (recoveryKey: string) => invoke<void>('unlock_recovery', {recoveryKey}),
@@ -154,8 +187,16 @@ export const api = {
         invoke<void>('change_password', {currentPassword, newPassword}),
     /** New Emergency Kit. `currentPassword` may be null right after a recovery-key unlock. */
     newRecoveryKey: (currentPassword: string | null) => invoke<RecoveryKit>('new_recovery_key', {currentPassword}),
-    /** Compromise response: new VaultKey and recovery key; the password stays the same. */
-    rotateVaultKey: (currentPassword: string) => invoke<RecoveryKit>('rotate_vault_key', {currentPassword}),
+    /** Compromise response: new VaultKey and recovery key; the password stays the same. Turns Hello off. */
+    rotateVaultKey: (currentPassword: string) => invoke<RotatedKit>('rotate_vault_key', {currentPassword}),
+    /** Hello state plus whether Hello is usable on this PC (asks Windows; may take a moment). */
+    helloStatus: () => invoke<HelloStatus>('hello_status'),
+    /** Shows the Windows Hello dialog; resolves once the vault is unlocked. */
+    unlockHello: () => invoke<void>('unlock_hello'),
+    /** Turns Hello on (master password check, then the Windows Hello dialog). */
+    helloEnable: (currentPassword: string | null) => invoke<void>('hello_enable', {currentPassword}),
+    helloDisable: () => invoke<void>('hello_disable'),
+    helloDismissReenroll: () => invoke<void>('hello_dismiss_reenroll'),
     getSettings: () => invoke<Settings>('get_settings'),
     updateSettings: (settings: Settings) => invoke<Settings>('update_settings', {settings}),
     passwordStrength: (password: string) => invoke<Strength>('password_strength', {password}),

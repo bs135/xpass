@@ -9,6 +9,7 @@ import {THEMES, type Theme} from '../../lib/theme'
 import {useSession} from '../../stores/session'
 import {useToast} from '../../stores/toast'
 import {useUi} from '../../stores/ui'
+import {HelloSettings} from './HelloSettings'
 import {PasswordPrompt} from './PasswordPrompt'
 
 const selectClass =
@@ -132,6 +133,8 @@ function GeneralSection() {
 function SecuritySection() {
     const {t, i18n} = useTranslation()
     const showKit = useSession((s) => s.showKit)
+    const helloEnrolled = useSession((s) => s.hello.enrolled)
+    const refreshHello = useSession((s) => s.refreshHello)
     const {settings, refresh} = useUi()
     const show = useToast((s) => s.show)
     const [current, setCurrent] = useState('')
@@ -160,13 +163,18 @@ function SecuritySection() {
     }
 
     const rotate = async (password: string) => {
+        // When Hello was on, the entry list offers to set it up again after the kit.
         const {recoveryKey} = await api.rotateVaultKey(password)
         await refresh().catch(() => undefined)
+        await refreshHello().catch(() => undefined)
         showKit(recoveryKey)
     }
 
     return (
         <Section title={t('settings.security')}>
+            <HelloSettings/>
+
+            <hr className="my-6 border-neutral-200 dark:border-neutral-800"/>
             <h3 className="mb-3 font-medium">{t('settings.changePassword')}</h3>
             <Field label={t('settings.currentPassword')}>
                 <PasswordInput value={current} onChange={(e) => setCurrent(e.target.value)}/>
@@ -221,6 +229,7 @@ function SecuritySection() {
                         {(t('settings.rotateExplain', {returnObjects: true}) as string[]).map((line, i) => (
                             <li key={i}>{line}</li>
                         ))}
+                        {helloEnrolled && <li>{t('settings.rotateExplainHello')}</li>}
                     </ul>
                 </PasswordPrompt>
             )}

@@ -2,6 +2,7 @@ import {useEffect, useMemo, useRef, useState} from 'react'
 import {KeyRound} from 'lucide-react'
 import {useTranslation} from 'react-i18next'
 import {ConfirmDialog} from '../../components/ConfirmDialog'
+import {HelloReenrollNotice} from '../../components/HelloReenrollNotice'
 import {Alert} from '../../components/ui'
 import {copyField} from '../../lib/copy'
 import {errorMessage} from '../../lib/errors'
@@ -54,6 +55,9 @@ export function EntriesScreen() {
         <div className="flex min-h-0 flex-1">
             <EntryList visible={visible} searchRef={searchRef}/>
             <section className="min-w-0 flex-1 overflow-auto">
+                <div className="px-4 pt-4 empty:hidden">
+                    <HelloReenrollNotice/>
+                </div>
                 {error && (
                     <div className="p-4">
                         <Alert>{error}</Alert>
