@@ -1,4 +1,5 @@
 pub mod entries;
+pub mod hello;
 pub mod session;
 pub mod settings;
 pub mod tools;

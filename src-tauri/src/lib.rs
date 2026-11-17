@@ -3,6 +3,7 @@ mod commands;
 mod entries;
 mod error;
 mod generator;
+mod hello;
 mod lock_watch;
 mod paths;
 mod session;
@@ -28,7 +29,7 @@ pub fn run() {
         }))
         .setup(|app| {
             let paths = data_dir_override().map_or_else(|| Paths::from_app(app.handle()), |dir| Ok(Paths::new(dir)))?;
-            let state = AppState::new(paths, KdfParams::DEFAULT, SecureClipboard::system());
+            let state = AppState::new(paths, KdfParams::DEFAULT, SecureClipboard::system(), hello::system());
             if let Some(timeout) = idle_timeout_override() {
                 state.set_idle_timeout(Some(timeout));
             }
@@ -48,6 +49,11 @@ pub fn run() {
             commands::session::change_password,
             commands::session::new_recovery_key,
             commands::session::rotate_vault_key,
+            commands::hello::hello_status,
+            commands::hello::unlock_hello,
+            commands::hello::hello_enable,
+            commands::hello::hello_disable,
+            commands::hello::hello_dismiss_reenroll,
             commands::settings::get_settings,
             commands::settings::update_settings,
             commands::session::password_strength,

@@ -43,6 +43,18 @@ pub enum AppError {
     DifferentVault,
     #[error("the vault key was rotated on another device")]
     KeyChanged,
+    #[error("Windows Hello is not available on this PC")]
+    HelloUnavailable,
+    #[error("the Windows Hello key for this vault no longer exists or has changed")]
+    HelloNotFound,
+    #[error("Windows Hello was cancelled")]
+    HelloCanceled,
+    #[error("Windows Hello is locked after too many attempts")]
+    HelloDeviceLocked,
+    #[error("Windows Hello is already waiting for the user")]
+    HelloBusy,
+    #[error("Windows Hello failed")]
+    HelloFailed,
     #[error("file system error: {kind}")]
     Io { kind: String },
     #[error("internal error")]
