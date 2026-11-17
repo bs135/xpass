@@ -116,7 +116,10 @@
     "password": "Master password",
     "submit": "Unlock",
     "unlocking": "Unlocking…",
-    "useRecovery": "Forgot your password? Use recovery key"
+    "useRecovery": "Forgot your password? Use recovery key",
+    "hello": "Unlock with Windows Hello",
+    "helloWaiting": "Waiting for Windows Hello…",
+    "orPassword": "or use your master password"
   },
   "lockReason": {
     "idle": "Locked after a period of inactivity.",
