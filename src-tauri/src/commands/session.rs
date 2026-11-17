@@ -22,6 +22,16 @@ pub struct RecoveryKit {
     pub recovery_key: String,
 }
 
+#[derive(Serialize, Zeroize, ZeroizeOnDrop)]
+#[serde(rename_all = "camelCase")]
+pub struct RotatedKit {
+    /// Printable recovery key for the new Emergency Kit. Shown once, never stored.
+    pub recovery_key: String,
+    /// Windows Hello was turned off by the rotation (offer to set it up again).
+    #[zeroize(skip)]
+    pub hello_dropped: bool,
+}
+
 #[tauri::command]
 pub fn vault_status(state: State<'_, AppState>) -> SessionInfo {
     state.session_info()
@@ -79,12 +89,13 @@ pub async fn new_recovery_key(state: State<'_, AppState>, current_password: Opti
 /// Compromise response: new VaultKey and recovery key (returned for a new Emergency
 /// Kit). Requires the current password, which stays the master password.
 #[tauri::command]
-pub async fn rotate_vault_key(state: State<'_, AppState>, current_password: String) -> AppResult<RecoveryKit> {
+pub async fn rotate_vault_key(state: State<'_, AppState>, current_password: String) -> AppResult<RotatedKit> {
     let current = Zeroizing::new(current_password);
     let state = state.inner().clone();
-    let recovery_key = blocking(move || state.rotate_vault_key(&current)).await?;
-    Ok(RecoveryKit {
-        recovery_key: recovery_key.to_string(),
+    let rotated = blocking(move || state.rotate_vault_key(&current)).await?;
+    Ok(RotatedKit {
+        recovery_key: rotated.recovery_key.to_string(),
+        hello_dropped: rotated.hello_dropped,
     })
 }
 
@@ -100,7 +111,7 @@ pub fn lock(app: AppHandle) {
     lock_watch::lock_app(&app, LockReason::Manual);
 }
 
-async fn blocking<T: Send + 'static>(f: impl FnOnce() -> AppResult<T> + Send + 'static) -> AppResult<T> {
+pub(super) async fn blocking<T: Send + 'static>(f: impl FnOnce() -> AppResult<T> + Send + 'static) -> AppResult<T> {
     tauri::async_runtime::spawn_blocking(f)
         .await
         .map_err(|_| AppError::Internal)?

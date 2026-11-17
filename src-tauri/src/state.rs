@@ -1,4 +1,5 @@
-//! App state and the vault lifecycle (create, unlock, lock, change password, new kit).
+//! App state and the vault lifecycle (create, unlock, lock, change password, new kit,
+//! Windows Hello).
 //!
 //! Plain Rust, no Tauri types, so the command handlers can be tested with a temp
 //! directory. The Tauri commands in `commands::session` are thin wrappers.
@@ -11,13 +12,21 @@ use std::{
 
 use rand::rngs::OsRng;
 use serde::Serialize;
-use xpass_core::{crypto::KdfParams, model::Payload, Unlock, UnlockedVault};
+use uuid::Uuid;
+use xpass_core::{
+    crypto::KdfParams,
+    format::{self, SlotKind},
+    model::Payload,
+    vault::{hello_challenge, hello_challenge_for_file},
+    Unlock, UnlockedVault,
+};
 use zeroize::Zeroizing;
 
 use crate::{
     clipboard::SecureClipboard,
     entries::{self, FieldRef},
     error::{AppError, AppResult},
+    hello::{self, HelloBackend, HelloError},
     lock_watch::LockReason,
     paths::Paths,
     session::VaultSession,
@@ -44,6 +53,53 @@ pub struct SessionInfo {
     pub status: VaultStatus,
     /// Set only while locked, after a lock in this run of the app.
     pub lock_reason: Option<LockReason>,
+    pub hello: HelloInfo,
+}
+
+/// Windows Hello state of the vault, readable while locked.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HelloInfo {
+    /// The vault (file on disk, or the open session) has a Hello slot.
+    pub enrolled: bool,
+    /// A Hello unlock found the credential missing or changed in this run of the
+    /// app. The slot is removed at the next password or recovery unlock.
+    pub broken: bool,
+    /// The Hello slot was dropped (broken credential or VaultKey rotation); the UI
+    /// offers to set Hello up again until the user acts on it or dismisses it.
+    pub reenroll_suggested: bool,
+}
+
+/// [`HelloInfo`] plus whether Windows Hello is usable on this PC (that check may
+/// take a moment, so it is a separate command).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HelloStatus {
+    pub supported: bool,
+    #[serde(flatten)]
+    pub info: HelloInfo,
+}
+
+#[derive(Debug, Default)]
+struct HelloFlags {
+    broken: bool,
+    reenroll_suggested: bool,
+}
+
+/// How a vault was unlocked.
+#[derive(Clone, Copy)]
+enum Method<'a> {
+    Password(&'a str),
+    Recovery,
+    Hello,
+}
+
+/// Result of a VaultKey rotation.
+pub struct Rotated {
+    /// New recovery key for the Emergency Kit. Shown once, never stored.
+    pub recovery_key: Zeroizing<String>,
+    /// Windows Hello was on and is now off (the UI offers to set it up again).
+    pub hello_dropped: bool,
 }
 
 /// Shared app state, cheap to clone (moved into `spawn_blocking` for Argon2).
@@ -65,10 +121,15 @@ struct Inner {
     /// or `XPASS_IDLE_SECS` in debug builds.
     idle_timeout: Mutex<Option<Duration>>,
     last_lock_reason: Mutex<Option<LockReason>>,
+    hello: Box<dyn HelloBackend>,
+    hello_flags: Mutex<HelloFlags>,
+    /// Held while a Hello dialog is open, so a second request fails fast instead
+    /// of queueing another dialog.
+    hello_busy: Mutex<()>,
 }
 
 impl AppState {
-    pub fn new(paths: Paths, target_kdf: KdfParams, clipboard: SecureClipboard) -> Self {
+    pub fn new(paths: Paths, target_kdf: KdfParams, clipboard: SecureClipboard, hello: Box<dyn HelloBackend>) -> Self {
         let settings_path = paths.settings();
         let loaded = settings::load(&settings_path);
         Self(Arc::new(Inner {
@@ -82,6 +143,9 @@ impl AppState {
             idle_timeout: Mutex::new(loaded.idle_timeout()),
             settings: Mutex::new(loaded),
             last_lock_reason: Mutex::new(None),
+            hello,
+            hello_flags: Mutex::new(HelloFlags::default()),
+            hello_busy: Mutex::new(()),
         }))
     }
 
@@ -128,7 +192,11 @@ impl AppState {
         } else {
             None
         };
-        SessionInfo { status, lock_reason }
+        SessionInfo {
+            status,
+            lock_reason,
+            hello: self.hello_info(),
+        }
     }
 
     /// Creates the vault and unlocks it. Returns the printable recovery key, which
@@ -150,11 +218,136 @@ impl AppState {
     }
 
     pub fn unlock_password(&self, password: &str) -> AppResult<()> {
-        self.unlock(Unlock::Password(password.as_bytes()), Some(password))
+        let _gate = lock(&self.0.gate);
+        self.unlock(None, Unlock::Password(password.as_bytes()), Method::Password(password))
     }
 
     pub fn unlock_recovery(&self, recovery_key: &str) -> AppResult<()> {
-        self.unlock(Unlock::Recovery(recovery_key), None)
+        let _gate = lock(&self.0.gate);
+        self.unlock(None, Unlock::Recovery(recovery_key), Method::Recovery)
+    }
+
+    /// Unlocks with Windows Hello. Blocks until the user answers the Hello dialog;
+    /// no lock is held meanwhile, so a password unlock can still finish first (the
+    /// Hello result is then discarded).
+    pub fn unlock_hello(&self) -> AppResult<()> {
+        if lock(&self.0.session).is_some() {
+            return Ok(());
+        }
+        if lock(&self.0.hello_flags).broken {
+            return Err(AppError::HelloNotFound);
+        }
+        let _busy = self.0.hello_busy.try_lock().map_err(|_| AppError::HelloBusy)?;
+        let file = self.0.storage.read()?.ok_or(AppError::NoVault)?;
+        let challenge = hello_challenge_for_file(&file)?;
+        let vault_id = Uuid::from_bytes(format::parse(&file)?.header.vault_id);
+        let signature = match self.0.hello.sign(&hello::credential_name(vault_id), &challenge) {
+            Ok(signature) => signature,
+            Err(HelloError::NotFound) => {
+                lock(&self.0.hello_flags).broken = true;
+                return Err(AppError::HelloNotFound);
+            }
+            Err(e) => return Err(e.into()),
+        };
+
+        let _gate = lock(&self.0.gate);
+        // Unlock the same file the challenge came from, so a concurrent change of
+        // the Hello slot cannot be mistaken for a changed credential.
+        match self.unlock(Some(&file), Unlock::Hello { signature: &signature }, Method::Hello) {
+            // The signature does not open the slot: the credential was re-created.
+            Err(AppError::BadCredentials) => {
+                lock(&self.0.hello_flags).broken = true;
+                Err(AppError::HelloNotFound)
+            }
+            other => other,
+        }
+    }
+
+    /// Windows Hello state without asking Windows (fast; part of `session_info`).
+    pub fn hello_info(&self) -> HelloInfo {
+        let unlocked = lock(&self.0.session)
+            .as_ref()
+            .map(|session| session.vault().slot_kinds().contains(&SlotKind::Hello));
+        let enrolled = unlocked.unwrap_or_else(
+            || matches!(self.0.storage.read(), Ok(Some(file)) if hello_challenge_for_file(&file).is_ok()),
+        );
+        let flags = lock(&self.0.hello_flags);
+        HelloInfo {
+            enrolled,
+            broken: flags.broken,
+            reenroll_suggested: flags.reenroll_suggested,
+        }
+    }
+
+    /// [`Self::hello_info`] plus whether Hello is usable on this PC (may block briefly).
+    pub fn hello_status(&self) -> HelloStatus {
+        HelloStatus {
+            supported: self.0.hello.is_supported(),
+            info: self.hello_info(),
+        }
+    }
+
+    /// Turns Hello on: creates the vault's Hello credential if needed and adds a
+    /// Hello slot. Needs the current password unless the session was unlocked with
+    /// the recovery key. Blocks on the Hello dialog without holding the session lock.
+    pub fn enable_hello(&self, current: Option<&str>) -> AppResult<()> {
+        let _busy = self.0.hello_busy.try_lock().map_err(|_| AppError::HelloBusy)?;
+        let vault_id = {
+            let guard = lock(&self.0.session);
+            let session = guard.as_ref().ok_or(AppError::Locked)?;
+            self.authorize(session, current)?;
+            session.vault().vault_id()
+        };
+        if !self.0.hello.is_supported() {
+            return Err(AppError::HelloUnavailable);
+        }
+        let name = hello::credential_name(vault_id);
+        self.0.hello.open_or_create(&name)?;
+        let salt = UnlockedVault::new_hello_salt(&mut OsRng);
+        let signature = self.0.hello.sign(&name, &hello_challenge(vault_id, &salt))?;
+
+        let mut guard = lock(&self.0.session);
+        // Locked (or a different vault opened) while the dialog was open.
+        let session = guard
+            .as_mut()
+            .filter(|s| s.vault().vault_id() == vault_id)
+            .ok_or(AppError::Locked)?;
+        session.persist_with(&self.0.storage, now_ms(), |vault| {
+            vault.set_hello_slot(&mut OsRng, salt, &signature);
+            Ok(())
+        })?;
+        *lock(&self.0.hello_flags) = HelloFlags::default();
+        Ok(())
+    }
+
+    /// Turns Hello off: removes the Hello slot and deletes the credential.
+    pub fn disable_hello(&self) -> AppResult<()> {
+        let vault_id = {
+            let mut guard = lock(&self.0.session);
+            let session = guard.as_mut().ok_or(AppError::Locked)?;
+            if session.vault().slot_kinds().contains(&SlotKind::Hello) {
+                session.persist_with(&self.0.storage, now_ms(), |vault| {
+                    vault.remove_hello_slot();
+                    Ok(())
+                })?;
+            }
+            session.vault().vault_id()
+        };
+        *lock(&self.0.hello_flags) = HelloFlags::default();
+        self.delete_hello_credential(vault_id);
+        Ok(())
+    }
+
+    /// Hides the "set up Windows Hello again" suggestion.
+    pub fn dismiss_hello_reenroll(&self) {
+        lock(&self.0.hello_flags).reenroll_suggested = false;
+    }
+
+    /// Best effort: a leftover credential only holds a key that wraps nothing.
+    fn delete_hello_credential(&self, vault_id: Uuid) {
+        if self.0.hello.delete(&hello::credential_name(vault_id)).is_err() {
+            eprintln!("xpass: deleting the Windows Hello credential failed");
+        }
     }
 
     /// Sets a new master password. `current` is required unless the session was
@@ -195,12 +388,17 @@ impl AppState {
     /// Compromise response: new VaultKey, password slot re-created with the same
     /// password, new recovery key (returned for a new Emergency Kit). Always needs the
     /// current password. Older files (backups) still open with the old credentials.
-    pub fn rotate_vault_key(&self, current: &str) -> AppResult<Zeroizing<String>> {
+    ///
+    /// The Hello slot is dropped too (re-enrolling needs a new Hello signature): the
+    /// result says whether it was, and the old credential is deleted.
+    pub fn rotate_vault_key(&self, current: &str) -> AppResult<Rotated> {
         let _gate = lock(&self.0.gate);
         let mut guard = lock(&self.0.session);
         let session = guard.as_mut().ok_or(AppError::Locked)?;
         self.verify_password(session, current)?;
         let target = self.0.target_kdf;
+        let hello_dropped = session.vault().slot_kinds().contains(&SlotKind::Hello);
+        let vault_id = session.vault().vault_id();
         let recovery_key = session.persist_with(&self.0.storage, now_ms(), |vault| {
             vault
                 .rotate(&mut OsRng, current.as_bytes(), target)
@@ -208,7 +406,14 @@ impl AppState {
         })?;
         drop(guard);
         self.mark_kit_generated();
-        Ok(recovery_key)
+        if hello_dropped {
+            lock(&self.0.hello_flags).reenroll_suggested = true;
+            self.delete_hello_credential(vault_id);
+        }
+        Ok(Rotated {
+            recovery_key,
+            hello_dropped,
+        })
     }
 
     /// Checks the current password for a sensitive action, with the same throttle
@@ -305,32 +510,78 @@ impl AppState {
         self.read(|p| entries::secret_value(p, id, field))
     }
 
-    fn unlock(&self, how: Unlock<'_>, password: Option<&str>) -> AppResult<()> {
-        let _gate = lock(&self.0.gate);
+    /// Opens the vault (`file`, or the one on disk) and starts the session. The
+    /// caller holds the gate.
+    ///
+    /// Hello unlocks skip the throttle: each attempt needs user verification by
+    /// Windows (which has its own lockout), and a failure is not a password guess.
+    fn unlock(&self, file: Option<&[u8]>, how: Unlock<'_>, method: Method<'_>) -> AppResult<()> {
         if lock(&self.0.session).is_some() {
             return Ok(());
         }
-        self.check_throttle()?;
-        let file = self.0.storage.read()?.ok_or(AppError::NoVault)?;
+        let hello = matches!(method, Method::Hello);
+        if !hello {
+            self.check_throttle()?;
+        }
+        let read;
+        let file = match file {
+            Some(file) => file,
+            None => {
+                read = self.0.storage.read()?.ok_or(AppError::NoVault)?;
+                &read
+            }
+        };
 
-        let vault = match UnlockedVault::unlock(&file, how) {
+        let vault = match UnlockedVault::unlock(file, how) {
             Ok(vault) => vault,
             Err(xpass_core::Error::BadCredentials) => {
-                lock(&self.0.throttle).record_failure(Instant::now());
+                if !hello {
+                    lock(&self.0.throttle).record_failure(Instant::now());
+                }
                 return Err(AppError::BadCredentials);
             }
             // A recovery-key typo is caught by its checksum and is not a guess.
             Err(e) => return Err(e.into()),
         };
-        lock(&self.0.throttle).record_success();
+        if !hello {
+            lock(&self.0.throttle).record_success();
+        }
 
-        let mut session = VaultSession::new(vault, password.is_none());
-        if let Some(password) = password {
+        let mut session = VaultSession::new(vault, matches!(method, Method::Recovery));
+        if let Method::Password(password) = method {
             self.rewrap_if_weak(&mut session, password);
+        }
+        if hello {
+            lock(&self.0.hello_flags).broken = false;
+        } else {
+            self.drop_broken_hello_slot(&mut session);
         }
         *lock(&self.0.session) = Some(session);
         *lock(&self.0.last_lock_reason) = None;
         Ok(())
+    }
+
+    /// After a Hello unlock found the credential missing or changed, the next
+    /// password or recovery unlock removes the dead Hello slot and suggests setting
+    /// Hello up again. Best effort: if saving fails, the flag stays and the next
+    /// unlock retries.
+    fn drop_broken_hello_slot(&self, session: &mut VaultSession) {
+        let mut flags = lock(&self.0.hello_flags);
+        if !flags.broken {
+            return;
+        }
+        if session.vault().slot_kinds().contains(&SlotKind::Hello) {
+            let result = session.persist_with(&self.0.storage, now_ms(), |vault| {
+                vault.remove_hello_slot();
+                Ok(())
+            });
+            if let Err(e) = result {
+                eprintln!("xpass: removing the Windows Hello slot failed: {e}");
+                return;
+            }
+        }
+        flags.broken = false;
+        flags.reenroll_suggested = true;
     }
 
     /// D6: re-wraps a password slot created with weaker KDF parameters. Best effort:
@@ -377,6 +628,7 @@ mod tests {
     };
 
     use super::*;
+    use crate::hello::fake::FakeHello;
 
     /// Smallest parameters `KdfParams::validate` accepts, to keep tests fast.
     const TEST_KDF: KdfParams = KdfParams {
@@ -391,10 +643,16 @@ mod tests {
     }
 
     fn setup() -> (tempfile::TempDir, Paths, AppState) {
+        let (tmp, paths, state, _) = setup_hello();
+        (tmp, paths, state)
+    }
+
+    fn setup_hello() -> (tempfile::TempDir, Paths, AppState, FakeHello) {
         let tmp = tempfile::tempdir().unwrap();
         let paths = Paths::new(tmp.path().join("data"));
-        let state = AppState::new(paths.clone(), TEST_KDF, test_clipboard());
-        (tmp, paths, state)
+        let fake = FakeHello::default();
+        let state = AppState::new(paths.clone(), TEST_KDF, test_clipboard(), Box::new(fake.clone()));
+        (tmp, paths, state, fake)
     }
 
     fn created() -> (tempfile::TempDir, Paths, AppState, String) {
@@ -438,7 +696,7 @@ mod tests {
     #[test]
     fn new_app_instance_sees_a_locked_vault() {
         let (_tmp, paths, _state, _) = created();
-        let restarted = AppState::new(paths, TEST_KDF, test_clipboard());
+        let restarted = AppState::new(paths, TEST_KDF, test_clipboard(), Box::new(FakeHello::default()));
         assert_eq!(restarted.status(), VaultStatus::Locked);
         restarted.unlock_password(PW).unwrap();
     }
@@ -512,7 +770,12 @@ mod tests {
             m_kib: 16 * 1024,
             ..TEST_KDF
         };
-        let upgraded = AppState::new(paths.clone(), stronger, test_clipboard());
+        let upgraded = AppState::new(
+            paths.clone(),
+            stronger,
+            test_clipboard(),
+            Box::new(FakeHello::default()),
+        );
 
         upgraded.unlock_recovery(&rec).unwrap();
         assert_eq!(
@@ -687,7 +950,12 @@ mod tests {
         use crate::{clipboard::fake::FakeClipboard, entries::EntryInput};
         let tmp = tempfile::tempdir().unwrap();
         let fake = FakeClipboard::default();
-        let state = AppState::new(Paths::new(tmp.path()), TEST_KDF, SecureClipboard::new(fake.clone()));
+        let state = AppState::new(
+            Paths::new(tmp.path()),
+            TEST_KDF,
+            SecureClipboard::new(fake.clone()),
+            Box::new(FakeHello::default()),
+        );
         state.create_vault(PW).unwrap();
         let input = EntryInput {
             id: None,
@@ -729,7 +997,7 @@ mod tests {
         );
         assert_eq!(
             serde_json::to_string(&info).unwrap(),
-            r#"{"status":"locked","lockReason":"displayOff"}"#
+            r#"{"status":"locked","lockReason":"displayOff","hello":{"enrolled":false,"broken":false,"reenrollSuggested":false}}"#
         );
 
         state.unlock_password(PW).unwrap();
@@ -743,8 +1011,10 @@ mod tests {
         assert!(state.settings().last_kit_at.is_some(), "kit date set on create");
         let before = fs::read(paths.vault()).unwrap();
 
-        assert_eq!(state.rotate_vault_key("wrong").unwrap_err(), AppError::BadCredentials);
-        let new_rec = state.rotate_vault_key(PW).unwrap();
+        assert_eq!(state.rotate_vault_key("wrong").err(), Some(AppError::BadCredentials));
+        let rotated = state.rotate_vault_key(PW).unwrap();
+        assert!(!rotated.hello_dropped);
+        let new_rec = rotated.recovery_key;
         assert_ne!(*new_rec, old_rec);
 
         state.lock();
@@ -780,8 +1050,250 @@ mod tests {
             AppError::InvalidInput { .. }
         ));
 
-        let restarted = AppState::new(paths, TEST_KDF, test_clipboard());
+        let restarted = AppState::new(paths, TEST_KDF, test_clipboard(), Box::new(FakeHello::default()));
         assert_eq!(restarted.settings().clipboard_clear_seconds, 45);
         assert_eq!(restarted.idle_timeout(), Some(Duration::from_secs(15 * 60)));
+    }
+
+    // --- Windows Hello ---------------------------------------------------------
+
+    /// Created vault (unlocked) with Hello turned on.
+    fn hello_enrolled() -> (tempfile::TempDir, Paths, AppState, FakeHello, String) {
+        let (tmp, paths, state, fake) = setup_hello();
+        let rec = state.create_vault(PW).unwrap().to_string();
+        state.enable_hello(Some(PW)).unwrap();
+        (tmp, paths, state, fake, rec)
+    }
+
+    fn hello_name(state: &AppState) -> String {
+        let file = state.0.storage.read().unwrap().unwrap();
+        hello::credential_name(Uuid::from_bytes(format::parse(&file).unwrap().header.vault_id))
+    }
+
+    fn slots_on_disk(paths: &Paths) -> Vec<SlotKind> {
+        let file = fs::read(paths.vault()).unwrap();
+        let parsed = format::parse(&file).unwrap();
+        parsed.header.slots.iter().map(|s| s.params.kind()).collect()
+    }
+
+    #[test]
+    fn hello_enable_then_unlock() {
+        let (_tmp, paths, state, fake, _) = hello_enrolled();
+        assert!(slots_on_disk(&paths).contains(&SlotKind::Hello));
+        assert!(fake.has(&hello_name(&state)));
+        assert!(state.hello_info().enrolled);
+
+        state.lock();
+        let info = state.session_info();
+        assert_eq!(info.status, VaultStatus::Locked);
+        assert!(info.hello.enrolled, "readable while locked");
+        state.unlock_hello().unwrap();
+        assert_eq!(state.status(), VaultStatus::Unlocked);
+        // Already unlocked: no second prompt.
+        let prompts = fake.prompts();
+        state.unlock_hello().unwrap();
+        assert_eq!(fake.prompts(), prompts);
+    }
+
+    #[test]
+    fn hello_unlock_is_not_a_recovery_session() {
+        let (_tmp, _paths, state, _fake, _) = hello_enrolled();
+        state.lock();
+        state.unlock_hello().unwrap();
+        // Sensitive actions still need the password.
+        assert_eq!(
+            state.change_password(None, NEW_PW).unwrap_err(),
+            AppError::InvalidInput {
+                field: "currentPassword"
+            }
+        );
+    }
+
+    #[test]
+    fn hello_enable_needs_the_password_except_after_recovery() {
+        let (_tmp, paths, state, _fake) = setup_hello();
+        let rec = state.create_vault(PW).unwrap().to_string();
+        assert_eq!(
+            state.enable_hello(None).unwrap_err(),
+            AppError::InvalidInput {
+                field: "currentPassword"
+            }
+        );
+        assert_eq!(state.enable_hello(Some("wrong")).unwrap_err(), AppError::BadCredentials);
+        assert!(!slots_on_disk(&paths).contains(&SlotKind::Hello));
+
+        state.lock();
+        state.unlock_recovery(&rec).unwrap();
+        state.enable_hello(None).unwrap();
+        assert!(slots_on_disk(&paths).contains(&SlotKind::Hello));
+    }
+
+    #[test]
+    fn hello_enable_failures_change_nothing() {
+        let (_tmp, paths, state, fake) = setup_hello();
+        state.create_vault(PW).unwrap();
+        let before = fs::read(paths.vault()).unwrap();
+
+        fake.fail_next(HelloError::Canceled);
+        assert_eq!(state.enable_hello(Some(PW)).unwrap_err(), AppError::HelloCanceled);
+        fake.set_supported(false);
+        assert_eq!(state.enable_hello(Some(PW)).unwrap_err(), AppError::HelloUnavailable);
+        assert!(!state.hello_status().supported);
+        assert_eq!(fs::read(paths.vault()).unwrap(), before);
+
+        state.lock();
+        assert_eq!(state.enable_hello(Some(PW)).unwrap_err(), AppError::Locked);
+    }
+
+    #[test]
+    fn hello_unlock_without_slot_or_vault() {
+        let (_tmp, _paths, state) = setup();
+        assert_eq!(state.unlock_hello().unwrap_err(), AppError::NoVault);
+        state.create_vault(PW).unwrap();
+        state.lock();
+        assert!(!state.hello_info().enrolled);
+        assert_eq!(state.unlock_hello().unwrap_err(), AppError::NoSuchSlot);
+    }
+
+    #[test]
+    fn hello_disable_removes_slot_and_credential() {
+        let (_tmp, paths, state, fake, _) = hello_enrolled();
+        let name = hello_name(&state);
+        state.disable_hello().unwrap();
+        assert!(!slots_on_disk(&paths).contains(&SlotKind::Hello));
+        assert!(!fake.has(&name));
+        state.lock();
+        assert!(!state.hello_info().enrolled);
+        assert_eq!(state.unlock_hello().unwrap_err(), AppError::NoSuchSlot);
+    }
+
+    #[test]
+    fn hello_reset_falls_back_to_password_and_drops_the_slot() {
+        let (_tmp, paths, state, fake, _) = hello_enrolled();
+        state.lock();
+        fake.reset();
+        assert_eq!(state.unlock_hello().unwrap_err(), AppError::HelloNotFound);
+        assert!(state.session_info().hello.broken);
+        // No further prompts once broken.
+        let prompts = fake.prompts();
+        assert_eq!(state.unlock_hello().unwrap_err(), AppError::HelloNotFound);
+        assert_eq!(fake.prompts(), prompts);
+        assert!(
+            slots_on_disk(&paths).contains(&SlotKind::Hello),
+            "file unchanged while locked"
+        );
+
+        state.unlock_password(PW).unwrap();
+        assert!(!slots_on_disk(&paths).contains(&SlotKind::Hello));
+        let info = state.hello_info();
+        assert!(!info.enrolled && !info.broken && info.reenroll_suggested);
+
+        // Re-enroll works and clears the suggestion.
+        state.enable_hello(Some(PW)).unwrap();
+        assert!(!state.hello_info().reenroll_suggested);
+        state.lock();
+        state.unlock_hello().unwrap();
+    }
+
+    #[test]
+    fn hello_recreated_credential_is_handled_like_a_reset_and_not_throttled() {
+        let (_tmp, paths, state, fake, rec) = hello_enrolled();
+        state.lock();
+        fake.recreate(&hello_name(&state));
+        assert_eq!(state.unlock_hello().unwrap_err(), AppError::HelloNotFound);
+        assert!(state.hello_info().broken);
+        // Not counted as a failed guess: the password unlocks at once.
+        state.unlock_password(PW).unwrap();
+        assert!(!slots_on_disk(&paths).contains(&SlotKind::Hello));
+        assert!(state.hello_info().reenroll_suggested);
+        state.dismiss_hello_reenroll();
+        assert!(!state.hello_info().reenroll_suggested);
+        // The recovery key still works too.
+        state.lock();
+        state.unlock_recovery(&rec).unwrap();
+    }
+
+    #[test]
+    fn hello_cancel_and_lockout_keep_the_slot() {
+        let (_tmp, paths, state, fake, _) = hello_enrolled();
+        state.lock();
+        fake.fail_next(HelloError::Canceled);
+        assert_eq!(state.unlock_hello().unwrap_err(), AppError::HelloCanceled);
+        fake.fail_next(HelloError::DeviceLocked);
+        assert_eq!(state.unlock_hello().unwrap_err(), AppError::HelloDeviceLocked);
+        assert!(!state.session_info().hello.broken);
+        state.unlock_hello().unwrap();
+        assert!(slots_on_disk(&paths).contains(&SlotKind::Hello));
+    }
+
+    #[test]
+    fn hello_unlock_works_while_password_is_throttled() {
+        let (_tmp, _paths, state, _fake, _) = hello_enrolled();
+        state.lock();
+        // Two failures start the delay (0 s after the first, 1 s after the second).
+        for _ in 0..2 {
+            let _ = state.unlock_password("wrong");
+        }
+        assert!(matches!(
+            state.unlock_password(PW).unwrap_err(),
+            AppError::Throttled { .. }
+        ));
+        state.unlock_hello().unwrap();
+    }
+
+    #[test]
+    fn hello_survives_password_change_and_new_kit_but_not_rotation() {
+        let (_tmp, paths, state, fake, _) = hello_enrolled();
+        let name = hello_name(&state);
+        state.change_password(Some(PW), NEW_PW).unwrap();
+        state.new_recovery_key(Some(NEW_PW)).unwrap();
+        state.lock();
+        state.unlock_hello().unwrap();
+
+        let rotated = state.rotate_vault_key(NEW_PW).unwrap();
+        assert!(rotated.hello_dropped);
+        assert!(!slots_on_disk(&paths).contains(&SlotKind::Hello));
+        assert!(!fake.has(&name), "old credential deleted");
+        assert!(state.hello_info().reenroll_suggested);
+
+        // Re-enroll after rotation uses the same credential name (same vault id).
+        state.enable_hello(Some(NEW_PW)).unwrap();
+        assert_eq!(fake.names(), vec![name]);
+        state.lock();
+        state.unlock_hello().unwrap();
+    }
+
+    #[test]
+    fn hello_credentials_are_per_vault() {
+        let (_tmp1, _p1, a, fake) = setup_hello();
+        let tmp2 = tempfile::tempdir().unwrap();
+        let b = AppState::new(
+            Paths::new(tmp2.path().join("data")),
+            TEST_KDF,
+            test_clipboard(),
+            Box::new(fake.clone()),
+        );
+        for state in [&a, &b] {
+            state.create_vault(PW).unwrap();
+            state.enable_hello(Some(PW)).unwrap();
+        }
+        assert_eq!(fake.names().len(), 2);
+        a.disable_hello().unwrap();
+        b.lock();
+        b.unlock_hello().unwrap();
+    }
+
+    #[test]
+    fn session_info_serializes_hello_state() {
+        let (_tmp, _paths, state, _fake, _) = hello_enrolled();
+        state.lock();
+        let json = serde_json::to_value(state.session_info()).unwrap();
+        assert_eq!(
+            json["hello"],
+            serde_json::json!({"enrolled": true, "broken": false, "reenrollSuggested": false})
+        );
+        let status = serde_json::to_value(state.hello_status()).unwrap();
+        assert_eq!(status["supported"], true);
+        assert_eq!(status["enrolled"], true);
     }
 }
