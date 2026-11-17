@@ -27,13 +27,13 @@ jobs:
       released: ${{ steps.tag_version.outputs.new_tag != '' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Determine next version
         id: tag_version
-        uses: mathieudutour/github-tag-action@v6.2
+        uses: mathieudutour/github-tag-action@v7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           default_bump: false
@@ -42,7 +42,7 @@ jobs:
 
       - name: Setup Node.js
         if: steps.tag_version.outputs.new_tag != ''
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
 
@@ -90,12 +90,12 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'push' && needs.tag-release.outputs.new_tag || github.ref }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -121,7 +121,6 @@ jobs:
           releaseDraft: false
           prerelease: false
           assetNamePattern: "[name]_[version]_[platform]_[arch][setup][ext]"
-          releaseAssetNamePattern: "[name]_[version]_[platform]_[arch][setup][ext]"
 
       - name: Build app bundles
         if: github.event_name == 'workflow_dispatch'
@@ -131,7 +130,7 @@ jobs:
 
       - name: Upload artifacts
         if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: xpass-windows-x64
           path: target/release/bundle/**
