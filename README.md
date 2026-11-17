@@ -2,12 +2,14 @@
 
 Zero-knowledge personal password manager for Windows, built with Tauri (Rust + React).
 
-> Status: **v0.2 — local vault with a custom title bar**. Windows Hello (v0.3) and GitHub sync (v0.4) are next. See [docs/PLAN.md](docs/PLAN.md).
+> Status: **v0.3 — local vault with Windows Hello unlock**. GitHub sync (v0.4) is next. See [docs/PLAN.md](docs/PLAN.md).
 
-## Features (v0.2)
+## Features (v0.3)
 
 - **Encrypted local vault** — one file, `%APPDATA%\com.bs135.xpass\vault.xpv`, with the last 10 versions kept in
   `backups\`.
+- **Windows Hello unlock** — face, fingerprint or PIN instead of typing the master password; the password stays
+  available and is needed to turn Hello on.
 - **Master password + Emergency Kit** — a printable recovery key, confirmed at setup, unlocks the vault if the
   password is forgotten.
 - **Entries** — title, username, password, websites, tags, notes, favorites; search and keyboard shortcuts.
@@ -23,7 +25,8 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
 
 - A random **VaultKey** encrypts the vault (XChaCha20-Poly1305). It is stored only wrapped by key-encryption keys:
   - master password → **Argon2id** (128 MiB, t=3, p=4);
-  - recovery key (256 bits) → HKDF.
+  - recovery key (256 bits) → HKDF;
+  - Windows Hello (optional) → HKDF of a signature made by a key in the PC's TPM, which needs Hello consent.
 - The whole file header is authenticated: any modified byte is detected and reported, never silently accepted.
 - Wrong passwords are throttled (1, 2, 4 … 30 s).
 - All crypto and file handling is in Rust (`crates/xpass-core`). The WebView never holds the VaultKey and receives a
@@ -81,6 +84,7 @@ spikes/              feasibility spikes (reference only)
 - [docs/PLAN.md](docs/PLAN.md) — implementation plan and milestones
 - [docs/plan-v0.1.0.md](docs/plan-v0.1.0.md) — v0.1 tasks and manual test checklist
 - [docs/plan-v0.2.0.md](docs/plan-v0.2.0.md) — v0.2 tasks (custom title bar) and manual test checklist
+- [docs/plan-v0.3.0.md](docs/plan-v0.3.0.md) — v0.3 tasks (Windows Hello unlock) and manual test checklist
 - [docs/spikes/](docs/spikes) — feasibility spikes (Windows Hello, vault format, GitHub sync)
 - [CHANGELOG.md](CHANGELOG.md)
 

@@ -46,7 +46,7 @@ Items the spikes left open. **All accepted on 2026-11-16.**
 | D6 | Argon2id | `argon2` 0.5, 128 MiB / t=3 / p=4; re-wrap password slot on unlock if below current default | ~0.9 s on the target laptop; Hello covers daily unlocks. |
 | D7 | HTTP client | `reqwest` **async** on Tauri's tokio runtime, rustls | Spike used blocking; the app must not block the UI thread. |
 | D8 | Sync triggers | On unlock, 5 min timer while unlocked, 10 s after the last edit (debounced), on lock/close (8 s timeout) | Few commits, fresh data; matches logledge's proven cadence. |
-| D9 | Hello credential name | `xpass/<vault_id>` | Unpackaged apps share the per-user namespace (spike finding). |
+| D9 | Hello credential name | `xpass-<vault_id>` | Unpackaged apps share the per-user namespace (spike finding); a dash avoids key-container naming rules. |
 | D10 | Update check | Rust command calling GitHub Releases API (not frontend `fetch`) | Keeps a strict CSP with no network access from the WebView. |
 
 ---
@@ -100,7 +100,7 @@ fuzzable on any OS.
 | `%APPDATA%\xpass\sync-state.json` | `base_sha`, `dirty`, last sync time/result |
 | `%APPDATA%\xpass\settings.json` | Non-secret settings (repo, branch, path, timeouts, language, theme) |
 | Windows Credential Manager | GitHub PAT (`xpass/github-token`) |
-| TPM (Windows Hello) | Hello key `xpass/<vault_id>`; only the *wrapped* VaultKey lives in the vault header |
+| TPM (Windows Hello) | Hello key `xpass-<vault_id>`; only the *wrapped* VaultKey lives in the vault header |
 
 ### 3.4 Data model (payload schema 1)
 
@@ -164,6 +164,8 @@ permissions. Details: [plan-v0.2.0.md](plan-v0.2.0.md).
 
 ### v0.3 — Windows Hello (size: M, ~1–2 weeks)
 
+Implemented in T13–T16; details and the manual checklist: [plan-v0.3.0.md](plan-v0.3.0.md).
+
 1. `hello.rs`: port spike (create/open/sign via `windows` crate, async `join` off the UI thread), focus watcher.
 2. Enable flow (after password unlock): salt → sign → `set_hello_slot` → save. Disable: remove slot + delete credential.
 3. Unlock screen: Hello button as default when the slot exists; password fallback always visible.
@@ -225,7 +227,7 @@ CSV import with column mapping presets (Bitwarden, Chrome, KeePassXC, generic), 
 |---|---|---|
 | Frontend supply chain (npm) | Secrets exfiltrated from WebView | Minimal deps, lockfile, `npm audit`, strict CSP + no network from WebView, no secrets in frontend state. |
 | Bug in merge loses data | High | Algebraic tests, history copy (D1), local backups, git history as last resort. |
-| Hello prompt behind Tauri window | UX | Focus watcher from spike; verify in v0.3. |
+| Hello prompt behind Tauri window | UX | Focus watcher from the spike; verified in v0.3: the prompt shows in front of the window. |
 | Forgotten master password and lost Emergency Kit | Total loss | Kit is mandatory at setup with confirmation; reminder in Settings. |
 | GitHub PAT expiry | Sync stops | Clear status + re-enter flow; no data loss (offline-first). |
 | Clock skew | Wrong LWW winner | D2 + history copy (D1). |

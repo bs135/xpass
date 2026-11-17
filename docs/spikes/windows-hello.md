@@ -52,19 +52,24 @@ which is the user verification time, not computation.
 1. **Works from an unpackaged Rust process.** No MSIX packaging or app identity is required.
 2. **Signatures are deterministic**, so `HKDF(signature)` gives a stable KEK across processes and reboots. The planned design
    in IDEA.md §3.1 is confirmed.
-3. **Foreground**: the dialog window can be found and focused from a console process. Whether it is needed in a
-   Tauri/WebView2 window is not yet known (see open items).
+3. **Foreground**: the dialog window can be found and focused from a console process, and from the Tauri/WebView2
+   window in v0.3 (see open items).
 4. The KEK never touches disk; only the wrapped VaultKey and the salt do. Reading Credential Manager or the state
    file is not enough to unlock — a Hello signature is required.
 
 ## Open items
 
 - [x] **Reboot**: `unlock` after a restart derived the same KEK and unwrapped the VaultKey.
-- [ ] **Tauri window**: repeat focus behaviour from a real Tauri window (the target), with and without the watcher.
-- [ ] **Hello reset**: removing the PIN / resetting Hello deletes the TPM key, so the Hello KEK is lost for good.
-  The app must detect `NotFound` and fall back to the master password, then offer re-enrollment. Expected, untested.
-- [ ] **Credential name**: unpackaged apps share the credential namespace per user. Use a specific name
-  (e.g. `xpass/<vault-id>`) per vault.
+- [x] **Tauri window**: in v0.3 the Hello dialog appeared in front of the xPass window every time (enable, unlock
+  button, auto-prompt on lock and on start, restore from minimize). Tested with the watcher only; it stays on,
+  because `KeyCredentialManager` has no HWND-owned interop to make the dialog a child of the window.
+- [x] **Hello reset**: handled in v0.3. A missing credential (`NotFound`) or a signature that no longer opens the
+  slot marks Hello as broken: the unlock screen explains it and hides the Hello button, the next password or
+  recovery unlock removes the dead slot, and the app offers to set Hello up again. Covered by unit tests with a
+  fake Hello backend; the check on a real PC (removing the PIN) is in the
+  [v0.3.0 manual checklist](../plan-v0.3.0.md#manual-test-checklist-v030).
+- [x] **Credential name**: `xpass-<vault-id>` per vault (a dash instead of a slash to stay clear of key-container
+  naming rules). A VaultKey rotation deletes the credential; re-enrolling creates it again.
 
 ## Residual risk
 

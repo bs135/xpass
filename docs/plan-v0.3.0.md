@@ -1,6 +1,6 @@
 # v0.3.0 Plan: Windows Hello unlock
 
-Status: **draft** (2026-11-17). Parent: [PLAN.md §4 v0.3](PLAN.md#v03--windows-hello-size-m-12-weeks).
+Status: **done** (2026-11-17). Parent: [PLAN.md §4 v0.3](PLAN.md#v03--windows-hello-size-m-12-weeks).
 Spike: [docs/spikes/windows-hello.md](spikes/windows-hello.md).
 
 ## Goal
