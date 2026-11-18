@@ -24,6 +24,9 @@ pub const HISTORY_LIMIT: usize = 20;
 /// `HistoryItem::note` for a version that lost a merge conflict (D1).
 pub const HISTORY_NOTE_CONFLICT: &str = "conflict";
 
+/// `HistoryItem::note` for the version replaced by restoring a backup.
+pub const HISTORY_NOTE_RESTORE: &str = "restore";
+
 /// Unknown JSON fields preserved across load/save (D5).
 pub type Extra = Map<String, Value>;
 

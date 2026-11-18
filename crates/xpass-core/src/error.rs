@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(Debug, Clone, Error, PartialEq, Eq)]
 pub enum Error {
     /// File is not an xpass vault or is truncated / malformed.
     #[error("invalid vault file: {0}")]

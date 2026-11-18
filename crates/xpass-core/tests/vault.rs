@@ -354,6 +354,73 @@ fn open_sibling_detects_a_tampered_payload() {
     assert_eq!(v.open_sibling(&bad).unwrap_err(), Error::Tampered);
 }
 
+#[test]
+fn open_sibling_ignores_another_devices_hello_slot_when_detecting_tampering() {
+    let (file, _) = sample(19);
+    let mut r = rng(190);
+    let a = UnlockedVault::unlock(&file, Unlock::Password(PW)).unwrap();
+    let mut b = a.clone();
+    let salt = UnlockedVault::new_hello_salt(&mut r);
+    b.set_hello_slot(&mut r, salt, b"signature of B");
+    let mut b_file = b.save(&mut r).unwrap();
+    let last = b_file.len() - 1;
+    b_file[last] ^= 0x01;
+    assert_eq!(a.open_sibling(&b_file).unwrap_err(), Error::Tampered);
+}
+
+// ---- slot helpers used by sync (S4, S5) ----
+
+#[test]
+fn copy_slots_from_replaces_only_the_given_kinds() {
+    let (file, _) = sample(20);
+    let mut r = rng(200);
+    let local = {
+        let mut v = UnlockedVault::unlock(&file, Unlock::Password(PW)).unwrap();
+        let salt = UnlockedVault::new_hello_salt(&mut r);
+        v.set_hello_slot(&mut r, salt, b"local hello");
+        v
+    };
+    let mut remote = UnlockedVault::unlock(&file, Unlock::Password(PW)).unwrap();
+    remote.change_password(&mut r, b"remote password", TEST_KDF).unwrap();
+    assert!(!local.same_slots(&remote, SlotKind::Password));
+    assert!(local.same_slots(&remote, SlotKind::Recovery));
+
+    remote.copy_slots_from(&local, &[SlotKind::Hello]).unwrap();
+    assert_eq!(
+        remote.slot_kinds(),
+        [SlotKind::Password, SlotKind::Recovery, SlotKind::Hello]
+    );
+    let saved = remote.save(&mut r).unwrap();
+    UnlockedVault::unlock(
+        &saved,
+        Unlock::Hello {
+            signature: b"local hello",
+        },
+    )
+    .unwrap();
+    UnlockedVault::unlock(&saved, Unlock::Password(b"remote password")).unwrap();
+
+    // Copying a kind the source does not have removes it.
+    let plain = UnlockedVault::unlock(&file, Unlock::Password(PW)).unwrap();
+    remote.copy_slots_from(&plain, &[SlotKind::Hello]).unwrap();
+    assert!(!remote.slot_kinds().contains(&SlotKind::Hello));
+}
+
+#[test]
+fn copy_slots_from_refuses_a_different_key() {
+    let (file, _) = sample(21);
+    let mut r = rng(210);
+    let a = UnlockedVault::unlock(&file, Unlock::Password(PW)).unwrap();
+    let mut rotated = a.clone();
+    rotated.rotate(&mut r, PW, TEST_KDF).unwrap();
+    assert!(!rotated.same_key(&a));
+    assert!(a.same_key(&a.clone()));
+    assert_eq!(
+        rotated.copy_slots_from(&a, &[SlotKind::Password]).unwrap_err(),
+        Error::KeyChanged
+    );
+}
+
 // ---- D5: unknown fields survive ----
 
 #[test]
