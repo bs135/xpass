@@ -45,7 +45,8 @@
     "vaultFormat": "Định dạng kho",
     "license": "Giấy phép",
     "projectPage": "Trang dự án trên GitHub",
-    "rotateExplainHello": "Windows Hello sẽ bị tắt. Bạn có thể thiết lập lại ngay sau đó."
+    "rotateExplainHello": "Windows Hello sẽ bị tắt. Bạn có thể thiết lập lại ngay sau đó.",
+    "rotateExplainSync": "Đồng bộ đang bật: vault mới được tải lên GitHub trước, nên cần có kết nối. Các máy khác sẽ hỏi mật khẩu chính một lần."
   },
   "theme": {
     "system": "Theo hệ thống",
@@ -66,7 +67,8 @@
     "delete": "Xoá",
     "copy": "Sao chép",
     "close": "Đóng",
-    "back": "Quay lại"
+    "back": "Quay lại",
+    "ok": "OK"
   },
   "password": {
     "new": "Mật khẩu chính",
@@ -86,7 +88,9 @@
     "title": "Tạo kho mật khẩu",
     "intro": "Chọn một mật khẩu chính. Mật khẩu này dùng để mã hoá kho và không bao giờ được lưu hay gửi đi đâu. Nếu quên, chỉ có Emergency Kit mới mở được kho.",
     "submit": "Tạo kho",
-    "creating": "Đang tạo kho…"
+    "creating": "Đang tạo kho…",
+    "createTab": "Tạo vault mới",
+    "joinTab": "Dùng vault từ GitHub"
   },
   "kit": {
     "title": "Emergency Kit của bạn",
@@ -221,7 +225,18 @@
     "hello_canceled": "Đã huỷ Windows Hello.",
     "hello_device_locked": "Windows Hello bị khoá do thử sai quá nhiều lần. Hãy mở khoá nó trong Windows, hoặc dùng mật khẩu chính.",
     "hello_busy": "Windows Hello đang chờ bạn xác nhận.",
-    "hello_failed": "Windows Hello không hoạt động. Hãy thử lại hoặc dùng mật khẩu chính."
+    "hello_failed": "Windows Hello không hoạt động. Hãy thử lại hoặc dùng mật khẩu chính.",
+    "secret_store": "Windows Credential Manager không khả dụng nên không đọc hoặc lưu được GitHub token.",
+    "sync_not_configured": "Chưa cài đặt đồng bộ. Hãy nhập repository và GitHub token.",
+    "sync_offline": "Không kết nối được GitHub. Kiểm tra mạng; các thay đổi vẫn được giữ trên máy này.",
+    "sync_unauthorized": "GitHub token không hợp lệ hoặc đã hết hạn. Hãy nhập token mới.",
+    "sync_forbidden": "GitHub token không đủ quyền. Token cần Contents: Read and write trên repository này.",
+    "sync_rate_limited": "Đã chạm giới hạn request của GitHub. Hãy thử lại sau.",
+    "sync_rate_limited_wait": "Đã chạm giới hạn request của GitHub. Hãy thử lại sau khoảng {{minutes}} phút.",
+    "sync_repo_not_found": "Không tìm thấy repository, hoặc token không truy cập được. Kiểm tra tên repository và quyền của token.",
+    "sync_failed": "Đồng bộ với GitHub thất bại. Hãy thử lại.",
+    "sync_remote_missing": "Không có vault ở đường dẫn này trên GitHub.",
+    "sync_required": "Cần đồng bộ thành công với GitHub trước. Kiểm tra kết nối và trạng thái đồng bộ rồi thử lại. Chưa có gì bị thay đổi."
   },
   "about": {
     "version": "Phiên bản {{version}} · định dạng vault v{{format}}"
@@ -254,6 +269,128 @@
     "reenrollTitle": "Windows Hello đã bị tắt",
     "reenrollMessage": "Khoá mã hoá kho đã được đổi hoặc Windows Hello trên máy này đã được thiết lập lại, nên Windows Hello không còn mở được kho này.",
     "reenroll": "Thiết lập lại",
-    "notNow": "Để sau"
+    "notNow": "Để sau",
+    "keyChangePending": "Khoá vault đã được đổi trên máy khác. Hãy nhập mật khẩu chính ở thông báo đồng bộ trước, rồi mới bật Windows Hello."
+  },
+  "sync": {
+    "title": "Đồng bộ",
+    "intro": "Đồng bộ vault này giữa các máy tính qua một file trong repository GitHub riêng tư. Chỉ vault đã mã hoá được tải lên; GitHub không bao giờ thấy mật khẩu hay mật khẩu chính của bạn.",
+    "repo": "Repository",
+    "repoPlaceholder": "owner/name hoặc https://github.com/owner/name",
+    "branch": "Branch",
+    "defaultBranch": "Branch mặc định",
+    "path": "Đường dẫn file",
+    "token": "GitHub token",
+    "tokenStored": "Đã lưu trong Windows Credential Manager.",
+    "tokenMissing": "Chưa có",
+    "needsToken": "Đồng bộ đang tắt cho đến khi lưu GitHub token. Chọn Thay đổi và nhập token.",
+    "replaceToken": "Thay token",
+    "test": "Kiểm tra kết nối",
+    "testFirst": "Hãy kiểm tra kết nối trước khi lưu. Token được lưu trong Windows Credential Manager và không bao giờ hiển thị lại.",
+    "saved": "Đã lưu cài đặt đồng bộ.",
+    "change": "Thay đổi",
+    "disconnect": "Tắt đồng bộ",
+    "disconnectTitle": "Tắt đồng bộ?",
+    "disconnectMessage": "Token bị xoá khỏi máy này và xPass ngừng đồng bộ. Vault trên máy này và bản trên GitHub không thay đổi.",
+    "disconnected": "Đã tắt đồng bộ.",
+    "report": {
+      "missing": "Đã kết nối. Chưa có vault ở đường dẫn này; lần đồng bộ đầu tiên sẽ tạo nó trên branch {{branch}}.",
+      "sameVault": "Đã kết nối. Vault này đã có ở đường dẫn này.",
+      "found": "Đã kết nối. Tìm thấy một vault xPass ở đường dẫn này.",
+      "otherVault": "Đường dẫn này đang chứa một vault xPass khác. Hãy chọn đường dẫn hoặc repository khác.",
+      "notAVault": "Đường dẫn này chứa một file không phải vault xPass. Hãy chọn đường dẫn khác.",
+      "branchMissing": "Branch {{branch}} không tồn tại trong repository này.",
+      "public": "Repository này là public. Vault đã được mã hoá, nhưng ai cũng có thể tải nó và toàn bộ lịch sử. Rất nên dùng repository private.",
+      "publicAck": "Tôi hiểu và vẫn muốn dùng repository public này.",
+      "joinMissing": "Đã kết nối, nhưng không có vault ở đường dẫn này. Kiểm tra branch và đường dẫn đang dùng trên máy kia."
+    },
+    "guide": {
+      "title": "Cách tạo GitHub token",
+      "steps": [
+        "Tạo một repository private trên GitHub để chứa vault (repository trống cũng được).",
+        "Mở GitHub > Settings > Developer settings > Personal access tokens > Fine-grained tokens, chọn Generate new token.",
+        "Repository access: Only select repositories, chọn repository chứa vault.",
+        "Permissions: Contents: Read and write (Metadata: Read-only được thêm tự động).",
+        "Chọn ngày hết hạn, tạo token và dán vào đây. Khi token hết hạn, bạn có thể thay token mới tại đây."
+      ],
+      "note": "Hãy dùng token chỉ truy cập được đúng repository này. Đừng dùng lại token có quyền rộng hơn.",
+      "open": "Mở trang tạo token trên GitHub"
+    },
+    "syncNow": "Đồng bộ ngay",
+    "status": {
+      "off": "Đồng bộ đang tắt.",
+      "syncing": "Đang đồng bộ…",
+      "synced": "Đã đồng bộ.",
+      "syncedAgo_one": "Đã đồng bộ {{count}} phút trước.",
+      "syncedAgo_other": "Đã đồng bộ {{count}} phút trước.",
+      "pending": "Có thay đổi trên máy này chưa được đồng bộ.",
+      "offline": "Offline. Thay đổi được giữ trên máy này và sẽ đồng bộ sau.",
+      "noToken": "Đồng bộ đang tắt cho đến khi lưu GitHub token trên máy này.",
+      "tokenInvalid": "Đồng bộ đã dừng: cần thay GitHub token.",
+      "needsPassword": "Đồng bộ đã dừng: khoá vault đã được đổi trên máy khác. Cần nhập mật khẩu chính.",
+      "differentVault": "Đồng bộ đã dừng: GitHub đang chứa một vault khác ở đường dẫn này.",
+      "error": "Đồng bộ thất bại; sẽ thử lại."
+    }
+  },
+  "join": {
+    "title": "Dùng vault từ GitHub",
+    "intro": "Đã dùng xPass trên máy khác với đồng bộ GitHub? Nhập cùng repository và một GitHub token, rồi nhập mật khẩu chính. Vault sẽ được tải về và mở trên máy này.",
+    "password": "Mật khẩu chính của vault này",
+    "submit": "Tải về và mở",
+    "joining": "Đang mở vault…",
+    "doneTitle": "Vault đã có trên máy này",
+    "done": "Đã tải vault về và bật đồng bộ.",
+    "kitReminder": "Emergency Kit hiện có vẫn mở được vault này; không cần kit mới. Thay đổi trên máy này và các máy khác được đồng bộ qua GitHub.",
+    "helloOffer": "Windows Hello có thể mở khoá vault trên máy này bằng khuôn mặt, vân tay hoặc PIN.",
+    "continue": "Mở vault"
+  },
+  "syncProblem": {
+    "passwordChangedTitle": "Mật khẩu chính đã được đổi trên máy khác",
+    "passwordChanged": "Dùng mật khẩu chính mới ở lần mở khoá xPass tiếp theo trên máy này. Windows Hello vẫn hoạt động.",
+    "tokenTitle": "GitHub token đã hết hạn hoặc thiếu quyền",
+    "token": "Đồng bộ đang tạm dừng. Thay đổi vẫn được giữ trên máy này. Hãy nhập token mới trong cài đặt đồng bộ.",
+    "tokenInSettings": "Đồng bộ đang tạm dừng. Thay đổi vẫn được giữ trên máy này. Chọn Thay đổi và nhập token mới.",
+    "openSettings": "Mở cài đặt đồng bộ",
+    "keyTitle": "Khoá vault đã được đổi trên máy khác",
+    "key": "Khoá vault đã được thay trên một máy khác nên đồng bộ đang tạm dừng. Nhập mật khẩu chính để tiếp tục. Thay đổi trên máy này được giữ nguyên.",
+    "enterPassword": "Nhập mật khẩu",
+    "keyPassword": "Mật khẩu chính",
+    "keyExplain": "Nhập mật khẩu chính đang dùng trên máy kia. Thay đổi trên máy này sẽ được gộp và đồng bộ.",
+    "continue": "Tiếp tục",
+    "resumed": "Đã tiếp tục đồng bộ.",
+    "otherTitle": "GitHub đang chứa một vault khác",
+    "other": "File ở đường dẫn này thuộc về một vault khác nên đồng bộ đã dừng. Dùng đường dẫn khác trong cài đặt đồng bộ, hoặc thay vault của máy này bằng vault trên GitHub.",
+    "otherInSettings": "File ở đường dẫn này thuộc về một vault khác nên đồng bộ đã dừng. Chọn Thay đổi để dùng đường dẫn khác, hoặc thay vault của máy này bằng vault trên GitHub.",
+    "otherPath": "Dùng đường dẫn khác",
+    "replace": "Thay vault của máy này",
+    "replacePassword": "Mật khẩu chính của vault trên GitHub",
+    "replaceConfirm": "Thay thế",
+    "replaceExplain": [
+      "Vault của máy này được thay bằng vault trên GitHub. Các mục chỉ có trên máy này sẽ không còn hiển thị.",
+      "File vault hiện tại được giữ trong thư mục backups.",
+      "Từ giờ, mở khoá bằng mật khẩu chính của vault trên GitHub."
+    ],
+    "replaced": "Máy này giờ dùng vault từ GitHub."
+  },
+  "restore": {
+    "title": "Khôi phục phiên bản trước",
+    "intro": "xPass giữ 10 phiên bản gần nhất của vault trên máy này, mỗi lần lưu một bản. Khôi phục một bản sẽ đưa các mục về như lúc đó.",
+    "none": "Chưa có phiên bản trước nào.",
+    "entries_one": "{{count}} mục",
+    "entries_other": "{{count}} mục",
+    "size": "{{kb}} KB",
+    "kind": {
+      "olderKey": "Lưu trước khi đổi khoá vault",
+      "otherVault": "Vault khác; không khôi phục được ở đây",
+      "unreadable": "Bị hỏng; không khôi phục được"
+    },
+    "button": "Khôi phục",
+    "confirmTitle": "Khôi phục phiên bản này?",
+    "explain": "Các mục được đưa về như lúc {{date}}: mục thêm sau đó bị xoá, mục đã sửa trở lại nội dung cũ (giá trị hiện tại vẫn nằm trong lịch sử của mục).",
+    "keepCurrent": "Phiên bản hiện tại được giữ lại, nên có thể hoàn tác ở đây.",
+    "syncs": "Lần khôi phục được lưu như một thay đổi mới và đồng bộ sang các máy khác.",
+    "oldPassword": "Mật khẩu chính lúc đó",
+    "olderKeyExplain": "Phiên bản này được lưu trước khi đổi khoá vault. Nhập mật khẩu chính lúc lưu bản đó. Mật khẩu và khoá hiện tại không thay đổi.",
+    "done": "Đã khôi phục phiên bản trước."
   }
 }

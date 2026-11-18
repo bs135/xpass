@@ -1,6 +1,7 @@
 # Spike: GitHub sync + merge (offline-first, multi-device)
 
-Status: **passed** (2026-11-14). Code: [`spikes/github-sync`](../../spikes/github-sync).
+Status: **passed** (2026-11-14); follow-ups closed in v0.4.0 ([plan](../plan-v0.4.0.md)).
+Code: [`spikes/github-sync`](../../spikes/github-sync).
 Related: [IDEA.md §3.4–3.5](../IDEA.md#34-multi-device-sync-and-conflicts), [vault-format.md](vault-format.md).
 
 ## Goal
@@ -131,18 +132,23 @@ A == B: [GitHub, Mail, Bank, Cloud]                                       ✅ co
 
 ## Known limitations / follow-ups for the real implementation
 
-- [ ] **LWW drops the older of two concurrent edits to the same entry.** Options: per-field timestamps, or keep the
-  loser as an entry history item ("conflict copy"). Decide during planning.
-- [ ] **Clock skew**: `updated_at` comes from device clocks. A device with a fast clock wins ties it should lose.
-  Consider a hybrid logical clock (max(local clock, last seen + 1)).
-- [ ] **Tombstones grow forever.** Purge after e.g. 180 days, accepting that a device offline longer than that may
-  resurrect an entry.
-- [ ] **Retry on unreadable remote**: if a GET body fails to parse (the first-run anomaly), retry the GET after a short
-  delay before surfacing an error.
-- [ ] **Every save is a commit**: keep saves debounced and sync on a timer / on lock, not on every keystroke, to keep
-  history small (IDEA.md §3.3).
-- [ ] Async client (`reqwest` async on Tauri's tokio runtime) instead of blocking.
-- [ ] Handle `401`/`403` (expired or revoked PAT) with a clear "update token" flow.
+All closed in v0.4.0 ([plan-v0.4.0.md](../plan-v0.4.0.md)):
+
+- [x] **LWW drops the older of two concurrent edits to the same entry** → D1: the losing version is kept in the
+  entry's history with the note `conflict` ([`merge.rs`](../../crates/xpass-core/src/merge.rs)).
+- [x] **Clock skew** → D2: HLC-lite `updated_at = max(now, last seen + 1)`
+  ([`clock.rs`](../../crates/xpass-core/src/clock.rs)); the session clock is refreshed after every merge.
+- [x] **Tombstones grow forever** → D3: purged after 180 days, on the merged payload before every push
+  ([`maintenance.rs`](../../crates/xpass-core/src/maintenance.rs), S15).
+- [x] **Retry on unreadable remote** → a GET body that does not parse is read again once after 2 s before the
+  error is reported ([`sync/mod.rs`](../../crates/xpass-core/src/sync/mod.rs), `UNREADABLE_RETRY_MS`).
+- [x] **Every save is a commit** → saves stay local; the worker pushes 10 s after the last edit, every 5 min while
+  unlocked, on unlock, on lock and on exit, never two syncs at once
+  ([`sync_worker.rs`](../../src-tauri/src/sync_worker.rs), D8).
+- [x] **Async client** → `reqwest` async with rustls on Tauri's tokio runtime, 15 s connect / 60 s total timeouts
+  ([`github.rs`](../../src-tauri/src/github.rs), D7).
+- [x] **401 / 403** → sync pauses with "GitHub token expired or lacks access"; edits stay local and a new token in
+  Settings → Sync resumes it ([`SyncProblem.tsx`](../../src/components/SyncProblem.tsx)).
 
 ## Running the spike
 

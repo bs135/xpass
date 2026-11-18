@@ -33,6 +33,11 @@ impl Paths {
         self.dir.join("settings.json")
     }
 
+    /// Sync bookkeeping (`base_sha`, `local_sha`, last result); no secrets.
+    pub fn sync_state(&self) -> PathBuf {
+        self.dir.join("sync-state.json")
+    }
+
     /// Copies of previous vault files (see `storage::BACKUPS_KEPT`).
     pub fn backups(&self) -> PathBuf {
         self.dir.join("backups")

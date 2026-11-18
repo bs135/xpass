@@ -88,11 +88,21 @@ pub async fn new_recovery_key(state: State<'_, AppState>, current_password: Opti
 
 /// Compromise response: new VaultKey and recovery key (returned for a new Emergency
 /// Kit). Requires the current password, which stays the master password.
+/// With sync on, the new file must reach GitHub first (S6): offline → `sync_required`.
 #[tauri::command]
 pub async fn rotate_vault_key(state: State<'_, AppState>, current_password: String) -> AppResult<RotatedKit> {
     let current = Zeroizing::new(current_password);
     let state = state.inner().clone();
-    let rotated = blocking(move || state.rotate_vault_key(&current)).await?;
+    let rotated = if state.sync_enabled() {
+        let store = state.sync_store()?.ok_or(AppError::SyncRequired)?;
+        tauri::async_runtime::spawn_blocking(move || {
+            tauri::async_runtime::block_on(async move { state.rotate_vault_key_online(&store, &current).await })
+        })
+        .await
+        .map_err(|_| AppError::Internal)??
+    } else {
+        blocking(move || state.rotate_vault_key(&current)).await?
+    };
     Ok(RotatedKit {
         recovery_key: rotated.recovery_key.to_string(),
         hello_dropped: rotated.hello_dropped,

@@ -8,6 +8,8 @@ interface Props {
     title: string
     children?: ReactNode
     confirmLabel: string
+    /** Field label; defaults to "Current password". */
+    label?: string
     danger?: boolean
     /** Receives the current master password; throw to show the error. */
     onConfirm: (password: string) => Promise<void>
@@ -15,7 +17,7 @@ interface Props {
 }
 
 /** Asks for the current master password before a sensitive action. */
-export function PasswordPrompt({title, children, confirmLabel, danger, onConfirm, onClose}: Props) {
+export function PasswordPrompt({title, children, confirmLabel, label, danger, onConfirm, onClose}: Props) {
     const {t} = useTranslation()
     const [password, setPassword] = useState('')
     const [busy, setBusy] = useState(false)
@@ -38,7 +40,7 @@ export function PasswordPrompt({title, children, confirmLabel, danger, onConfirm
         <Modal title={title} onClose={onClose}>
             <form onSubmit={submit}>
                 {children}
-                <Field label={t('settings.currentPassword')}>
+                <Field label={label ?? t('settings.currentPassword')}>
                     <PasswordInput autoFocus value={password} onChange={(e) => setPassword(e.target.value)}/>
                 </Field>
                 {error && <Alert>{error}</Alert>}

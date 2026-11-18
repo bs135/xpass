@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react'
 import {useTranslation} from 'react-i18next'
 import {api} from '../lib/api'
 import {useSession} from '../stores/session'
+import {useSync} from '../stores/sync'
 import {HelloEnablePrompt} from './HelloEnablePrompt'
 import {Alert, Button} from './ui'
 
@@ -13,13 +14,16 @@ export function HelloReenrollNotice() {
     const {t} = useTranslation()
     const suggested = useSession((s) => s.hello.reenrollSuggested)
     const refreshHello = useSession((s) => s.refreshHello)
+    // Setting Hello up before a pending key change is resolved would wrap the old key
+    // and be dropped again: the sync banner comes first, this notice after it.
+    const keyChangePending = useSync((s) => s.status.phase === 'needsPassword')
     const [prompt, setPrompt] = useState(false)
 
     useEffect(() => {
         refreshHello().catch((e) => console.error('vault_status failed', e))
     }, [refreshHello])
 
-    if (!suggested) return null
+    if (!suggested || keyChangePending) return null
 
     const dismiss = () => {
         api.helloDismissReenroll()

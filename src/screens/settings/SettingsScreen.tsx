@@ -7,10 +7,13 @@ import {api, type AppInfo, AUTO_LOCK_CHOICES, CLIPBOARD_CHOICES} from '../../lib
 import {errorMessage} from '../../lib/errors'
 import {THEMES, type Theme} from '../../lib/theme'
 import {useSession} from '../../stores/session'
+import {useSync} from '../../stores/sync'
 import {useToast} from '../../stores/toast'
 import {useUi} from '../../stores/ui'
 import {HelloSettings} from './HelloSettings'
 import {PasswordPrompt} from './PasswordPrompt'
+import {RestoreSettings} from './RestoreSettings'
+import {SyncSettings} from './SyncSettings'
 
 const selectClass =
     'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900'
@@ -30,6 +33,12 @@ export function SettingsScreen() {
                 </div>
                 <GeneralSection/>
                 <SecuritySection/>
+                <Section title={t('sync.title')}>
+                    <SyncSettings/>
+                </Section>
+                <Section title={t('restore.title')}>
+                    <RestoreSettings/>
+                </Section>
                 <AboutSection/>
             </div>
         </div>
@@ -134,6 +143,7 @@ function SecuritySection() {
     const {t, i18n} = useTranslation()
     const showKit = useSession((s) => s.showKit)
     const helloEnrolled = useSession((s) => s.hello.enrolled)
+    const syncOn = useSync((s) => s.status.phase !== 'off')
     const refreshHello = useSession((s) => s.refreshHello)
     const {settings, refresh} = useUi()
     const show = useToast((s) => s.show)
@@ -230,6 +240,7 @@ function SecuritySection() {
                             <li key={i}>{line}</li>
                         ))}
                         {helloEnrolled && <li>{t('settings.rotateExplainHello')}</li>}
+                        {syncOn && <li>{t('settings.rotateExplainSync')}</li>}
                     </ul>
                 </PasswordPrompt>
             )}

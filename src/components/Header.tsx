@@ -7,6 +7,7 @@ import {THEMES, type Theme} from '../lib/theme'
 import {useSession} from '../stores/session'
 import {Generator} from './Generator'
 import {Modal} from './Modal'
+import {SyncIndicator} from './SyncIndicator'
 import {useUi} from '../stores/ui'
 import {TITLE_BAR_HEIGHT, WindowControls} from './WindowControls'
 // Same artwork as the installer / tray icon (single source in src-tauri/icons).
@@ -50,6 +51,7 @@ export function Header() {
             </div>
             <div className="flex-1 self-stretch"/>
             <div className="flex items-center gap-0.5 pr-2">
+                {unlocked && <SyncIndicator/>}
                 {unlocked && (
                     <IconButton label={t('generator.title')} onClick={() => setGenerator(true)}>
                         <Wand2 className="size-4" aria-hidden/>

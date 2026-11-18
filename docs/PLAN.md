@@ -3,7 +3,7 @@
 Status: **approved** (2026-11-16). Inputs: [IDEA.md](IDEA.md) (decisions) and the three passed spikes:
 [windows-hello](spikes/windows-hello.md), [vault-format](spikes/vault-format.md), [github-sync](spikes/github-sync.md).
 
-Each milestone is a runnable, releasable app. MVP = **v0.1 → v0.4**.
+Each milestone is a runnable, releasable app. MVP = **v0.1 → v0.4**, complete with v0.4.0 (2026-11-18).
 
 ---
 
@@ -97,7 +97,7 @@ fuzzable on any OS.
 |---|---|
 | `%APPDATA%\xpass\vault.xpv` | Encrypted vault (atomic write, temp + rename) |
 | `%APPDATA%\xpass\backups\vault-<ts>.xpv` | Last 10 local versions |
-| `%APPDATA%\xpass\sync-state.json` | `base_sha`, `dirty`, last sync time/result |
+| `%APPDATA%\xpass\sync-state.json` | Remote identity, `base_sha`, `local_sha` (dirty = file SHA differs), `slots_dirty`, last sync time |
 | `%APPDATA%\xpass\settings.json` | Non-secret settings (repo, branch, path, timeouts, language, theme) |
 | Windows Credential Manager | GitHub PAT (`xpass/github-token`) |
 | TPM (Windows Hello) | Hello key `xpass-<vault_id>`; only the *wrapped* VaultKey lives in the vault header |
@@ -126,7 +126,9 @@ Frontend never holds the VaultKey; it receives passwords only for an explicit re
 | Secrets | `copy_field(id, field)`, `reveal_secret(id, field)` (auto-hide in UI after 15 s) |
 | Tools | `generate_password(opts)`, `password_strength(pw)` |
 | Security | `change_password`, `rotate_vault_key`, `show_recovery_kit`, `hello_status`, `hello_enable`, `hello_disable` |
-| Sync | `sync_configure`, `sync_set_token`, `sync_now`, `sync_status`; event `sync://status` |
+| Sync setup | `sync_get_config`, `sync_configure`, `sync_set_token`, `sync_disconnect`, `sync_test_connection`, `sync_open_token_page` |
+| Sync | `sync_status`, `sync_now`, `sync_dismiss_password_changed`, `sync_join`, `sync_resolve_key_change`, `sync_replace_local`; events `sync://status`, `vault://changed` |
+| Backups | `list_backups`, `restore_backup` |
 | App | `settings_get/set`, `check_update` |
 
 ---
@@ -177,6 +179,15 @@ Implemented in T13–T16; details and the manual checklist: [plan-v0.3.0.md](pla
 re-enroll.
 
 ### v0.4 — GitHub sync (size: L, ~3 weeks) → **MVP complete**
+
+Implemented in T18–T23; decisions S1–S15, details and the manual two-device checklist:
+[plan-v0.4.0.md](plan-v0.4.0.md). Two decisions shape the behaviour beyond this outline:
+
+- **Windows Hello stays per PC (S4).** A synced file may carry the Hello slot of the PC that pushed it; every other
+  PC ignores it and keeps its own, and joining drops it. No format change.
+- **Rotation is online when sync is on (S6).** The rotated file must reach GitHub before the local file changes
+  (offline → refused, nothing changed); the other PCs then ask for the master password once and keep their local
+  edits (S7).
 
 1. `github.rs`: async port of the spike store (raw GET + local blob SHA, PUT with SHA, 409/422 → Conflict), retry
    unreadable GET once after 2 s.
@@ -229,7 +240,10 @@ CSV import with column mapping presets (Bitwarden, Chrome, KeePassXC, generic), 
 | Bug in merge loses data | High | Algebraic tests, history copy (D1), local backups, git history as last resort. |
 | Hello prompt behind Tauri window | UX | Focus watcher from the spike; verified in v0.3: the prompt shows in front of the window. |
 | Forgotten master password and lost Emergency Kit | Total loss | Kit is mandatory at setup with confirmation; reminder in Settings. |
-| GitHub PAT expiry | Sync stops | Clear status + re-enter flow; no data loss (offline-first). |
+| GitHub PAT expiry | Sync stops | Sync pauses with a "token expired" banner; edits stay local; a new token resumes (v0.4). |
+| Public repository chosen by mistake | Encrypted vault and its history readable by anyone | Test connection flags it; saving needs an explicit acknowledgement (v0.4). |
+| VaultKey rotated while another PC has unsynced edits | Edits encrypted with a discarded key | Rotation only online with sync on (S6); the other PC merges after the password prompt (S7). |
+| Restored backup loses to newer copies on other PCs | Restore undone by the next sync | Restore is a new edit with fresh timestamps (S14). |
 | Clock skew | Wrong LWW winner | D2 + history copy (D1). |
 
 ---

@@ -45,7 +45,8 @@
     "vaultFormat": "Vault format",
     "license": "License",
     "projectPage": "Project page on GitHub",
-    "rotateExplainHello": "Windows Hello is turned off. You can set it up again right after."
+    "rotateExplainHello": "Windows Hello is turned off. You can set it up again right after.",
+    "rotateExplainSync": "Sync is on: the new vault is uploaded to GitHub first, so this needs a working connection. Your other PCs then ask for the master password once."
   },
   "theme": {
     "system": "System",
@@ -66,7 +67,8 @@
     "delete": "Delete",
     "copy": "Copy",
     "close": "Close",
-    "back": "Back"
+    "back": "Back",
+    "ok": "OK"
   },
   "password": {
     "new": "Master password",
@@ -86,7 +88,9 @@
     "title": "Create your vault",
     "intro": "Choose a master password. It encrypts your vault and is never stored or sent anywhere. If you forget it, only your Emergency Kit can open the vault.",
     "submit": "Create vault",
-    "creating": "Creating vault…"
+    "creating": "Creating vault…",
+    "createTab": "Create a new vault",
+    "joinTab": "Use my vault from GitHub"
   },
   "kit": {
     "title": "Your Emergency Kit",
@@ -221,7 +225,18 @@
     "hello_canceled": "Windows Hello was cancelled.",
     "hello_device_locked": "Windows Hello is locked after too many attempts. Unlock it in Windows, or use your master password.",
     "hello_busy": "Windows Hello is already waiting for you.",
-    "hello_failed": "Windows Hello did not work. Please try again or use your master password."
+    "hello_failed": "Windows Hello did not work. Please try again or use your master password.",
+    "secret_store": "Windows Credential Manager is not available, so the GitHub token could not be read or saved.",
+    "sync_not_configured": "Sync is not set up. Enter a repository and a GitHub token.",
+    "sync_offline": "GitHub is not reachable. Check your internet connection; your changes are kept on this PC.",
+    "sync_unauthorized": "The GitHub token is invalid or has expired. Enter a new token.",
+    "sync_forbidden": "The GitHub token lacks access. It needs Contents: Read and write on this repository.",
+    "sync_rate_limited": "GitHub rate limit reached. Try again later.",
+    "sync_rate_limited_wait": "GitHub rate limit reached. Try again in about {{minutes}} min.",
+    "sync_repo_not_found": "Repository not found, or the token cannot access it. Check the name and the token's repository access.",
+    "sync_failed": "Sync with GitHub failed. Please try again.",
+    "sync_remote_missing": "There is no vault at this path on GitHub.",
+    "sync_required": "Sync with GitHub must succeed first. Check the connection and the sync status, then try again. Nothing was changed."
   },
   "about": {
     "version": "Version {{version}} · vault format v{{format}}"
@@ -254,6 +269,128 @@
     "reenrollTitle": "Windows Hello was turned off",
     "reenrollMessage": "The vault key was changed or Windows Hello was reset on this PC, so Windows Hello no longer unlocks this vault.",
     "reenroll": "Set up again",
-    "notNow": "Not now"
+    "notNow": "Not now",
+    "keyChangePending": "The vault key was changed on another device. Enter the master password in the sync notice first, then turn Windows Hello on."
+  },
+  "sync": {
+    "title": "Sync",
+    "intro": "Keep this vault in sync across your PCs through a file in a private GitHub repository. Only the encrypted vault is uploaded; GitHub never sees your passwords or your master password.",
+    "repo": "Repository",
+    "repoPlaceholder": "owner/name or https://github.com/owner/name",
+    "branch": "Branch",
+    "defaultBranch": "Default branch",
+    "path": "File path",
+    "token": "GitHub token",
+    "tokenStored": "Saved in Windows Credential Manager.",
+    "tokenMissing": "Not set",
+    "needsToken": "Sync is off until a GitHub token is saved. Choose Change and enter a token.",
+    "replaceToken": "Replace token",
+    "test": "Test connection",
+    "testFirst": "Test the connection before saving. The token is stored in Windows Credential Manager and never shown again.",
+    "saved": "Sync settings saved.",
+    "change": "Change",
+    "disconnect": "Turn off sync",
+    "disconnectTitle": "Turn off sync?",
+    "disconnectMessage": "The token is deleted from this PC and xPass stops syncing. Your vault on this PC and the copy on GitHub are not changed.",
+    "disconnected": "Sync is off.",
+    "report": {
+      "missing": "Connected. There is no vault at this path yet; the first sync will create it on branch {{branch}}.",
+      "sameVault": "Connected. This vault is already stored at this path.",
+      "found": "Connected. An xPass vault was found at this path.",
+      "otherVault": "A different xPass vault is stored at this path. Choose another path, or another repository.",
+      "notAVault": "This path holds a file that is not an xPass vault. Choose another path.",
+      "branchMissing": "The branch {{branch}} does not exist in this repository.",
+      "public": "This repository is public. The vault is encrypted, but anyone can download it and its full history. A private repository is strongly recommended.",
+      "publicAck": "I understand and want to use this public repository.",
+      "joinMissing": "Connected, but there is no vault at this path. Check the branch and path used on your other PC."
+    },
+    "guide": {
+      "title": "How to create a GitHub token",
+      "steps": [
+        "Create a private repository on GitHub for the vault (an empty one is fine).",
+        "Open GitHub > Settings > Developer settings > Personal access tokens > Fine-grained tokens, and choose Generate new token.",
+        "Repository access: Only select repositories, and pick the vault repository.",
+        "Permissions: Contents: Read and write (Metadata: Read-only is added automatically).",
+        "Choose an expiration date, generate the token and paste it here. You can replace it here when it expires."
+      ],
+      "note": "Use a token that can only reach this one repository. Do not reuse a token with wider access.",
+      "open": "Open GitHub token page"
+    },
+    "syncNow": "Sync now",
+    "status": {
+      "off": "Sync is off.",
+      "syncing": "Syncing…",
+      "synced": "Synced.",
+      "syncedAgo_one": "Synced {{count}} min ago.",
+      "syncedAgo_other": "Synced {{count}} min ago.",
+      "pending": "Changes on this PC are not synced yet.",
+      "offline": "Offline. Changes are kept on this PC and synced later.",
+      "noToken": "Sync is off until a GitHub token is saved on this PC.",
+      "tokenInvalid": "Sync stopped: the GitHub token needs to be replaced.",
+      "needsPassword": "Sync stopped: the vault key was changed on another device. Your master password is needed.",
+      "differentVault": "Sync stopped: GitHub holds a different vault at this path.",
+      "error": "Sync failed; it will be retried."
+    }
+  },
+  "join": {
+    "title": "Use your vault from GitHub",
+    "intro": "Already using xPass on another PC with GitHub sync? Enter the same repository and a GitHub token, then your master password. The vault is downloaded and opened on this PC.",
+    "password": "Master password of this vault",
+    "submit": "Download and open",
+    "joining": "Opening vault…",
+    "doneTitle": "Your vault is on this PC",
+    "done": "The vault was downloaded and sync is on.",
+    "kitReminder": "Your existing Emergency Kit still opens this vault; no new kit is needed. Changes on this PC and your other PCs are synced through GitHub.",
+    "helloOffer": "Windows Hello can unlock the vault on this PC with your face, fingerprint or PIN.",
+    "continue": "Open my vault"
+  },
+  "syncProblem": {
+    "passwordChangedTitle": "Master password changed on another device",
+    "passwordChanged": "Use the new master password the next time you unlock xPass on this PC. Windows Hello keeps working.",
+    "tokenTitle": "GitHub token expired or lacks access",
+    "token": "Sync is paused. Your changes stay on this PC. Enter a new token in Sync settings.",
+    "tokenInSettings": "Sync is paused. Your changes stay on this PC. Choose Change and enter a new token.",
+    "openSettings": "Open sync settings",
+    "keyTitle": "Vault key changed on another device",
+    "key": "The vault key was replaced on another PC, so sync is paused. Enter the master password to continue. Changes made on this PC are kept.",
+    "enterPassword": "Enter password",
+    "keyPassword": "Master password",
+    "keyExplain": "Enter the master password as it is now on the other PC. Your changes on this PC are merged and synced.",
+    "continue": "Continue",
+    "resumed": "Sync resumed.",
+    "otherTitle": "GitHub holds a different vault",
+    "other": "The file at this path belongs to another vault, so sync stopped. Use another path in Sync settings, or replace this PC’s vault with the one on GitHub.",
+    "otherInSettings": "The file at this path belongs to another vault, so sync stopped. Choose Change to use another path, or replace this PC’s vault with the one on GitHub.",
+    "otherPath": "Use another path",
+    "replace": "Replace this PC’s vault",
+    "replacePassword": "Master password of the vault on GitHub",
+    "replaceConfirm": "Replace",
+    "replaceExplain": [
+      "This PC’s vault is replaced by the vault on GitHub. Entries that exist only on this PC are no longer shown.",
+      "The current vault file is kept in the backups folder.",
+      "From now on, unlock with the master password of the vault on GitHub."
+    ],
+    "replaced": "This PC now uses the vault from GitHub."
+  },
+  "restore": {
+    "title": "Restore a previous version",
+    "intro": "xPass keeps the last 10 versions of your vault on this PC, one per save. Restoring one puts your entries back as they were then.",
+    "none": "No previous versions yet.",
+    "entries_one": "{{count}} entry",
+    "entries_other": "{{count}} entries",
+    "size": "{{kb}} KB",
+    "kind": {
+      "olderKey": "Saved before the vault key was changed",
+      "otherVault": "Another vault; cannot be restored here",
+      "unreadable": "Damaged; cannot be restored"
+    },
+    "button": "Restore",
+    "confirmTitle": "Restore this version?",
+    "explain": "Your entries are put back as they were on {{date}}: entries added later are deleted, changed entries get their old content back (the current values stay in their history).",
+    "keepCurrent": "The current version is kept, so you can undo this here.",
+    "syncs": "The restore is saved as a new change and syncs to your other devices.",
+    "oldPassword": "Master password at that time",
+    "olderKeyExplain": "This version was saved before the vault key was changed. Enter the master password it was saved with. Your current password and key stay as they are.",
+    "done": "Previous version restored."
   }
 }

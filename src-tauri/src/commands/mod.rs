@@ -1,7 +1,9 @@
+pub mod backups;
 pub mod entries;
 pub mod hello;
 pub mod session;
 pub mod settings;
+pub mod sync;
 pub mod tools;
 
 use serde::Serialize;

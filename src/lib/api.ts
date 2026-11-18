@@ -133,6 +133,73 @@ export interface Settings {
     lastKitAt: number | null
 }
 
+/** Sync setup (`settings.json` + whether a token is stored). The token itself never comes back. */
+export interface SyncConfig {
+    /** `owner/name`; empty when sync is not set up. */
+    repo: string
+    /** Empty = the repository's default branch. */
+    branch: string
+    path: string
+    enabled: boolean
+    /** A GitHub token is stored in Windows Credential Manager. */
+    hasToken: boolean
+}
+
+/** What "Test connection" found at the vault path. */
+export type RemoteFile = 'missing' | 'sameVault' | 'otherVault' | 'found' | 'notAVault'
+
+export interface ConnectionReport {
+    /** false for a public repository. */
+    private: boolean
+    /** Branch that will be used (configured or the repository default). */
+    branch: string
+    branchExists: boolean
+    remote: RemoteFile
+}
+
+/** Sync state shown in the header, the tray and Settings (`sync://status`). */
+export type SyncPhase =
+    | 'off'
+    | 'idle'
+    | 'syncing'
+    | 'offline'
+    | 'noToken'
+    | 'tokenInvalid'
+    | 'needsPassword'
+    | 'differentVault'
+    | 'error'
+
+export interface SyncStatus {
+    phase: SyncPhase
+    /** Local changes GitHub has not seen yet. */
+    dirty: boolean
+    /** Unix ms of the last successful sync. */
+    lastSyncAt: number | null
+    error: AppError | null
+    /** The master password was changed on another device and adopted here. */
+    passwordChanged: boolean
+}
+
+/** Whether a local backup can be restored (`list_backups`). */
+export type BackupKind = 'current' | 'olderKey' | 'otherVault' | 'unreadable'
+
+export interface BackupInfo {
+    /** File name in the backups folder; the id for `restoreBackup`. */
+    name: string
+    /** Unix ms when this version was saved. */
+    savedAt: number | null
+    size: number
+    kind: BackupKind
+    /** Entries in that version, when it opens with the current key. */
+    entries: number | null
+}
+
+export interface SyncTarget {
+    repo: string
+    branch: string
+    path: string
+}
+
 export const AUTO_LOCK_CHOICES = [1, 5, 15, 30, 60] as const
 export const CLIPBOARD_CHOICES = [10, 20, 30, 60, 90] as const
 
@@ -161,12 +228,27 @@ export type AppError =
     | {code: 'hello_device_locked'}
     | {code: 'hello_busy'}
     | {code: 'hello_failed'}
+    | {code: 'secret_store'}
+    | {code: 'sync_not_configured'}
+    | {code: 'sync_offline'}
+    | {code: 'sync_unauthorized'}
+    | {code: 'sync_forbidden'}
+    | {code: 'sync_rate_limited'; retryAfterS: number | null}
+    | {code: 'sync_repo_not_found'}
+    | {code: 'sync_failed'}
+    | {code: 'sync_remote_missing'}
+    | {code: 'sync_required'}
     | {code: 'io'; kind: string}
     | {code: 'internal'}
 
 export function isAppError(e: unknown): e is AppError {
     return typeof e === 'object' && e !== null && typeof (e as {code?: unknown}).code === 'string'
 }
+
+/** Sync status changed (payload: SyncStatus). */
+export const EVENT_SYNC_STATUS = 'sync://status'
+/** A sync brought changes from another device: reload the entry list. */
+export const EVENT_VAULT_CHANGED = 'vault://changed'
 
 /** Emitted when the vault locks; clear all entry state when received. */
 export const EVENT_LOCKED = 'vault://locked'
@@ -213,4 +295,29 @@ export const api = {
         invoke<{value: string}>('reveal_secret', {id, field}).then((s) => s.value),
     generatePassword: (options: GeneratorOptions) => invoke<Generated>('generate_password', {options}),
     copyText: (text: string) => invoke<void>('copy_text', {text}),
+    syncGetConfig: () => invoke<SyncConfig>('sync_get_config'),
+    syncConfigure: (target: SyncTarget) => invoke<SyncConfig>('sync_configure', {...target}),
+    /** Stores the token in Windows Credential Manager; it is never returned. */
+    syncSetToken: (token: string) => invoke<SyncConfig>('sync_set_token', {token}),
+    /** Deletes the token and the sync setup; the local vault stays. */
+    syncDisconnect: () => invoke<SyncConfig>('sync_disconnect'),
+    /** `token` null uses the stored token. */
+    syncTestConnection: (target: SyncTarget, token: string | null) =>
+        invoke<ConnectionReport>('sync_test_connection', {...target, token}),
+    syncOpenTokenPage: () => invoke<void>('sync_open_token_page'),
+    syncStatus: () => invoke<SyncStatus>('sync_status'),
+    /** Starts a sync; the result arrives as `sync://status`. */
+    syncNow: () => invoke<SyncStatus>('sync_now'),
+    syncDismissPasswordChanged: () => invoke<void>('sync_dismiss_password_changed'),
+    /** "Use my vault from GitHub" (no vault on this PC): download, open with `password`, turn sync on. */
+    syncJoin: (target: SyncTarget, token: string, password: string) =>
+        invoke<void>('sync_join', {...target, token, password}),
+    /** The vault key was changed on another device: `password` is the master password as set there. */
+    syncResolveKeyChange: (password: string) => invoke<SyncStatus>('sync_resolve_key_change', {password}),
+    /** Replaces this PC's vault with the one on GitHub (kept as a backup); `password` opens the GitHub vault. */
+    syncReplaceLocal: (password: string) => invoke<void>('sync_replace_local', {password}),
+    /** Local backups, newest first (needs the vault unlocked). */
+    listBackups: () => invoke<BackupInfo[]>('list_backups'),
+    /** Restores a backup as a new change. `password` only for a backup from before a key change. */
+    restoreBackup: (name: string, password: string | null) => invoke<void>('restore_backup', {name, password}),
 }

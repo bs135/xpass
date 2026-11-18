@@ -7,6 +7,7 @@ import {Alert, Button} from '../../components/ui'
 import {api} from '../../lib/api'
 import {errorMessage} from '../../lib/errors'
 import {useSession} from '../../stores/session'
+import {useSync} from '../../stores/sync'
 import {useToast} from '../../stores/toast'
 
 /** Settings → Security: turn Windows Hello on or off for this vault. */
@@ -14,6 +15,7 @@ export function HelloSettings() {
     const {t} = useTranslation()
     const enrolled = useSession((s) => s.hello.enrolled)
     const refreshHello = useSession((s) => s.refreshHello)
+    const keyChangePending = useSync((s) => s.status.phase === 'needsPassword')
     const show = useToast((s) => s.show)
     // null while asking Windows whether Hello is set up.
     const [supported, setSupported] = useState<boolean | null>(null)
@@ -57,10 +59,17 @@ export function HelloSettings() {
                     </div>
                 </>
             ) : supported ? (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm">{t('hello.stateOff')}</p>
-                    <Button onClick={() => setPrompt('enable')}>{t('hello.turnOn')}</Button>
-                </div>
+                <>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-sm">{t('hello.stateOff')}</p>
+                        <Button disabled={keyChangePending} onClick={() => setPrompt('enable')}>
+                            {t('hello.turnOn')}
+                        </Button>
+                    </div>
+                    {keyChangePending && (
+                        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">{t('hello.keyChangePending')}</p>
+                    )}
+                </>
             ) : (
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">{t('hello.unavailable')}</p>
             )}

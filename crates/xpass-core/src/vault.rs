@@ -144,7 +144,9 @@ impl UnlockedVault {
             parsed.header_bytes,
         ) {
             Some(p) => p,
-            None if header.slots == self.slots => return Err(Error::Tampered),
+            // Hello slots are device-local (another device's Hello slot may ride along
+            // in a synced file), so they do not count as a key change.
+            None if without_hello(&header.slots) == without_hello(&self.slots) => return Err(Error::Tampered),
             None => return Err(Error::KeyChanged),
         };
         let payload: Payload = serde_json::from_slice(&plaintext).map_err(|e| Error::Payload(e.to_string()))?;
@@ -249,6 +251,35 @@ impl UnlockedVault {
         self.slots.retain(|s| s.params.kind() != SlotKind::Hello);
     }
 
+    /// True when both copies belong to the same vault and hold the same VaultKey,
+    /// so key slots of one also unlock the other.
+    pub fn same_key(&self, other: &Self) -> bool {
+        self.vault_id == other.vault_id && self.vault_key.as_slice() == other.vault_key.as_slice()
+    }
+
+    /// True when both copies have identical slots of `kind` (or neither has one).
+    pub fn same_slots(&self, other: &Self, kind: SlotKind) -> bool {
+        let of = |v: &Self| -> Vec<Slot> { v.slots.iter().filter(|s| s.params.kind() == kind).cloned().collect() };
+        of(self) == of(other)
+    }
+
+    /// Replaces this copy's slots of the given kinds with `other`'s (removing them
+    /// when `other` has none). Both copies must hold the same VaultKey, otherwise the
+    /// copied slots would wrap a different key: `KeyChanged`.
+    ///
+    /// Sync uses it to keep the device-local Hello slot and local, not yet pushed
+    /// password / recovery changes when adopting a remote copy.
+    pub fn copy_slots_from(&mut self, other: &Self, kinds: &[SlotKind]) -> Result<()> {
+        if !self.same_key(other) {
+            return Err(Error::KeyChanged);
+        }
+        self.slots.retain(|s| !kinds.contains(&s.params.kind()));
+        self.slots
+            .extend(other.slots.iter().filter(|s| kinds.contains(&s.params.kind())).cloned());
+        self.slots.sort_by_key(|s| s.params.kind() as u8);
+        Ok(())
+    }
+
     pub fn vault_id(&self) -> Uuid {
         Uuid::from_bytes(self.vault_id)
     }
@@ -315,6 +346,10 @@ impl UnlockedVault {
         self.slots.push(Slot { params, nonce, wrapped });
         self.slots.sort_by_key(|s| s.params.kind() as u8);
     }
+}
+
+fn without_hello(slots: &[Slot]) -> Vec<&Slot> {
+    slots.iter().filter(|s| s.params.kind() != SlotKind::Hello).collect()
 }
 
 /// Challenge for Hello to sign: bound to the vault and the slot salt.
