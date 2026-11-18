@@ -45,7 +45,8 @@
     "vaultFormat": "Vault format",
     "license": "License",
     "projectPage": "Project page on GitHub",
-    "rotateExplainHello": "Windows Hello is turned off. You can set it up again right after."
+    "rotateExplainHello": "Windows Hello is turned off. You can set it up again right after.",
+    "rotateExplainSync": "Sync is on: the new vault is uploaded to GitHub first, so this needs a working connection. Your other PCs then ask for the master password once."
   },
   "theme": {
     "system": "System",
@@ -66,7 +67,8 @@
     "delete": "Delete",
     "copy": "Copy",
     "close": "Close",
-    "back": "Back"
+    "back": "Back",
+    "ok": "OK"
   },
   "password": {
     "new": "Master password",
@@ -86,7 +88,9 @@
     "title": "Create your vault",
     "intro": "Choose a master password. It encrypts your vault and is never stored or sent anywhere. If you forget it, only your Emergency Kit can open the vault.",
     "submit": "Create vault",
-    "creating": "Creating vault…"
+    "creating": "Creating vault…",
+    "createTab": "Create a new vault",
+    "joinTab": "Use my vault from GitHub"
   },
   "kit": {
     "title": "Your Emergency Kit",
@@ -230,7 +234,9 @@
     "sync_rate_limited": "GitHub rate limit reached. Try again later.",
     "sync_rate_limited_wait": "GitHub rate limit reached. Try again in about {{minutes}} min.",
     "sync_repo_not_found": "Repository not found, or the token cannot access it. Check the name and the token's repository access.",
-    "sync_failed": "Sync with GitHub failed. Please try again."
+    "sync_failed": "Sync with GitHub failed. Please try again.",
+    "sync_remote_missing": "There is no vault at this path on GitHub.",
+    "sync_required": "Sync with GitHub must succeed first. Check the connection and the sync status, then try again. Nothing was changed."
   },
   "about": {
     "version": "Version {{version}} · vault format v{{format}}"
@@ -294,7 +300,8 @@
       "notAVault": "This path holds a file that is not an xPass vault. Choose another path.",
       "branchMissing": "The branch {{branch}} does not exist in this repository.",
       "public": "This repository is public. The vault is encrypted, but anyone can download it and its full history. A private repository is strongly recommended.",
-      "publicAck": "I understand and want to use this public repository."
+      "publicAck": "I understand and want to use this public repository.",
+      "joinMissing": "Connected, but there is no vault at this path. Check the branch and path used on your other PC."
     },
     "guide": {
       "title": "How to create a GitHub token",
@@ -323,5 +330,45 @@
       "differentVault": "Sync stopped: GitHub holds a different vault at this path.",
       "error": "Sync failed; it will be retried."
     }
+  },
+  "join": {
+    "title": "Use your vault from GitHub",
+    "intro": "Already using xPass on another PC with GitHub sync? Enter the same repository and a GitHub token, then your master password. The vault is downloaded and opened on this PC.",
+    "password": "Master password of this vault",
+    "submit": "Download and open",
+    "joining": "Opening vault…",
+    "doneTitle": "Your vault is on this PC",
+    "done": "The vault was downloaded and sync is on.",
+    "kitReminder": "Your existing Emergency Kit still opens this vault; no new kit is needed. Changes on this PC and your other PCs are synced through GitHub.",
+    "helloOffer": "Windows Hello can unlock the vault on this PC with your face, fingerprint or PIN.",
+    "continue": "Open my vault"
+  },
+  "syncProblem": {
+    "passwordChangedTitle": "Master password changed on another device",
+    "passwordChanged": "Use the new master password the next time you unlock xPass on this PC. Windows Hello keeps working.",
+    "tokenTitle": "GitHub token expired or lacks access",
+    "token": "Sync is paused. Your changes stay on this PC. Enter a new token in Sync settings.",
+    "tokenInSettings": "Sync is paused. Your changes stay on this PC. Choose Change and enter a new token.",
+    "openSettings": "Open sync settings",
+    "keyTitle": "Vault key changed on another device",
+    "key": "The vault key was replaced on another PC, so sync is paused. Enter the master password to continue. Changes made on this PC are kept.",
+    "enterPassword": "Enter password",
+    "keyPassword": "Master password",
+    "keyExplain": "Enter the master password as it is now on the other PC. Your changes on this PC are merged and synced.",
+    "continue": "Continue",
+    "resumed": "Sync resumed.",
+    "otherTitle": "GitHub holds a different vault",
+    "other": "The file at this path belongs to another vault, so sync stopped. Use another path in Sync settings, or replace this PC’s vault with the one on GitHub.",
+    "otherInSettings": "The file at this path belongs to another vault, so sync stopped. Choose Change to use another path, or replace this PC’s vault with the one on GitHub.",
+    "otherPath": "Use another path",
+    "replace": "Replace this PC’s vault",
+    "replacePassword": "Master password of the vault on GitHub",
+    "replaceConfirm": "Replace",
+    "replaceExplain": [
+      "This PC’s vault is replaced by the vault on GitHub. Entries that exist only on this PC are no longer shown.",
+      "The current vault file is kept in the backups folder.",
+      "From now on, unlock with the master password of the vault on GitHub."
+    ],
+    "replaced": "This PC now uses the vault from GitHub."
   }
 }

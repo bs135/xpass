@@ -13,3 +13,17 @@ export function canSave(report: ConnectionReport | null, publicAcknowledged: boo
     if (!report || blockingProblem(report)) return false
     return report.private || publicAcknowledged
 }
+
+/** For "Use my vault from GitHub": why this test result cannot be joined, as a key under `sync.report`, or null. */
+export function joinProblem(report: ConnectionReport): 'branchMissing' | 'joinMissing' | 'notAVault' | null {
+    if (!report.branchExists) return 'branchMissing'
+    if (report.remote === 'missing') return 'joinMissing'
+    if (report.remote === 'notAVault') return 'notAVault'
+    return null
+}
+
+/** The vault can be downloaded after this test. */
+export function canJoin(report: ConnectionReport | null, publicAcknowledged: boolean): boolean {
+    if (!report || joinProblem(report)) return false
+    return report.private || publicAcknowledged
+}

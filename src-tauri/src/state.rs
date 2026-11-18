@@ -155,6 +155,9 @@ struct Inner {
     slot_changes: AtomicU64,
     sync_status: Mutex<SyncStatus>,
     sync_notifier: OnceLock<Box<dyn Fn(Trigger) + Send + Sync>>,
+    /// Held by everything that talks to the remote (sync, key-less push, join,
+    /// key-change resolution, replace, online rotation): one at a time.
+    sync_running: tokio::sync::Mutex<()>,
 }
 
 impl AppState {
@@ -182,6 +185,7 @@ impl AppState {
             slot_changes: AtomicU64::new(0),
             sync_status: Mutex::new(SyncStatus::default()),
             sync_notifier: OnceLock::new(),
+            sync_running: tokio::sync::Mutex::new(()),
         }))
     }
 
@@ -728,6 +732,12 @@ impl AppState {
         } else {
             self.drop_broken_hello_slot(&mut session);
         }
+        self.start_session(session);
+        Ok(())
+    }
+
+    /// Makes `session` the open vault and tells the sync worker.
+    fn start_session(&self, session: VaultSession) {
         {
             let mut guard = lock(&self.0.session);
             *guard = Some(session);
@@ -735,7 +745,6 @@ impl AppState {
         }
         *lock(&self.0.last_lock_reason) = None;
         self.notify(Trigger::Unlocked);
-        Ok(())
     }
 
     /// After a Hello unlock found the credential missing or changed, the next

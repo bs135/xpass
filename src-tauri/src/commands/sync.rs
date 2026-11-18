@@ -2,6 +2,8 @@
 //! `Zeroizing` buffer and stored in Windows Credential Manager; no command returns
 //! it. All GitHub requests are made from Rust (the WebView has no network access).
 
+use std::future::Future;
+
 use tauri::State;
 use url::Url;
 use zeroize::Zeroizing;
@@ -89,4 +91,50 @@ pub async fn sync_open_token_page() -> AppResult<()> {
     tauri::async_runtime::spawn_blocking(move || shell::open_url(&url))
         .await
         .map_err(|_| AppError::Internal)?
+}
+
+/// Runs a sync flow that also runs Argon2 on a blocking thread (inside the async
+/// runtime, so GitHub requests still work), keeping the IPC workers free.
+async fn off_ipc<T: Send + 'static>(f: impl Future<Output = AppResult<T>> + Send + 'static) -> AppResult<T> {
+    tauri::async_runtime::spawn_blocking(move || tauri::async_runtime::block_on(f))
+        .await
+        .map_err(|_| AppError::Internal)?
+}
+
+/// "Use my vault from GitHub" (no vault on this PC yet): downloads the vault,
+/// opens it with the master password and turns sync on with `token`.
+#[tauri::command]
+pub async fn sync_join(
+    state: State<'_, AppState>,
+    repo: String,
+    branch: String,
+    path: String,
+    token: String,
+    password: String,
+) -> AppResult<()> {
+    let token = Zeroizing::new(token);
+    let password = Zeroizing::new(password);
+    let target = SyncSettings::from_input(&repo, &branch, &path)?;
+    let state = state.inner().clone();
+    let store = state.github_store(&target, Some(&token))?;
+    off_ipc(async move { state.join_vault(&store, target, &token, &password).await }).await
+}
+
+/// *Needs password*: the vault key was changed on another device (S7).
+#[tauri::command]
+pub async fn sync_resolve_key_change(state: State<'_, AppState>, password: String) -> AppResult<SyncStatus> {
+    let password = Zeroizing::new(password);
+    let state = state.inner().clone();
+    let store = state.sync_store()?.ok_or(AppError::SyncNotConfigured)?;
+    off_ipc(async move { state.resolve_key_change(&store, &password).await }).await
+}
+
+/// *Different vault*: replaces this PC's vault with the one on GitHub (the current
+/// file is kept as a backup). `password` is the master password of that vault.
+#[tauri::command]
+pub async fn sync_replace_local(state: State<'_, AppState>, password: String) -> AppResult<()> {
+    let password = Zeroizing::new(password);
+    let state = state.inner().clone();
+    let store = state.sync_store()?.ok_or(AppError::SyncNotConfigured)?;
+    off_ipc(async move { state.replace_with_remote(&store, &password).await }).await
 }
