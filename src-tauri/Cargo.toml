@@ -31,6 +31,13 @@ zxcvbn = "3.1.1"
 tauri-plugin-single-instance = "2"
 
 [target.'cfg(windows)'.dependencies]
+# WinRT: Windows Hello (KeyCredentialManager).
+windows = { version = "0.62", features = [
+    "Foundation",
+    "Security_Credentials",
+    "Security_Cryptography",
+    "Storage_Streams",
+] }
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_Globalization",

@@ -3,6 +3,24 @@
 All notable changes to xPass. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.0]
+
+Unlock with Windows Hello.
+
+### Added
+
+- Windows Hello unlock (face, fingerprint or PIN). Turn it on in Settings → Security with the master password; the
+  unlock screen then offers Windows Hello first and opens its prompt once per lock, as soon as the window is shown.
+  The master password form stays available, and the password is still needed to turn Hello on and for sensitive
+  changes.
+- Each vault has its own Hello key in the PC's TPM; it only wraps the vault key, which never leaves the Rust side.
+- If Windows Hello is reset or changed on the PC, xPass explains it, unlocks with the password and offers to set
+  Hello up again. Rotating the vault key turns Hello off and offers the same.
+
+### Changed
+
+- GitHub Actions workflows run on Node 24.
+
 ## [0.2.0]
 
 Custom title bar and UI polish.
@@ -46,5 +64,6 @@ First release: a local-only vault on Windows.
 - Tray icon (Open / Lock / Quit), single instance, atomic saves with the last 10 backups, wrong-password throttling.
 - Per-entry merge, HLC-lite clock and tombstone purge in `xpass-core`, ready for sync in v0.3.
 
+[0.3.0]: https://github.com/bs135/xpass/releases/tag/v0.3.0
 [0.2.0]: https://github.com/bs135/xpass/releases/tag/v0.2.0
 [0.1.0]: https://github.com/bs135/xpass/releases/tag/v0.1.0

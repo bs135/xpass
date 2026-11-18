@@ -59,7 +59,10 @@ export function TextInput({className, ...rest}: InputHTMLAttributes<HTMLInputEle
 }
 
 /** Password input with a show/hide toggle. Never autofilled or spell-checked. */
-export function PasswordInput({className, ...rest}: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+export function PasswordInput({
+    className,
+    ...rest
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {ref?: Ref<HTMLInputElement>}) {
     const {t} = useTranslation()
     const [visible, setVisible] = useState(false)
     const Icon = visible ? EyeOff : Eye

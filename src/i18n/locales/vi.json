@@ -44,7 +44,8 @@
     "version": "Phiên bản",
     "vaultFormat": "Định dạng kho",
     "license": "Giấy phép",
-    "projectPage": "Trang dự án trên GitHub"
+    "projectPage": "Trang dự án trên GitHub",
+    "rotateExplainHello": "Windows Hello sẽ bị tắt. Bạn có thể thiết lập lại ngay sau đó."
   },
   "theme": {
     "system": "Theo hệ thống",
@@ -115,7 +116,10 @@
     "password": "Mật khẩu chính",
     "submit": "Mở khoá",
     "unlocking": "Đang mở khoá…",
-    "useRecovery": "Quên mật khẩu? Dùng mã khôi phục"
+    "useRecovery": "Quên mật khẩu? Dùng mã khôi phục",
+    "hello": "Mở khoá bằng Windows Hello",
+    "helloWaiting": "Đang chờ Windows Hello…",
+    "orPassword": "hoặc dùng mật khẩu chính"
   },
   "lockReason": {
     "idle": "Đã tự khoá sau một thời gian không thao tác.",
@@ -211,7 +215,13 @@
     "io": "Không đọc hoặc ghi được file kho ({{kind}}).",
     "not_found": "Mục này không còn tồn tại.",
     "open_failed": "Không mở được liên kết.",
-    "clipboard": "Không truy cập được clipboard. Hãy thử lại."
+    "clipboard": "Không truy cập được clipboard. Hãy thử lại.",
+    "hello_unavailable": "Máy này không dùng được Windows Hello.",
+    "hello_not_found": "Windows Hello trên máy này đã được thiết lập lại hoặc thay đổi, nên không còn mở được kho này. Hãy dùng mật khẩu chính.",
+    "hello_canceled": "Đã huỷ Windows Hello.",
+    "hello_device_locked": "Windows Hello bị khoá do thử sai quá nhiều lần. Hãy mở khoá nó trong Windows, hoặc dùng mật khẩu chính.",
+    "hello_busy": "Windows Hello đang chờ bạn xác nhận.",
+    "hello_failed": "Windows Hello không hoạt động. Hãy thử lại hoặc dùng mật khẩu chính."
   },
   "about": {
     "version": "Phiên bản {{version}} · định dạng vault v{{format}}"
@@ -225,5 +235,25 @@
   "titleBar": {
     "theme": "Giao diện: {{current}} (bấm để chuyển sang {{next}})",
     "language": "Ngôn ngữ: {{current}} (bấm để chuyển sang {{next}})"
+  },
+  "hello": {
+    "title": "Windows Hello",
+    "intro": "Mở khoá xPass bằng khuôn mặt, vân tay hoặc mã PIN. Mật khẩu chính vẫn dùng được và vẫn cần cho các thay đổi quan trọng.",
+    "stateOn": "Windows Hello đang bật cho kho này.",
+    "stateOff": "Windows Hello đang tắt.",
+    "unavailable": "Máy này chưa thiết lập Windows Hello. Hãy tạo mã PIN, khuôn mặt hoặc vân tay trong Settings > Accounts > Sign-in options của Windows, rồi quay lại đây.",
+    "unavailableEnrolled": "Hiện không dùng được Windows Hello trên máy này. Hãy mở khoá bằng mật khẩu chính; bạn có thể tắt Windows Hello ở đây.",
+    "turnOn": "Bật Windows Hello",
+    "turnOnExplain": "Nhập mật khẩu chính. Sau đó Windows Hello sẽ yêu cầu bạn xác nhận danh tính.",
+    "turnOnConfirm": "Tiếp tục",
+    "turnOff": "Tắt",
+    "turnOffTitle": "Tắt Windows Hello?",
+    "turnOffMessage": "Bạn sẽ chỉ mở khoá xPass bằng mật khẩu chính. Bạn có thể bật lại Windows Hello bất cứ lúc nào.",
+    "enabled": "Đã bật Windows Hello",
+    "disabled": "Đã tắt Windows Hello",
+    "reenrollTitle": "Windows Hello đã bị tắt",
+    "reenrollMessage": "Khoá mã hoá kho đã được đổi hoặc Windows Hello trên máy này đã được thiết lập lại, nên Windows Hello không còn mở được kho này.",
+    "reenroll": "Thiết lập lại",
+    "notNow": "Để sau"
   }
 }
