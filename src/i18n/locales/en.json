@@ -317,6 +317,7 @@
       "syncedAgo_other": "Synced {{count}} min ago.",
       "pending": "Changes on this PC are not synced yet.",
       "offline": "Offline. Changes are kept on this PC and synced later.",
+      "noToken": "Sync is off until a GitHub token is saved on this PC.",
       "tokenInvalid": "Sync stopped: the GitHub token needs to be replaced.",
       "needsPassword": "Sync stopped: the vault key was changed on another device. Your master password is needed.",
       "differentVault": "Sync stopped: GitHub holds a different vault at this path.",

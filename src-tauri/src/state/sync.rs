@@ -19,9 +19,11 @@ use crate::{github::GitHubStore, sync_state::StoredSyncState, sync_worker::Trigg
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SyncPhase {
-    /// Sync is not set up (no repository or no token).
+    /// Sync is not set up or turned off.
     #[default]
     Off,
+    /// Set up, but no GitHub token is stored on this PC: enter one in Settings.
+    NoToken,
     /// Set up; nothing running. `dirty` tells whether changes wait for a push.
     Idle,
     Syncing,
@@ -149,7 +151,10 @@ impl AppState {
         if !self.sync_enabled() {
             status.phase = SyncPhase::Off;
             status.error = None;
-        } else if status.phase == SyncPhase::Off {
+        } else if matches!(self.0.tokens.get(), Ok(None)) {
+            status.phase = SyncPhase::NoToken;
+            status.error = None;
+        } else if matches!(status.phase, SyncPhase::Off | SyncPhase::NoToken) {
             status.phase = SyncPhase::Idle;
         }
         let stored = sync_state::load(&self.0.sync_state_path);
@@ -604,6 +609,21 @@ mod tests {
         b.state.lock();
         assert_eq!(b.state.unlock_password(PW).unwrap_err(), AppError::BadCredentials);
         b.state.unlock_password(new_pw).unwrap();
+    }
+
+    #[test]
+    fn a_missing_token_is_reported() {
+        let a = Device::create();
+        a.state.0.tokens.delete().unwrap();
+        let s = a.state.sync_status();
+        assert_eq!((s.phase, s.error), (SyncPhase::NoToken, None));
+
+        a.state.set_sync_token("github_pat_0123456789abcdefghij").unwrap();
+        assert_eq!(a.state.sync_status().phase, SyncPhase::Idle);
+
+        a.state.0.tokens.delete().unwrap();
+        a.state.disconnect_sync().unwrap();
+        assert_eq!(a.state.sync_status().phase, SyncPhase::Off);
     }
 
     #[test]

@@ -15,7 +15,7 @@ describe('sync indicator', () => {
     })
 
     it('sends user problems to Settings and retries the rest', () => {
-        for (const phase of ['tokenInvalid', 'needsPassword', 'differentVault'] as const) {
+        for (const phase of ['noToken', 'tokenInvalid', 'needsPassword', 'differentVault'] as const) {
             expect(syncView({...base, phase})).toEqual({key: phase, action: 'openSettings', warn: true})
         }
         expect(syncView({...base, phase: 'offline'})?.action).toBe('syncNow')

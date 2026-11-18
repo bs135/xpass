@@ -13,6 +13,7 @@ const ICONS: Record<SyncView['key'], typeof CloudCheck> = {
     synced: CloudCheck,
     pending: CloudUpload,
     offline: CloudOff,
+    noToken: AlertTriangle,
     tokenInvalid: AlertTriangle,
     needsPassword: AlertTriangle,
     differentVault: AlertTriangle,

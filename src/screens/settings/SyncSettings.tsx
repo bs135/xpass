@@ -65,7 +65,7 @@ export function SyncSettings() {
                         <dd>{config.hasToken ? t('sync.tokenStored') : t('sync.tokenMissing')}</dd>
                     </dl>
                     {!config.hasToken && <Alert tone="warning">{t('sync.needsToken')}</Alert>}
-                    {config.enabled && <SyncStatusLine/>}
+                    {config.enabled && config.hasToken && <SyncStatusLine/>}
                     <div className="flex flex-wrap gap-2">
                         <Button variant="secondary" onClick={() => setEditing(true)}>
                             {t('sync.change')}

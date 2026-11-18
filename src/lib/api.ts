@@ -163,6 +163,7 @@ export type SyncPhase =
     | 'idle'
     | 'syncing'
     | 'offline'
+    | 'noToken'
     | 'tokenInvalid'
     | 'needsPassword'
     | 'differentVault'

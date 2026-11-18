@@ -65,7 +65,8 @@ pub fn sync_status(state: State<'_, AppState>) -> SyncStatus {
 /// Starts a sync now ("Sync now"). The result arrives as `sync://status`.
 #[tauri::command]
 pub fn sync_now(state: State<'_, AppState>) -> AppResult<SyncStatus> {
-    if !state.sync_config()?.enabled {
+    let config = state.sync_config()?;
+    if !config.enabled || !config.has_token {
         return Err(AppError::SyncNotConfigured);
     }
     if state.status() != VaultStatus::Unlocked {

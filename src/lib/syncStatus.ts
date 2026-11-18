@@ -4,7 +4,7 @@ import {errorMessage} from './errors'
 
 /** What the sync indicator shows: an i18n key under `sync.status` and the click action. */
 export interface SyncView {
-    key: 'syncing' | 'synced' | 'pending' | 'offline' | 'tokenInvalid' | 'needsPassword' | 'differentVault' | 'error'
+    key: 'syncing' | 'synced' | 'pending' | 'offline' | 'noToken' | 'tokenInvalid' | 'needsPassword' | 'differentVault' | 'error'
     /** Problems only the user can fix open Settings; the rest start a sync. */
     action: 'syncNow' | 'openSettings'
     /** Shown with a warning colour. */
@@ -21,6 +21,7 @@ export function syncView(status: SyncStatus): SyncView | null {
             return {key: status.dirty ? 'pending' : 'synced', action: 'syncNow', warn: false}
         case 'offline':
             return {key: 'offline', action: 'syncNow', warn: false}
+        case 'noToken':
         case 'tokenInvalid':
         case 'needsPassword':
         case 'differentVault':

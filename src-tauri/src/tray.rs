@@ -139,7 +139,7 @@ pub fn show_sync_status(app: &AppHandle, status: &SyncStatus) {
         .is_some_and(|s| s.status() == VaultStatus::Unlocked);
     let _ = tray_sync
         .item
-        .set_enabled(unlocked && !matches!(status.phase, SyncPhase::Off | SyncPhase::Syncing));
+        .set_enabled(unlocked && !matches!(status.phase, SyncPhase::Off | SyncPhase::NoToken | SyncPhase::Syncing));
     if let Some(tray) = app.tray_by_id("main") {
         let _ = tray.set_tooltip(Some(tooltip(&tray_sync.labels, status)));
     }
