@@ -15,6 +15,7 @@ mod state;
 mod storage;
 mod strength;
 mod sync_state;
+mod sync_worker;
 mod throttle;
 mod tray;
 
@@ -42,6 +43,7 @@ pub fn run() {
             app.manage(state);
             lock_watch::start(app.handle().clone());
             tray::setup(app)?;
+            sync_worker::start(app.handle().clone());
             Ok(())
         })
         .on_window_event(tray::on_window_event)
@@ -67,6 +69,9 @@ pub fn run() {
             commands::sync::sync_disconnect,
             commands::sync::sync_test_connection,
             commands::sync::sync_open_token_page,
+            commands::sync::sync_status,
+            commands::sync::sync_now,
+            commands::sync::sync_dismiss_password_changed,
             commands::settings::update_settings,
             commands::session::password_strength,
             commands::session::lock,
@@ -87,6 +92,8 @@ pub fn run() {
             if let RunEvent::Exit = event {
                 // Wipe the session and our clipboard copy before the process ends.
                 lock_watch::lock_app(app, LockReason::Exit);
+                // S8: push unsynced changes without the key (bounded wait).
+                sync_worker::push_on_exit(app);
             }
         });
 }

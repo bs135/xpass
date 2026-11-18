@@ -307,6 +307,20 @@
       ],
       "note": "Hãy dùng token chỉ truy cập được đúng repository này. Đừng dùng lại token có quyền rộng hơn.",
       "open": "Mở trang tạo token trên GitHub"
+    },
+    "syncNow": "Đồng bộ ngay",
+    "status": {
+      "off": "Đồng bộ đang tắt.",
+      "syncing": "Đang đồng bộ…",
+      "synced": "Đã đồng bộ.",
+      "syncedAgo_one": "Đã đồng bộ {{count}} phút trước.",
+      "syncedAgo_other": "Đã đồng bộ {{count}} phút trước.",
+      "pending": "Có thay đổi trên máy này chưa được đồng bộ.",
+      "offline": "Offline. Thay đổi được giữ trên máy này và sẽ đồng bộ sau.",
+      "tokenInvalid": "Đồng bộ đã dừng: cần thay GitHub token.",
+      "needsPassword": "Đồng bộ đã dừng: khoá vault đã được đổi trên máy khác. Cần nhập mật khẩu chính.",
+      "differentVault": "Đồng bộ đã dừng: GitHub đang chứa một vault khác ở đường dẫn này.",
+      "error": "Đồng bộ thất bại; sẽ thử lại."
     }
   }
 }

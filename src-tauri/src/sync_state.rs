@@ -2,9 +2,6 @@
 //! the last result. No secrets. A missing or damaged file means "never synced",
 //! which is always safe: the next sync merges instead of overwriting (S3).
 
-// Read and written by the sync worker (T20); only `reset` is used before that.
-#![cfg_attr(not(test), allow(dead_code))]
-
 use std::{fs, io, path::Path};
 
 use serde::{Deserialize, Serialize};

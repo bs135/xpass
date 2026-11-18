@@ -1,11 +1,14 @@
 import {useEffect, useState} from 'react'
-import {CheckCircle2, ExternalLink} from 'lucide-react'
+import {CheckCircle2, ExternalLink, RefreshCw} from 'lucide-react'
 import {useTranslation} from 'react-i18next'
 import {ConfirmDialog} from '../../components/ConfirmDialog'
 import {Alert, Button, Field, PasswordInput, TextInput} from '../../components/ui'
 import {api, type ConnectionReport, type SyncConfig, type SyncTarget} from '../../lib/api'
 import {errorMessage} from '../../lib/errors'
 import {blockingProblem, canSave} from '../../lib/sync'
+import {syncText} from '../../lib/syncStatus'
+import {useNow} from '../../lib/useNow'
+import {useSync} from '../../stores/sync'
 import {useToast} from '../../stores/toast'
 
 /**
@@ -20,6 +23,7 @@ export function SyncSettings() {
     const [editing, setEditing] = useState(false)
     const [confirmDisconnect, setConfirmDisconnect] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const refreshStatus = useSync((s) => s.refresh)
 
     useEffect(() => {
         api.syncGetConfig()
@@ -32,6 +36,7 @@ export function SyncSettings() {
         setError(null)
         try {
             setConfig(await api.syncDisconnect())
+            refreshStatus()
             setEditing(false)
             show(t('sync.disconnected'))
         } catch (e) {
@@ -60,6 +65,7 @@ export function SyncSettings() {
                         <dd>{config.hasToken ? t('sync.tokenStored') : t('sync.tokenMissing')}</dd>
                     </dl>
                     {!config.hasToken && <Alert tone="warning">{t('sync.needsToken')}</Alert>}
+                    {config.enabled && <SyncStatusLine/>}
                     <div className="flex flex-wrap gap-2">
                         <Button variant="secondary" onClick={() => setEditing(true)}>
                             {t('sync.change')}
@@ -74,6 +80,7 @@ export function SyncSettings() {
                     config={config}
                     onSaved={(c) => {
                         setConfig(c)
+                        refreshStatus()
                         setEditing(false)
                         show(t('sync.saved'))
                     }}
@@ -91,6 +98,27 @@ export function SyncSettings() {
                 />
             )}
         </>
+    )
+}
+
+function SyncStatusLine() {
+    const {t} = useTranslation()
+    const status = useSync((s) => s.status)
+    const syncNow = useSync((s) => s.syncNow)
+    const show = useToast((s) => s.show)
+    const now = useNow()
+    return (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md bg-neutral-50 px-3 py-2 text-sm dark:bg-neutral-900">
+            <span role="status">{syncText(t, status, now)}</span>
+            <Button
+                variant="secondary"
+                busy={status.phase === 'syncing'}
+                onClick={() => syncNow().catch((e) => show(errorMessage(t, e), 4000))}
+            >
+                {status.phase !== 'syncing' && <RefreshCw className="size-4" aria-hidden/>}
+                {t('sync.syncNow')}
+            </Button>
+        </div>
     )
 }
 

@@ -6,7 +6,7 @@
 use serde::Serialize;
 use thiserror::Error;
 
-#[derive(Debug, Error, Serialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Error, Serialize, PartialEq, Eq)]
 #[serde(tag = "code", rename_all = "snake_case", rename_all_fields = "camelCase")]
 pub enum AppError {
     #[error("no vault has been created yet")]

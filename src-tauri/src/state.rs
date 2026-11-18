@@ -4,9 +4,11 @@
 //! Plain Rust, no Tauri types, so the command handlers can be tested with a temp
 //! directory. The Tauri commands in `commands::session` are thin wrappers.
 
+mod sync;
+
 use std::{
     path::PathBuf,
-    sync::{Arc, Mutex, MutexGuard, PoisonError},
+    sync::{atomic::AtomicU64, Arc, Mutex, MutexGuard, OnceLock, PoisonError},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -35,8 +37,11 @@ use crate::{
     settings::{self, Settings, SyncSettings},
     storage::Storage,
     strength, sync_state,
+    sync_worker::Trigger,
     throttle::Throttle,
 };
+
+pub use sync::{SyncPhase, SyncStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -143,6 +148,13 @@ struct Inner {
     /// GitHub token (Windows Credential Manager in the app).
     tokens: Box<dyn TokenStore>,
     sync_state_path: PathBuf,
+    /// Bumped (under the session lock) on every local change of the vault file and
+    /// on unlock; a sync commit compares it with its snapshot (S2).
+    changes: AtomicU64,
+    /// Bumped on every local password / recovery slot change (S5).
+    slot_changes: AtomicU64,
+    sync_status: Mutex<SyncStatus>,
+    sync_notifier: OnceLock<Box<dyn Fn(Trigger) + Send + Sync>>,
 }
 
 impl AppState {
@@ -166,6 +178,10 @@ impl AppState {
             hello_busy: Mutex::new(()),
             tokens: Box::new(MemoryTokens::default()),
             sync_state_path,
+            changes: AtomicU64::new(0),
+            slot_changes: AtomicU64::new(0),
+            sync_status: Mutex::new(SyncStatus::default()),
+            sync_notifier: OnceLock::new(),
         }))
     }
 
@@ -223,6 +239,7 @@ impl AppState {
                 sync_state::reset(&self.0.sync_state_path)?;
             }
         }
+        self.notify(Trigger::ConfigChanged);
         self.sync_config()
     }
 
@@ -241,6 +258,7 @@ impl AppState {
                 self.save_sync_settings(&mut current, sync)?;
             }
         }
+        self.notify(Trigger::ConfigChanged);
         self.sync_config()
     }
 
@@ -254,6 +272,8 @@ impl AppState {
             self.save_sync_settings(&mut current, SyncSettings::default())?;
         }
         sync_state::reset(&self.0.sync_state_path)?;
+        *lock(&self.0.sync_status) = SyncStatus::default();
+        self.notify(Trigger::ConfigChanged);
         self.sync_config()
     }
 
@@ -454,6 +474,8 @@ impl AppState {
             vault.set_hello_slot(&mut OsRng, salt, &signature);
             Ok(())
         })?;
+        self.changed(false);
+        drop(guard);
         *lock(&self.0.hello_flags) = HelloFlags::default();
         Ok(())
     }
@@ -468,6 +490,7 @@ impl AppState {
                     vault.remove_hello_slot();
                     Ok(())
                 })?;
+                self.changed(false);
             }
             session.vault().vault_id()
         };
@@ -503,7 +526,9 @@ impl AppState {
             vault
                 .change_password(&mut OsRng, new.as_bytes(), target)
                 .map_err(AppError::from)
-        })
+        })?;
+        self.changed(true);
+        Ok(())
     }
 
     /// Replaces the recovery key (new Emergency Kit) and returns it. `current` is
@@ -518,6 +543,7 @@ impl AppState {
             recovery_key = Some(vault.replace_recovery_key(&mut OsRng));
             Ok(())
         })?;
+        self.changed(true);
         drop(guard);
         self.mark_kit_generated();
         recovery_key.ok_or(AppError::Internal)
@@ -542,6 +568,7 @@ impl AppState {
                 .rotate(&mut OsRng, current.as_bytes(), target)
                 .map_err(AppError::from)
         })?;
+        self.changed(true);
         drop(guard);
         self.mark_kit_generated();
         if hello_dropped {
@@ -602,7 +629,9 @@ impl AppState {
     pub fn edit<T>(&self, f: impl FnOnce(&mut Payload, i64) -> AppResult<T>) -> AppResult<T> {
         let mut guard = lock(&self.0.session);
         let session = guard.as_mut().ok_or(AppError::Locked)?;
-        session.apply(&self.0.storage, now_ms(), f)
+        let out = session.apply(&self.0.storage, now_ms(), f)?;
+        self.changed(false);
+        Ok(out)
     }
 
     pub fn idle_timeout(&self) -> Option<Duration> {
@@ -621,10 +650,15 @@ impl AppState {
     }
 
     /// Locks and remembers why, if the vault was unlocked. Returns whether it was.
+    /// Except on app exit (which pushes on its own, S8), the sync worker is told
+    /// so it can push the local file without the key.
     pub fn lock_with(&self, reason: LockReason) -> bool {
         let was_unlocked = self.lock();
         if was_unlocked {
             *lock(&self.0.last_lock_reason) = Some(reason);
+            if reason != LockReason::Exit {
+                self.notify(Trigger::Locked);
+            }
         }
         was_unlocked
     }
@@ -694,8 +728,13 @@ impl AppState {
         } else {
             self.drop_broken_hello_slot(&mut session);
         }
-        *lock(&self.0.session) = Some(session);
+        {
+            let mut guard = lock(&self.0.session);
+            *guard = Some(session);
+            self.0.changes.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
         *lock(&self.0.last_lock_reason) = None;
+        self.notify(Trigger::Unlocked);
         Ok(())
     }
 
