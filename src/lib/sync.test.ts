@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import type {ConnectionReport} from './api'
-import {blockingProblem, canSave} from './sync'
+import {blockingProblem, canJoin, canSave, joinProblem} from './sync'
 
 const ok: ConnectionReport = {private: true, branch: 'main', branchExists: true, remote: 'missing'}
 
@@ -25,5 +25,22 @@ describe('sync setup checks', () => {
         const pub = {...ok, private: false}
         expect(canSave(pub, false)).toBe(false)
         expect(canSave(pub, true)).toBe(true)
+    })
+})
+
+describe('joining a vault from GitHub', () => {
+    const found: ConnectionReport = {...ok, remote: 'found'}
+
+    it('needs an xPass vault at the path', () => {
+        expect(canJoin(found, false)).toBe(true)
+        expect(joinProblem({...ok, remote: 'missing'})).toBe('joinMissing')
+        expect(joinProblem({...ok, remote: 'notAVault'})).toBe('notAVault')
+        expect(joinProblem({...found, branchExists: false})).toBe('branchMissing')
+        expect(canJoin(null, true)).toBe(false)
+    })
+
+    it('asks to acknowledge a public repository', () => {
+        expect(canJoin({...found, private: false}, false)).toBe(false)
+        expect(canJoin({...found, private: false}, true)).toBe(true)
     })
 })

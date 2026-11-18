@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react'
 import {CheckCircle2, ExternalLink, RefreshCw} from 'lucide-react'
 import {useTranslation} from 'react-i18next'
 import {ConfirmDialog} from '../../components/ConfirmDialog'
+import {SyncProblem} from '../../components/SyncProblem'
 import {Alert, Button, Field, PasswordInput, TextInput} from '../../components/ui'
 import {api, type ConnectionReport, type SyncConfig, type SyncTarget} from '../../lib/api'
 import {errorMessage} from '../../lib/errors'
@@ -51,6 +52,7 @@ export function SyncSettings() {
     return (
         <>
             <p className="mb-3 text-sm text-neutral-600 dark:text-neutral-400">{t('sync.intro')}</p>
+            {config.enabled && <SyncProblem inSettings/>}
             {error && <Alert>{error}</Alert>}
             {config.repo && !editing ? (
                 <>
@@ -283,7 +285,7 @@ function SyncForm({
     )
 }
 
-function TokenGuide() {
+export function TokenGuide() {
     const {t} = useTranslation()
     const show = useToast((s) => s.show)
     return (

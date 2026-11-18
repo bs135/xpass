@@ -71,6 +71,10 @@ pub enum AppError {
     SyncRepoNotFound,
     #[error("sync failed")]
     SyncFailed,
+    #[error("no vault at this path on GitHub")]
+    SyncRemoteMissing,
+    #[error("this action needs a successful sync first")]
+    SyncRequired,
     #[error("file system error: {kind}")]
     Io { kind: String },
     #[error("internal error")]

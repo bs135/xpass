@@ -16,6 +16,7 @@ import {
 import {applyTheme, resolveTheme} from './lib/theme'
 import {EmergencyKitScreen} from './screens/EmergencyKitScreen'
 import {EntriesScreen} from './screens/entries/EntriesScreen'
+import {JoinedScreen} from './screens/JoinedScreen'
 import {NewPasswordScreen} from './screens/NewPasswordScreen'
 import {SettingsScreen} from './screens/settings/SettingsScreen'
 import {SetupScreen} from './screens/SetupScreen'
@@ -93,6 +94,8 @@ function ScreenView({screen}: {screen: Screen}) {
             return <SetupScreen/>
         case 'kit':
             return <EmergencyKitScreen/>
+        case 'joined':
+            return <JoinedScreen/>
         case 'unlock':
             // `key` remounts the form so a typed password never carries over.
             return <UnlockScreen key="password" mode="password"/>

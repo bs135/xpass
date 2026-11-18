@@ -222,6 +222,8 @@ export type AppError =
     | {code: 'sync_rate_limited'; retryAfterS: number | null}
     | {code: 'sync_repo_not_found'}
     | {code: 'sync_failed'}
+    | {code: 'sync_remote_missing'}
+    | {code: 'sync_required'}
     | {code: 'io'; kind: string}
     | {code: 'internal'}
 
@@ -293,4 +295,11 @@ export const api = {
     /** Starts a sync; the result arrives as `sync://status`. */
     syncNow: () => invoke<SyncStatus>('sync_now'),
     syncDismissPasswordChanged: () => invoke<void>('sync_dismiss_password_changed'),
+    /** "Use my vault from GitHub" (no vault on this PC): download, open with `password`, turn sync on. */
+    syncJoin: (target: SyncTarget, token: string, password: string) =>
+        invoke<void>('sync_join', {...target, token, password}),
+    /** The vault key was changed on another device: `password` is the master password as set there. */
+    syncResolveKeyChange: (password: string) => invoke<SyncStatus>('sync_resolve_key_change', {password}),
+    /** Replaces this PC's vault with the one on GitHub (kept as a backup); `password` opens the GitHub vault. */
+    syncReplaceLocal: (password: string) => invoke<void>('sync_replace_local', {password}),
 }

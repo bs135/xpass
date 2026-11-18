@@ -3,6 +3,7 @@ import {KeyRound} from 'lucide-react'
 import {useTranslation} from 'react-i18next'
 import {ConfirmDialog} from '../../components/ConfirmDialog'
 import {HelloReenrollNotice} from '../../components/HelloReenrollNotice'
+import {SyncProblem} from '../../components/SyncProblem'
 import {Alert} from '../../components/ui'
 import {copyField} from '../../lib/copy'
 import {errorMessage} from '../../lib/errors'
@@ -56,6 +57,7 @@ export function EntriesScreen() {
             <EntryList visible={visible} searchRef={searchRef}/>
             <section className="min-w-0 flex-1 overflow-auto">
                 <div className="px-4 pt-4 empty:hidden">
+                    <SyncProblem/>
                     <HelloReenrollNotice/>
                 </div>
                 {error && (

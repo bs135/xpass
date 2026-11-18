@@ -6,7 +6,16 @@ import {useEntries} from './entries'
  * Which screen the app shows. Secrets never live here except the recovery key
  * while the Emergency Kit is on screen; it is dropped as soon as the kit is done.
  */
-export type Screen = 'loading' | 'setup' | 'kit' | 'unlock' | 'recovery' | 'newPassword' | 'unlocked' | 'settings'
+export type Screen =
+    | 'loading'
+    | 'setup'
+    | 'kit'
+    | 'joined'
+    | 'unlock'
+    | 'recovery'
+    | 'newPassword'
+    | 'unlocked'
+    | 'settings'
 
 interface SessionState {
     screen: Screen

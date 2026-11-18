@@ -9,7 +9,8 @@
 use std::sync::atomic::Ordering;
 
 use xpass_core::sync::{
-    blob_sha, push_raw, rebase, sync_once, LocalSide, RemoteStore, Snapshot, SyncError, SyncOutcome, SyncState, Synced,
+    blob_sha, join, push_raw, rebase, resolve_key_change, sync_once, LocalSide, Remote, RemoteStore, Snapshot,
+    SyncError, SyncOutcome, SyncState, Synced,
 };
 
 use super::*;
@@ -134,7 +135,8 @@ impl AppState {
         }
     }
 
-    fn sync_enabled(&self) -> bool {
+    /// Sync is set up and turned on (the token may still be missing).
+    pub fn sync_enabled(&self) -> bool {
         let sync = self.settings().sync;
         sync.enabled && sync.is_configured()
     }
@@ -209,16 +211,21 @@ impl AppState {
 
     /// One sync with `store` (S2). Needs the vault unlocked.
     pub async fn run_sync<S: RemoteStore>(&self, store: &S) -> Result<SyncOutcome, SyncError> {
-        let mut local = AppLocal {
+        let _running = self.0.sync_running.lock().await;
+        sync_once(store, &mut self.local_side(), now_ms()).await
+    }
+
+    fn local_side(&self) -> AppLocal {
+        AppLocal {
             state: self.clone(),
             remote_id: self.remote_id(),
-        };
-        sync_once(store, &mut local, now_ms()).await
+        }
     }
 
     /// S8: after a lock, uploads the local file as it is when it has unpushed
     /// changes and the remote did not move. Needs no key. Returns whether it pushed.
     pub async fn push_locked<S: RemoteStore>(&self, store: &S) -> Result<bool, SyncError> {
+        let _running = self.0.sync_running.lock().await;
         if lock(&self.0.session).is_some() {
             return Ok(false);
         }
@@ -237,6 +244,196 @@ impl AppState {
         // The remote now holds exactly `file`; any later local edit stays dirty.
         self.save_sync_state(remote_id, SyncState::synced(sha, &file))?;
         Ok(true)
+    }
+
+    // ---- flows that need the user (T21) ----
+
+    /// "Use my vault from GitHub" on a PC without a vault: downloads the vault at
+    /// `target`, opens it with the master password (throttled like unlock), makes it
+    /// this PC's vault and turns sync on with `token`. The Hello slot of the device
+    /// that pushed is dropped (S4). No new Emergency Kit: the existing one applies.
+    pub async fn join_vault<S: RemoteStore>(
+        &self,
+        store: &S,
+        target: SyncSettings,
+        token: &str,
+        password: &str,
+    ) -> AppResult<()> {
+        let token = secrets::normalize_token(token)?;
+        target.validate()?;
+        if self.0.storage.exists() {
+            return Err(AppError::VaultExists);
+        }
+        self.check_throttle()?;
+        let _running = self.0.sync_running.lock().await;
+        let remote = store.get().await?.ok_or(AppError::SyncRemoteMissing)?;
+
+        let _gate = lock(&self.0.gate);
+        if self.0.storage.exists() {
+            return Err(AppError::VaultExists);
+        }
+        let mut vault = self.open_remote(&remote, password)?;
+        let bytes = vault.save(&mut OsRng)?;
+        self.0.tokens.set(&token)?;
+        {
+            let mut current = lock(&self.0.settings);
+            let sync = SyncSettings {
+                enabled: true,
+                ..target
+            };
+            self.save_sync_settings(&mut current, sync)?;
+        }
+        self.0.storage.write(&bytes, now_ms())?;
+        self.save_sync_state(self.remote_id(), SyncState::synced(remote.sha, &bytes))
+            .map_err(AppError::from)?;
+        self.start_session(VaultSession::new(vault, false));
+        Ok(())
+    }
+
+    /// S7: the VaultKey was rotated on another device (status *Needs password*).
+    /// Opens the remote with the master password as set there, merges this PC's
+    /// changes into it and pushes. This PC's Hello slot wrapped the old key: it is
+    /// dropped and setting Hello up again is suggested.
+    pub async fn resolve_key_change<S: RemoteStore>(&self, store: &S, password: &str) -> AppResult<SyncStatus> {
+        self.check_throttle()?;
+        let hello = self.hello_slot_vault_id();
+        let result = {
+            let _running = self.0.sync_running.lock().await;
+            resolve_key_change(store, &mut self.local_side(), password.as_bytes(), now_ms()).await
+        };
+        match &result {
+            Err(SyncError::Vault(xpass_core::Error::BadCredentials)) => {
+                lock(&self.0.throttle).record_failure(Instant::now());
+                return Err(AppError::BadCredentials);
+            }
+            Ok(_) => lock(&self.0.throttle).record_success(),
+            Err(_) => {}
+        }
+        let status = self.finish_sync(&result);
+        result?;
+        if let Some(vault_id) = hello {
+            if self.hello_slot_vault_id().is_none() {
+                lock(&self.0.hello_flags).reenroll_suggested = true;
+                self.delete_hello_credential(vault_id);
+            }
+        }
+        self.notify(Trigger::Manual);
+        Ok(status)
+    }
+
+    /// `DifferentVault`: replaces this PC's vault with the one on GitHub, opened with
+    /// its master password. The current file goes to the backups (every write keeps
+    /// one). Needs the vault unlocked, so a walk-up user cannot do it.
+    pub async fn replace_with_remote<S: RemoteStore>(&self, store: &S, password: &str) -> AppResult<()> {
+        if self.status() != VaultStatus::Unlocked {
+            return Err(AppError::Locked);
+        }
+        self.check_throttle()?;
+        let _running = self.0.sync_running.lock().await;
+        let remote = store.get().await?.ok_or(AppError::SyncRemoteMissing)?;
+
+        let _gate = lock(&self.0.gate);
+        let mut vault = self.open_remote(&remote, password)?;
+        let bytes = vault.save(&mut OsRng)?;
+        let old_hello = self.hello_slot_vault_id();
+        {
+            let mut guard = lock(&self.0.session);
+            if guard.is_none() {
+                return Err(AppError::Locked);
+            }
+            self.0.storage.write(&bytes, now_ms())?;
+            *guard = Some(VaultSession::new(vault, false));
+            self.0.changes.fetch_add(1, Ordering::SeqCst);
+            self.save_sync_state(self.remote_id(), SyncState::synced(remote.sha, &bytes))
+                .map_err(AppError::from)?;
+        }
+        if let Some(vault_id) = old_hello {
+            lock(&self.0.hello_flags).reenroll_suggested = true;
+            self.delete_hello_credential(vault_id);
+        }
+        {
+            let mut status = lock(&self.0.sync_status);
+            status.phase = SyncPhase::Idle;
+            status.error = None;
+            status.password_changed = false;
+        }
+        self.notify(Trigger::Manual);
+        Ok(())
+    }
+
+    /// S6: VaultKey rotation while sync is on. Syncs first, rotates a copy, pushes it
+    /// with the current remote SHA and only then writes the local file. Offline, a
+    /// conflicting push or any other sync problem → `SyncRequired`, nothing changed.
+    pub async fn rotate_vault_key_online<S: RemoteStore>(&self, store: &S, current: &str) -> AppResult<Rotated> {
+        {
+            let guard = lock(&self.0.session);
+            let session = guard.as_ref().ok_or(AppError::Locked)?;
+            self.verify_password(session, current)?;
+        }
+        let _running = self.0.sync_running.lock().await;
+        let mut local = self.local_side();
+        let synced = sync_once(store, &mut local, now_ms()).await;
+        self.finish_sync(&synced);
+        match synced {
+            Ok(_) => {}
+            Err(SyncError::Locked) => return Err(AppError::Locked),
+            Err(_) => return Err(AppError::SyncRequired),
+        }
+
+        let (snap, token) = local.snapshot().map_err(AppError::from)?;
+        let mut vault = snap.vault;
+        let vault_id = vault.vault_id();
+        let hello_dropped = vault.slot_kinds().contains(&SlotKind::Hello);
+        let recovery_key = vault.rotate(&mut OsRng, current.as_bytes(), self.0.target_kdf)?;
+        let bytes = vault.save(&mut OsRng)?;
+        let sha = store
+            .put(&bytes, snap.state.base_sha.as_deref())
+            .await
+            .map_err(|_| AppError::SyncRequired)?;
+        let pushed = Synced {
+            vault,
+            bytes,
+            base_sha: sha,
+            outcome: SyncOutcome::Pushed,
+            password_changed: false,
+        };
+        let committed = local.commit(token, pushed);
+        self.finish_sync(&committed.clone().map(|()| SyncOutcome::Pushed));
+        committed?;
+
+        self.mark_kit_generated();
+        if hello_dropped {
+            lock(&self.0.hello_flags).reenroll_suggested = true;
+            self.delete_hello_credential(vault_id);
+        }
+        self.notify(Trigger::Manual);
+        Ok(Rotated {
+            recovery_key,
+            hello_dropped,
+        })
+    }
+
+    /// Opens a downloaded vault with its master password, throttled like unlock,
+    /// without the other device's Hello slot.
+    fn open_remote(&self, remote: &Remote, password: &str) -> AppResult<UnlockedVault> {
+        match join(&remote.bytes, password.as_bytes()) {
+            Ok(vault) => {
+                lock(&self.0.throttle).record_success();
+                Ok(vault)
+            }
+            Err(xpass_core::Error::BadCredentials) => {
+                lock(&self.0.throttle).record_failure(Instant::now());
+                Err(AppError::BadCredentials)
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    /// Vault id of the open vault when it has a Hello slot.
+    fn hello_slot_vault_id(&self) -> Option<Uuid> {
+        let guard = lock(&self.0.session);
+        let vault = guard.as_ref()?.vault();
+        vault.slot_kinds().contains(&SlotKind::Hello).then(|| vault.vault_id())
     }
 
     fn save_sync_state(&self, remote_id: String, state: SyncState) -> Result<(), SyncError> {
@@ -410,7 +607,7 @@ mod tests {
             d
         }
 
-        /// Second device that downloaded the remote vault (the real join flow comes in T21).
+        /// Second device holding the remote file as is (shortcut for `join_vault`).
         fn join(store: &MemoryStore) -> Self {
             let d = Self::new();
             let remote = store.current().unwrap();
@@ -624,6 +821,137 @@ mod tests {
         a.state.0.tokens.delete().unwrap();
         a.state.disconnect_sync().unwrap();
         assert_eq!(a.state.sync_status().phase, SyncPhase::Off);
+    }
+
+    const TOKEN: &str = "github_pat_0123456789abcdefghij";
+
+    fn target() -> SyncSettings {
+        SyncSettings::from_input("octo/vault", "", "").unwrap()
+    }
+
+    fn backup_count(d: &Device) -> usize {
+        fs::read_dir(d.paths.backups()).map_or(0, Iterator::count)
+    }
+
+    #[test]
+    fn join_downloads_the_vault_and_turns_sync_on() {
+        let store = MemoryStore::new();
+        let a = Device::create();
+        a.add("GitHub");
+        a.sync(&store).unwrap();
+
+        let b = Device::new();
+        let join = |store: &MemoryStore, password: &str| block_on(b.state.join_vault(store, target(), TOKEN, password));
+        assert_eq!(join(&MemoryStore::new(), PW), Err(AppError::SyncRemoteMissing));
+        assert_eq!(join(&store, "not the password at all"), Err(AppError::BadCredentials));
+        assert_eq!(b.state.status(), VaultStatus::NoVault, "nothing written");
+
+        join(&store, PW).unwrap();
+        assert_eq!(b.state.status(), VaultStatus::Unlocked);
+        assert_eq!(b.titles(), ["GitHub"]);
+        let config = b.state.sync_config().unwrap();
+        assert!(config.enabled && config.has_token);
+        let s = b.state.sync_status();
+        assert_eq!((s.phase, s.dirty), (SyncPhase::Idle, false));
+        assert_eq!(b.take_triggers().last(), Some(&Trigger::Unlocked));
+        assert_eq!(b.sync(&store).unwrap(), SyncOutcome::UpToDate);
+
+        b.add("Bank");
+        b.sync(&store).unwrap();
+        a.sync(&store).unwrap();
+        assert_eq!(a.titles(), ["Bank", "GitHub"]);
+        assert_eq!(join(&store, PW), Err(AppError::VaultExists));
+    }
+
+    #[test]
+    fn rotation_elsewhere_needs_the_password_and_keeps_local_edits() {
+        let store = MemoryStore::new();
+        let a = Device::create();
+        a.sync(&store).unwrap();
+        let b = Device::join(&store);
+        b.sync(&store).unwrap();
+
+        block_on(a.state.rotate_vault_key_online(&store, PW)).unwrap();
+        b.add("Offline edit");
+        assert_eq!(b.sync(&store), Err(SyncError::Vault(xpass_core::Error::KeyChanged)));
+        assert_eq!(b.state.sync_status().phase, SyncPhase::NeedsPassword);
+
+        let wrong = block_on(b.state.resolve_key_change(&store, "not the password at all"));
+        assert_eq!(wrong, Err(AppError::BadCredentials));
+        assert_eq!(b.state.sync_status().phase, SyncPhase::NeedsPassword);
+
+        let s = block_on(b.state.resolve_key_change(&store, PW)).unwrap();
+        assert_eq!((s.phase, s.dirty), (SyncPhase::Idle, false));
+        assert_eq!(a.sync(&store).unwrap(), SyncOutcome::Pulled);
+        assert_eq!(a.titles(), ["Offline edit"]);
+
+        // B now holds the new key on disk.
+        b.state.lock();
+        b.state.unlock_password(PW).unwrap();
+        assert_eq!(b.sync(&store).unwrap(), SyncOutcome::UpToDate);
+    }
+
+    #[test]
+    fn online_rotation_changes_nothing_unless_github_takes_it() {
+        let store = MemoryStore::new();
+        let a = Device::create();
+        a.sync(&store).unwrap();
+        let before = fs::read(a.paths.vault()).unwrap();
+
+        store.set_offline(true);
+        let offline = block_on(a.state.rotate_vault_key_online(&store, PW));
+        assert_eq!(offline.err(), Some(AppError::SyncRequired));
+        assert_eq!(fs::read(a.paths.vault()).unwrap(), before);
+        store.set_offline(false);
+
+        // Another device pushes between our sync and the rotated push.
+        let b = Device::join(&store);
+        b.add("Elsewhere");
+        let theirs = fs::read(b.paths.vault()).unwrap();
+        store.before_next_put(move |s| s.force(&theirs));
+        let conflict = block_on(a.state.rotate_vault_key_online(&store, PW));
+        assert_eq!(conflict.err(), Some(AppError::SyncRequired));
+        assert_eq!(fs::read(a.paths.vault()).unwrap(), before);
+
+        let wrong = block_on(a.state.rotate_vault_key_online(&store, "not the password at all"));
+        assert_eq!(wrong.err(), Some(AppError::BadCredentials));
+
+        let rotated = block_on(a.state.rotate_vault_key_online(&store, PW)).unwrap();
+        assert!(!rotated.hello_dropped);
+        assert_eq!(fs::read(a.paths.vault()).unwrap(), store.current().unwrap().bytes);
+        assert_eq!(a.titles(), ["Elsewhere"]);
+        let s = a.state.sync_status();
+        assert_eq!((s.phase, s.dirty), (SyncPhase::Idle, false));
+        // The rotated file on disk opens with the same password.
+        a.state.lock();
+        a.state.unlock_password(PW).unwrap();
+    }
+
+    #[test]
+    fn replace_with_the_vault_on_github() {
+        let other = MemoryStore::new();
+        let c = Device::create();
+        c.add("Other");
+        c.sync(&other).unwrap();
+
+        let b = Device::create();
+        b.add("Mine");
+        assert_eq!(b.sync(&other), Err(SyncError::Vault(xpass_core::Error::DifferentVault)));
+        assert_eq!(b.state.sync_status().phase, SyncPhase::DifferentVault);
+
+        let wrong = block_on(b.state.replace_with_remote(&other, "not the password at all"));
+        assert_eq!(wrong, Err(AppError::BadCredentials));
+        assert_eq!(b.titles(), ["Mine"]);
+
+        let backups = backup_count(&b);
+        block_on(b.state.replace_with_remote(&other, PW)).unwrap();
+        assert_eq!(b.titles(), ["Other"]);
+        assert_eq!(backup_count(&b), backups + 1, "the replaced vault is kept");
+        assert_eq!(b.state.sync_status().phase, SyncPhase::Idle);
+        assert_eq!(b.sync(&other).unwrap(), SyncOutcome::UpToDate);
+
+        b.state.lock();
+        assert_eq!(block_on(b.state.replace_with_remote(&other, PW)), Err(AppError::Locked));
     }
 
     #[test]
