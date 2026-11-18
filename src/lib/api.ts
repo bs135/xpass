@@ -133,6 +133,36 @@ export interface Settings {
     lastKitAt: number | null
 }
 
+/** Sync setup (`settings.json` + whether a token is stored). The token itself never comes back. */
+export interface SyncConfig {
+    /** `owner/name`; empty when sync is not set up. */
+    repo: string
+    /** Empty = the repository's default branch. */
+    branch: string
+    path: string
+    enabled: boolean
+    /** A GitHub token is stored in Windows Credential Manager. */
+    hasToken: boolean
+}
+
+/** What "Test connection" found at the vault path. */
+export type RemoteFile = 'missing' | 'sameVault' | 'otherVault' | 'found' | 'notAVault'
+
+export interface ConnectionReport {
+    /** false for a public repository. */
+    private: boolean
+    /** Branch that will be used (configured or the repository default). */
+    branch: string
+    branchExists: boolean
+    remote: RemoteFile
+}
+
+export interface SyncTarget {
+    repo: string
+    branch: string
+    path: string
+}
+
 export const AUTO_LOCK_CHOICES = [1, 5, 15, 30, 60] as const
 export const CLIPBOARD_CHOICES = [10, 20, 30, 60, 90] as const
 
@@ -161,6 +191,14 @@ export type AppError =
     | {code: 'hello_device_locked'}
     | {code: 'hello_busy'}
     | {code: 'hello_failed'}
+    | {code: 'secret_store'}
+    | {code: 'sync_not_configured'}
+    | {code: 'sync_offline'}
+    | {code: 'sync_unauthorized'}
+    | {code: 'sync_forbidden'}
+    | {code: 'sync_rate_limited'; retryAfterS: number | null}
+    | {code: 'sync_repo_not_found'}
+    | {code: 'sync_failed'}
     | {code: 'io'; kind: string}
     | {code: 'internal'}
 
@@ -213,4 +251,14 @@ export const api = {
         invoke<{value: string}>('reveal_secret', {id, field}).then((s) => s.value),
     generatePassword: (options: GeneratorOptions) => invoke<Generated>('generate_password', {options}),
     copyText: (text: string) => invoke<void>('copy_text', {text}),
+    syncGetConfig: () => invoke<SyncConfig>('sync_get_config'),
+    syncConfigure: (target: SyncTarget) => invoke<SyncConfig>('sync_configure', {...target}),
+    /** Stores the token in Windows Credential Manager; it is never returned. */
+    syncSetToken: (token: string) => invoke<SyncConfig>('sync_set_token', {token}),
+    /** Deletes the token and the sync setup; the local vault stays. */
+    syncDisconnect: () => invoke<SyncConfig>('sync_disconnect'),
+    /** `token` null uses the stored token. */
+    syncTestConnection: (target: SyncTarget, token: string | null) =>
+        invoke<ConnectionReport>('sync_test_connection', {...target, token}),
+    syncOpenTokenPage: () => invoke<void>('sync_open_token_page'),
 }

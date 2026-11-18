@@ -221,7 +221,16 @@
     "hello_canceled": "Đã huỷ Windows Hello.",
     "hello_device_locked": "Windows Hello bị khoá do thử sai quá nhiều lần. Hãy mở khoá nó trong Windows, hoặc dùng mật khẩu chính.",
     "hello_busy": "Windows Hello đang chờ bạn xác nhận.",
-    "hello_failed": "Windows Hello không hoạt động. Hãy thử lại hoặc dùng mật khẩu chính."
+    "hello_failed": "Windows Hello không hoạt động. Hãy thử lại hoặc dùng mật khẩu chính.",
+    "secret_store": "Windows Credential Manager không khả dụng nên không đọc hoặc lưu được GitHub token.",
+    "sync_not_configured": "Chưa cài đặt đồng bộ. Hãy nhập repository và GitHub token.",
+    "sync_offline": "Không kết nối được GitHub. Kiểm tra mạng; các thay đổi vẫn được giữ trên máy này.",
+    "sync_unauthorized": "GitHub token không hợp lệ hoặc đã hết hạn. Hãy nhập token mới.",
+    "sync_forbidden": "GitHub token không đủ quyền. Token cần Contents: Read and write trên repository này.",
+    "sync_rate_limited": "Đã chạm giới hạn request của GitHub. Hãy thử lại sau.",
+    "sync_rate_limited_wait": "Đã chạm giới hạn request của GitHub. Hãy thử lại sau khoảng {{minutes}} phút.",
+    "sync_repo_not_found": "Không tìm thấy repository, hoặc token không truy cập được. Kiểm tra tên repository và quyền của token.",
+    "sync_failed": "Đồng bộ với GitHub thất bại. Hãy thử lại."
   },
   "about": {
     "version": "Phiên bản {{version}} · định dạng vault v{{format}}"
@@ -255,5 +264,49 @@
     "reenrollMessage": "Khoá mã hoá kho đã được đổi hoặc Windows Hello trên máy này đã được thiết lập lại, nên Windows Hello không còn mở được kho này.",
     "reenroll": "Thiết lập lại",
     "notNow": "Để sau"
+  },
+  "sync": {
+    "title": "Đồng bộ",
+    "intro": "Đồng bộ vault này giữa các máy tính qua một file trong repository GitHub riêng tư. Chỉ vault đã mã hoá được tải lên; GitHub không bao giờ thấy mật khẩu hay mật khẩu chính của bạn.",
+    "repo": "Repository",
+    "repoPlaceholder": "owner/name hoặc https://github.com/owner/name",
+    "branch": "Branch",
+    "defaultBranch": "Branch mặc định",
+    "path": "Đường dẫn file",
+    "token": "GitHub token",
+    "tokenStored": "Đã lưu trong Windows Credential Manager.",
+    "tokenMissing": "Chưa có",
+    "needsToken": "Đồng bộ đang tắt cho đến khi lưu GitHub token. Chọn Thay đổi và nhập token.",
+    "replaceToken": "Thay token",
+    "test": "Kiểm tra kết nối",
+    "testFirst": "Hãy kiểm tra kết nối trước khi lưu. Token được lưu trong Windows Credential Manager và không bao giờ hiển thị lại.",
+    "saved": "Đã lưu cài đặt đồng bộ.",
+    "change": "Thay đổi",
+    "disconnect": "Tắt đồng bộ",
+    "disconnectTitle": "Tắt đồng bộ?",
+    "disconnectMessage": "Token bị xoá khỏi máy này và xPass ngừng đồng bộ. Vault trên máy này và bản trên GitHub không thay đổi.",
+    "disconnected": "Đã tắt đồng bộ.",
+    "report": {
+      "missing": "Đã kết nối. Chưa có vault ở đường dẫn này; lần đồng bộ đầu tiên sẽ tạo nó trên branch {{branch}}.",
+      "sameVault": "Đã kết nối. Vault này đã có ở đường dẫn này.",
+      "found": "Đã kết nối. Tìm thấy một vault xPass ở đường dẫn này.",
+      "otherVault": "Đường dẫn này đang chứa một vault xPass khác. Hãy chọn đường dẫn hoặc repository khác.",
+      "notAVault": "Đường dẫn này chứa một file không phải vault xPass. Hãy chọn đường dẫn khác.",
+      "branchMissing": "Branch {{branch}} không tồn tại trong repository này.",
+      "public": "Repository này là public. Vault đã được mã hoá, nhưng ai cũng có thể tải nó và toàn bộ lịch sử. Rất nên dùng repository private.",
+      "publicAck": "Tôi hiểu và vẫn muốn dùng repository public này."
+    },
+    "guide": {
+      "title": "Cách tạo GitHub token",
+      "steps": [
+        "Tạo một repository private trên GitHub để chứa vault (repository trống cũng được).",
+        "Mở GitHub > Settings > Developer settings > Personal access tokens > Fine-grained tokens, chọn Generate new token.",
+        "Repository access: Only select repositories, chọn repository chứa vault.",
+        "Permissions: Contents: Read and write (Metadata: Read-only được thêm tự động).",
+        "Chọn ngày hết hạn, tạo token và dán vào đây. Khi token hết hạn, bạn có thể thay token mới tại đây."
+      ],
+      "note": "Hãy dùng token chỉ truy cập được đúng repository này. Đừng dùng lại token có quyền rộng hơn.",
+      "open": "Mở trang tạo token trên GitHub"
+    }
   }
 }

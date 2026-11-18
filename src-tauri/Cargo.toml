@@ -18,6 +18,11 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 arboard = { version = "3.7", default-features = false }
+base64 = "0.22"
+keyring = { version = "3.6", features = ["windows-native"] }
+# Sync transport (S13): async, rustls, no cookies/charset/compression.
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2", "system-proxy"] }
+tokio = { version = "1", features = ["time"] }
 xpass-core = { path = "../crates/xpass-core" }
 serde = { version = "1", features = ["derive"] }
 rand = "0.8"

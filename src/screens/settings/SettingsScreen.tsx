@@ -11,6 +11,7 @@ import {useToast} from '../../stores/toast'
 import {useUi} from '../../stores/ui'
 import {HelloSettings} from './HelloSettings'
 import {PasswordPrompt} from './PasswordPrompt'
+import {SyncSettings} from './SyncSettings'
 
 const selectClass =
     'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900'
@@ -30,6 +31,9 @@ export function SettingsScreen() {
                 </div>
                 <GeneralSection/>
                 <SecuritySection/>
+                <Section title={t('sync.title')}>
+                    <SyncSettings/>
+                </Section>
                 <AboutSection/>
             </div>
         </div>

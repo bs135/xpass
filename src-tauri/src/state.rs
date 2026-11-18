@@ -26,13 +26,15 @@ use crate::{
     clipboard::SecureClipboard,
     entries::{self, FieldRef},
     error::{AppError, AppResult},
+    github::{ConnectionReport, GitHubStore},
     hello::{self, HelloBackend, HelloError},
     lock_watch::LockReason,
     paths::Paths,
+    secrets::{self, MemoryTokens, TokenStore},
     session::VaultSession,
-    settings::{self, Settings},
+    settings::{self, Settings, SyncSettings},
     storage::Storage,
-    strength,
+    strength, sync_state,
     throttle::Throttle,
 };
 
@@ -94,6 +96,18 @@ enum Method<'a> {
     Hello,
 }
 
+/// Sync setup as shown in Settings. The token itself never leaves Rust.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncConfig {
+    pub repo: String,
+    pub branch: String,
+    pub path: String,
+    pub enabled: bool,
+    /// A token is stored in Windows Credential Manager.
+    pub has_token: bool,
+}
+
 /// Result of a VaultKey rotation.
 pub struct Rotated {
     /// New recovery key for the Emergency Kit. Shown once, never stored.
@@ -126,11 +140,15 @@ struct Inner {
     /// Held while a Hello dialog is open, so a second request fails fast instead
     /// of queueing another dialog.
     hello_busy: Mutex<()>,
+    /// GitHub token (Windows Credential Manager in the app).
+    tokens: Box<dyn TokenStore>,
+    sync_state_path: PathBuf,
 }
 
 impl AppState {
     pub fn new(paths: Paths, target_kdf: KdfParams, clipboard: SecureClipboard, hello: Box<dyn HelloBackend>) -> Self {
         let settings_path = paths.settings();
+        let sync_state_path = paths.sync_state();
         let loaded = settings::load(&settings_path);
         Self(Arc::new(Inner {
             storage: Storage::new(paths),
@@ -146,7 +164,125 @@ impl AppState {
             hello,
             hello_flags: Mutex::new(HelloFlags::default()),
             hello_busy: Mutex::new(()),
+            tokens: Box::new(MemoryTokens::default()),
+            sync_state_path,
         }))
+    }
+
+    /// Installs the token store (the app: Windows Credential Manager). Must be
+    /// called before the state is shared.
+    pub fn with_token_store(mut self, tokens: Box<dyn TokenStore>) -> Self {
+        Arc::get_mut(&mut self.0)
+            .expect("token store is set before the state is shared")
+            .tokens = tokens;
+        self
+    }
+
+    // ---- sync setup (T19) ----
+
+    pub fn sync_config(&self) -> AppResult<SyncConfig> {
+        let sync = self.settings().sync;
+        Ok(SyncConfig {
+            has_token: self.0.tokens.get()?.is_some(),
+            repo: sync.repo,
+            branch: sync.branch,
+            path: sync.path,
+            enabled: sync.enabled,
+        })
+    }
+
+    /// Changing where the vault syncs is refused while the vault is locked, so a
+    /// walk-up user cannot point a locked app at another repository.
+    fn ensure_not_locked(&self) -> AppResult<()> {
+        match self.status() {
+            VaultStatus::Locked => Err(AppError::Locked),
+            VaultStatus::Unlocked | VaultStatus::NoVault => Ok(()),
+        }
+    }
+
+    /// Saves settings with a new sync block.
+    fn save_sync_settings(&self, current: &mut Settings, sync: SyncSettings) -> AppResult<()> {
+        let mut next = current.clone();
+        next.sync = sync;
+        settings::save(&self.0.settings_path, &next)?;
+        *current = next;
+        Ok(())
+    }
+
+    /// Saves a new sync target (already normalized by `SyncSettings::from_input`).
+    /// A different repository, branch or path resets the sync state.
+    pub fn configure_sync(&self, mut new: SyncSettings) -> AppResult<SyncConfig> {
+        self.ensure_not_locked()?;
+        new.enabled = self.0.tokens.get()?.is_some();
+        new.validate()?;
+        {
+            let mut current = lock(&self.0.settings);
+            let changed = current.sync.remote_id() != new.remote_id();
+            self.save_sync_settings(&mut current, new)?;
+            if changed {
+                sync_state::reset(&self.0.sync_state_path)?;
+            }
+        }
+        self.sync_config()
+    }
+
+    /// Stores the GitHub token (validated) and turns sync on if a repository is set.
+    pub fn set_sync_token(&self, token: &str) -> AppResult<SyncConfig> {
+        self.ensure_not_locked()?;
+        let token = secrets::normalize_token(token)?;
+        self.0.tokens.set(&token)?;
+        {
+            let mut current = lock(&self.0.settings);
+            if current.sync.is_configured() && !current.sync.enabled {
+                let sync = SyncSettings {
+                    enabled: true,
+                    ..current.sync.clone()
+                };
+                self.save_sync_settings(&mut current, sync)?;
+            }
+        }
+        self.sync_config()
+    }
+
+    /// Turns sync off: deletes the token, the sync target and the sync state.
+    /// The local vault is not touched.
+    pub fn disconnect_sync(&self) -> AppResult<SyncConfig> {
+        self.ensure_not_locked()?;
+        self.0.tokens.delete()?;
+        {
+            let mut current = lock(&self.0.settings);
+            self.save_sync_settings(&mut current, SyncSettings::default())?;
+        }
+        sync_state::reset(&self.0.sync_state_path)?;
+        self.sync_config()
+    }
+
+    /// Store for a sync target with either the given token (typed in the form, not
+    /// saved yet) or the stored one.
+    pub fn github_store(&self, target: &SyncSettings, token: Option<&str>) -> AppResult<GitHubStore> {
+        let token = match token {
+            Some(t) => secrets::normalize_token(t)?,
+            None => self.0.tokens.get()?.ok_or(AppError::SyncNotConfigured)?,
+        };
+        Ok(GitHubStore::new(token, target)?)
+    }
+
+    /// Id of this PC's vault, read from the file header (works while locked).
+    pub fn local_vault_id(&self) -> Option<Uuid> {
+        let bytes = self.0.storage.read().ok()??;
+        let parsed = format::parse(&bytes).ok()?;
+        Some(Uuid::from_bytes(parsed.header.vault_id))
+    }
+
+    /// "Test connection" for the values in the form (S12), before saving them.
+    pub async fn test_sync_connection(
+        &self,
+        target: SyncSettings,
+        token: Option<Zeroizing<String>>,
+    ) -> AppResult<ConnectionReport> {
+        self.ensure_not_locked()?;
+        let store = self.github_store(&target, token.as_deref().map(String::as_str))?;
+        Ok(store.test_connection(self.local_vault_id()).await?)
     }
 
     pub fn settings(&self) -> Settings {
@@ -155,10 +291,12 @@ impl AppState {
 
     /// Validates, saves and applies new settings. `last_kit_at` is kept as is (it is
     /// owned by the app, not the user).
+    /// The sync block is owned by the sync commands and also kept.
     pub fn update_settings(&self, mut new: Settings) -> AppResult<Settings> {
-        new.validate()?;
         let mut current = lock(&self.0.settings);
         new.last_kit_at = current.last_kit_at;
+        new.sync = current.sync.clone();
+        new.validate()?;
         settings::save(&self.0.settings_path, &new)?;
         self.set_idle_timeout(new.idle_timeout());
         *current = new.clone();
@@ -673,6 +811,93 @@ mod tests {
                 _ => None,
             })
             .unwrap()
+    }
+
+    // ---- sync setup (T19) ----
+
+    const TOKEN: &str = "github_pat_0123456789abcdefghij";
+
+    #[test]
+    fn sync_setup_token_and_disconnect() {
+        let (_tmp, paths, state) = setup();
+        let cfg = state.sync_config().unwrap();
+        assert!(!cfg.enabled && !cfg.has_token && cfg.repo.is_empty());
+
+        let target = SyncSettings::from_input("octo/vault", "", "").unwrap();
+        let cfg = state.configure_sync(target).unwrap();
+        assert_eq!(cfg.repo, "octo/vault");
+        assert!(!cfg.enabled, "no token yet");
+
+        let cfg = state.set_sync_token(&format!("  {TOKEN}\n")).unwrap();
+        assert!(cfg.enabled && cfg.has_token);
+
+        // The token is in the token store only: not in settings.json.
+        let on_disk = fs::read_to_string(paths.settings()).unwrap();
+        assert!(!on_disk.contains("github_pat_"), "{on_disk}");
+        assert!(on_disk.contains("octo/vault"));
+
+        let cfg = state.disconnect_sync().unwrap();
+        assert!(!cfg.enabled && !cfg.has_token && cfg.repo.is_empty());
+    }
+
+    #[test]
+    fn invalid_token_is_rejected_without_echoing_it() {
+        let (_tmp, _paths, state) = setup();
+        let err = state.set_sync_token("not a token").unwrap_err();
+        assert_eq!(err, AppError::InvalidInput { field: "token" });
+        assert!(!serde_json::to_string(&err).unwrap().contains("not a token"));
+        assert!(!state.sync_config().unwrap().has_token);
+    }
+
+    #[test]
+    fn sync_setup_is_refused_while_locked() {
+        let (_tmp, _paths, state, _) = created();
+        state.lock();
+        let target = SyncSettings::from_input("octo/vault", "", "").unwrap();
+        assert_eq!(state.configure_sync(target).unwrap_err(), AppError::Locked);
+        assert_eq!(state.set_sync_token(TOKEN).unwrap_err(), AppError::Locked);
+        assert_eq!(state.disconnect_sync().unwrap_err(), AppError::Locked);
+    }
+
+    #[test]
+    fn changing_the_remote_resets_the_sync_state() {
+        let (_tmp, paths, state) = setup();
+        state
+            .configure_sync(SyncSettings::from_input("octo/vault", "", "").unwrap())
+            .unwrap();
+        fs::write(paths.sync_state(), b"{}").unwrap();
+        state
+            .configure_sync(SyncSettings::from_input("Octo/Vault", "", "").unwrap())
+            .unwrap();
+        assert!(paths.sync_state().exists(), "same remote (owner case only): kept");
+        state
+            .configure_sync(SyncSettings::from_input("octo/vault", "", "other.xpv").unwrap())
+            .unwrap();
+        assert!(!paths.sync_state().exists(), "new path: reset");
+    }
+
+    #[test]
+    fn update_settings_keeps_the_sync_block() {
+        let (_tmp, _paths, state) = setup();
+        state
+            .configure_sync(SyncSettings::from_input("octo/vault", "", "").unwrap())
+            .unwrap();
+        let mut from_ui = state.settings();
+        from_ui.sync = SyncSettings::default();
+        from_ui.clipboard_clear_seconds = 30;
+        let saved = state.update_settings(from_ui).unwrap();
+        assert_eq!(saved.sync.repo, "octo/vault");
+        assert_eq!(saved.clipboard_clear_seconds, 30);
+    }
+
+    #[test]
+    fn local_vault_id_reads_the_header_while_locked() {
+        let (_tmp, _paths, state) = setup();
+        assert_eq!(state.local_vault_id(), None);
+        state.create_vault(PW).unwrap();
+        let id = state.local_vault_id().unwrap();
+        state.lock();
+        assert_eq!(state.local_vault_id(), Some(id));
     }
 
     #[test]
