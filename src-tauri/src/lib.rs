@@ -3,15 +3,18 @@ mod commands;
 mod entries;
 mod error;
 mod generator;
+mod github;
 mod hello;
 mod lock_watch;
 mod paths;
+mod secrets;
 mod session;
 mod settings;
 mod shell;
 mod state;
 mod storage;
 mod strength;
+mod sync_state;
 mod throttle;
 mod tray;
 
@@ -29,7 +32,10 @@ pub fn run() {
         }))
         .setup(|app| {
             let paths = data_dir_override().map_or_else(|| Paths::from_app(app.handle()), |dir| Ok(Paths::new(dir)))?;
-            let state = AppState::new(paths, KdfParams::DEFAULT, SecureClipboard::system(), hello::system());
+            let overridden = data_dir_override().is_some();
+            let tokens = secrets::CredentialManager::new(secrets::target_for(&paths, overridden));
+            let state = AppState::new(paths, KdfParams::DEFAULT, SecureClipboard::system(), hello::system())
+                .with_token_store(Box::new(tokens));
             if let Some(timeout) = idle_timeout_override() {
                 state.set_idle_timeout(Some(timeout));
             }
@@ -55,6 +61,12 @@ pub fn run() {
             commands::hello::hello_disable,
             commands::hello::hello_dismiss_reenroll,
             commands::settings::get_settings,
+            commands::sync::sync_get_config,
+            commands::sync::sync_configure,
+            commands::sync::sync_set_token,
+            commands::sync::sync_disconnect,
+            commands::sync::sync_test_connection,
+            commands::sync::sync_open_token_page,
             commands::settings::update_settings,
             commands::session::password_strength,
             commands::session::lock,

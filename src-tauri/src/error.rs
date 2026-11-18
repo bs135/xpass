@@ -55,6 +55,22 @@ pub enum AppError {
     HelloBusy,
     #[error("Windows Hello failed")]
     HelloFailed,
+    #[error("Windows Credential Manager is not available")]
+    SecretStore,
+    #[error("sync is not set up")]
+    SyncNotConfigured,
+    #[error("GitHub is not reachable")]
+    SyncOffline,
+    #[error("the GitHub token is invalid or expired")]
+    SyncUnauthorized,
+    #[error("the GitHub token lacks a permission")]
+    SyncForbidden,
+    #[error("GitHub rate limit reached")]
+    SyncRateLimited { retry_after_s: Option<u64> },
+    #[error("repository not found or not shared with the token")]
+    SyncRepoNotFound,
+    #[error("sync failed")]
+    SyncFailed,
     #[error("file system error: {kind}")]
     Io { kind: String },
     #[error("internal error")]
@@ -76,6 +92,20 @@ impl From<xpass_core::Error> for AppError {
             E::NoSuchSlot => Self::NoSuchSlot,
             E::DifferentVault => Self::DifferentVault,
             E::KeyChanged => Self::KeyChanged,
+        }
+    }
+}
+
+impl From<xpass_core::sync::StoreError> for AppError {
+    fn from(e: xpass_core::sync::StoreError) -> Self {
+        use xpass_core::sync::StoreError as E;
+        match e {
+            E::Offline => Self::SyncOffline,
+            E::Unauthorized => Self::SyncUnauthorized,
+            E::Forbidden => Self::SyncForbidden,
+            E::RateLimited { retry_after_s } => Self::SyncRateLimited { retry_after_s },
+            E::RepoNotFound => Self::SyncRepoNotFound,
+            E::Conflict | E::InvalidResponse | E::Http(_) => Self::SyncFailed,
         }
     }
 }
@@ -107,6 +137,17 @@ mod tests {
             serde_json::to_value(AppError::UnsupportedVersion { version: 2 }).unwrap(),
             json!({"code": "unsupported_version", "version": 2})
         );
+    }
+
+    #[test]
+    fn store_errors_map_to_sync_codes() {
+        use xpass_core::sync::StoreError;
+        assert_eq!(AppError::from(StoreError::Unauthorized), AppError::SyncUnauthorized);
+        assert_eq!(
+            serde_json::to_value(AppError::from(StoreError::RateLimited { retry_after_s: Some(9) })).unwrap(),
+            json!({"code": "sync_rate_limited", "retryAfterS": 9})
+        );
+        assert_eq!(AppError::from(StoreError::Http(502)), AppError::SyncFailed);
     }
 
     #[test]

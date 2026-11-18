@@ -136,15 +136,20 @@ Each task is one feature branch off an up-to-date `develop` and one PR into `dev
   status-mapping functions unit-tested without network.
 - `secrets.rs`: PAT get/set/delete in Credential Manager (S11); `Zeroizing` everywhere.
 - `settings.rs`: `sync` block (S10) with validation; `sync-state.json` read/write (S3) in `paths.rs`.
-- Commands: `sync_get_config` (config + `hasToken`), `sync_configure`, `sync_set_token`, `sync_clear_token`,
-  `sync_test_connection`. New error codes: `sync_not_configured`, `sync_offline`, `sync_unauthorized`,
-  `sync_forbidden`, `sync_rate_limited`, `sync_repo_not_found`, `sync_public_repo`, `sync_failed`.
-- Frontend: Settings → **Sync** tab: repo, branch (optional), path, token field (`type=password`,
-  `autocomplete=off`, cleared after save, never shown again; "Replace token" / "Remove token"),
-  "Test connection" with the result, and a step-by-step fine-grained PAT guide (only this repository,
-  *Contents: Read and write*, *Metadata: Read*, expiry; opens github.com in the default browser through the
-  existing `shell::open_url`). i18n en/vi.
-- `Cargo.toml`: `reqwest` 0.13 (rustls, no default features), `keyring` 3, `base64`.
+- Commands: `sync_get_config` (config + `hasToken`), `sync_configure`, `sync_set_token`, `sync_disconnect`
+  (deletes token, setup and sync state; the local vault stays), `sync_test_connection` (values from the form,
+  typed or stored token), `sync_open_token_page`. Setup commands are refused while the vault is locked.
+  New error codes: `secret_store`, `sync_not_configured`, `sync_offline`, `sync_unauthorized`,
+  `sync_forbidden`, `sync_rate_limited`, `sync_repo_not_found`, `sync_failed`. A public repository, a missing
+  branch and what is at the path are fields of the test report, not errors.
+- Frontend: Settings → **Sync** section: repo, branch (optional), path, token field (`type=password`,
+  `autocomplete=off`, cleared after save, never shown again; "Replace token", "Turn off sync"),
+  "Test connection" with the result; Save is enabled only after a passing test (public repository: after an
+  explicit acknowledgement). Step-by-step fine-grained PAT guide (only this repository,
+  *Contents: Read and write*, expiry; opens github.com in the default browser through the existing
+  `shell::open_url`). i18n en/vi.
+- `Cargo.toml`: `reqwest` 0.13 (rustls, http2, system proxy; no default features), `keyring` 3.6, `base64`,
+  `tokio` (time only; already in the tree through Tauri).
 
 **Done when:** CI green; manual: test connection against a private test repo (ok / bad token / missing repo /
 public repo warning).

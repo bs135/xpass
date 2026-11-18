@@ -9,6 +9,10 @@ export function errorMessage(t: TFunction, e: unknown): string {
             return t('errors.throttled', {seconds: Math.ceil(e.retryAfterMs / 1000)})
         case 'unsupported_version':
             return t('errors.unsupported_version', {version: e.version})
+        case 'sync_rate_limited':
+            return e.retryAfterS
+                ? t('errors.sync_rate_limited_wait', {minutes: Math.max(1, Math.ceil(e.retryAfterS / 60))})
+                : t('errors.sync_rate_limited')
         case 'io':
             return t('errors.io', {kind: e.kind})
         default:
