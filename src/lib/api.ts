@@ -180,6 +180,20 @@ export interface SyncStatus {
     passwordChanged: boolean
 }
 
+/** Whether a local backup can be restored (`list_backups`). */
+export type BackupKind = 'current' | 'olderKey' | 'otherVault' | 'unreadable'
+
+export interface BackupInfo {
+    /** File name in the backups folder; the id for `restoreBackup`. */
+    name: string
+    /** Unix ms when this version was saved. */
+    savedAt: number | null
+    size: number
+    kind: BackupKind
+    /** Entries in that version, when it opens with the current key. */
+    entries: number | null
+}
+
 export interface SyncTarget {
     repo: string
     branch: string
@@ -302,4 +316,8 @@ export const api = {
     syncResolveKeyChange: (password: string) => invoke<SyncStatus>('sync_resolve_key_change', {password}),
     /** Replaces this PC's vault with the one on GitHub (kept as a backup); `password` opens the GitHub vault. */
     syncReplaceLocal: (password: string) => invoke<void>('sync_replace_local', {password}),
+    /** Local backups, newest first (needs the vault unlocked). */
+    listBackups: () => invoke<BackupInfo[]>('list_backups'),
+    /** Restores a backup as a new change. `password` only for a backup from before a key change. */
+    restoreBackup: (name: string, password: string | null) => invoke<void>('restore_backup', {name, password}),
 }

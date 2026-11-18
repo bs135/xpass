@@ -75,6 +75,8 @@ pub fn run() {
             commands::sync::sync_join,
             commands::sync::sync_resolve_key_change,
             commands::sync::sync_replace_local,
+            commands::backups::list_backups,
+            commands::backups::restore_backup,
             commands::settings::update_settings,
             commands::session::password_strength,
             commands::session::lock,

@@ -1,3 +1,4 @@
+pub mod backups;
 pub mod entries;
 pub mod hello;
 pub mod session;
