@@ -371,5 +371,26 @@
       "Từ giờ, mở khoá bằng mật khẩu chính của vault trên GitHub."
     ],
     "replaced": "Máy này giờ dùng vault từ GitHub."
+  },
+  "restore": {
+    "title": "Khôi phục phiên bản trước",
+    "intro": "xPass giữ 10 phiên bản gần nhất của vault trên máy này, mỗi lần lưu một bản. Khôi phục một bản sẽ đưa các mục về như lúc đó.",
+    "none": "Chưa có phiên bản trước nào.",
+    "entries_one": "{{count}} mục",
+    "entries_other": "{{count}} mục",
+    "size": "{{kb}} KB",
+    "kind": {
+      "olderKey": "Lưu trước khi đổi khoá vault",
+      "otherVault": "Vault khác; không khôi phục được ở đây",
+      "unreadable": "Bị hỏng; không khôi phục được"
+    },
+    "button": "Khôi phục",
+    "confirmTitle": "Khôi phục phiên bản này?",
+    "explain": "Các mục được đưa về như lúc {{date}}: mục thêm sau đó bị xoá, mục đã sửa trở lại nội dung cũ (giá trị hiện tại vẫn nằm trong lịch sử của mục).",
+    "keepCurrent": "Phiên bản hiện tại được giữ lại, nên có thể hoàn tác ở đây.",
+    "syncs": "Lần khôi phục được lưu như một thay đổi mới và đồng bộ sang các máy khác.",
+    "oldPassword": "Mật khẩu chính lúc đó",
+    "olderKeyExplain": "Phiên bản này được lưu trước khi đổi khoá vault. Nhập mật khẩu chính lúc lưu bản đó. Mật khẩu và khoá hiện tại không thay đổi.",
+    "done": "Đã khôi phục phiên bản trước."
   }
 }

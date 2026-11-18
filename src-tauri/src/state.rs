@@ -4,6 +4,7 @@
 //! Plain Rust, no Tauri types, so the command handlers can be tested with a temp
 //! directory. The Tauri commands in `commands::session` are thin wrappers.
 
+mod backups;
 mod sync;
 
 use std::{
@@ -41,6 +42,7 @@ use crate::{
     throttle::Throttle,
 };
 
+pub use backups::BackupInfo;
 pub use sync::{SyncPhase, SyncStatus};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

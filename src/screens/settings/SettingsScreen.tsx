@@ -12,6 +12,7 @@ import {useToast} from '../../stores/toast'
 import {useUi} from '../../stores/ui'
 import {HelloSettings} from './HelloSettings'
 import {PasswordPrompt} from './PasswordPrompt'
+import {RestoreSettings} from './RestoreSettings'
 import {SyncSettings} from './SyncSettings'
 
 const selectClass =
@@ -34,6 +35,9 @@ export function SettingsScreen() {
                 <SecuritySection/>
                 <Section title={t('sync.title')}>
                     <SyncSettings/>
+                </Section>
+                <Section title={t('restore.title')}>
+                    <RestoreSettings/>
                 </Section>
                 <AboutSection/>
             </div>

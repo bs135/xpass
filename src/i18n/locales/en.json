@@ -371,5 +371,26 @@
       "From now on, unlock with the master password of the vault on GitHub."
     ],
     "replaced": "This PC now uses the vault from GitHub."
+  },
+  "restore": {
+    "title": "Restore a previous version",
+    "intro": "xPass keeps the last 10 versions of your vault on this PC, one per save. Restoring one puts your entries back as they were then.",
+    "none": "No previous versions yet.",
+    "entries_one": "{{count}} entry",
+    "entries_other": "{{count}} entries",
+    "size": "{{kb}} KB",
+    "kind": {
+      "olderKey": "Saved before the vault key was changed",
+      "otherVault": "Another vault; cannot be restored here",
+      "unreadable": "Damaged; cannot be restored"
+    },
+    "button": "Restore",
+    "confirmTitle": "Restore this version?",
+    "explain": "Your entries are put back as they were on {{date}}: entries added later are deleted, changed entries get their old content back (the current values stay in their history).",
+    "keepCurrent": "The current version is kept, so you can undo this here.",
+    "syncs": "The restore is saved as a new change and syncs to your other devices.",
+    "oldPassword": "Master password at that time",
+    "olderKeyExplain": "This version was saved before the vault key was changed. Enter the master password it was saved with. Your current password and key stay as they are.",
+    "done": "Previous version restored."
   }
 }

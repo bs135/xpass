@@ -635,7 +635,13 @@ mod tests {
         fn titles(&self) -> Vec<String> {
             let mut t: Vec<String> = self
                 .state
-                .read(|p| Ok(p.entries.iter().map(|e| e.title.clone()).collect()))
+                .read(|p| {
+                    Ok(p.entries
+                        .iter()
+                        .filter(|e| !e.deleted)
+                        .map(|e| e.title.clone())
+                        .collect())
+                })
                 .unwrap();
             t.sort();
             t
@@ -889,6 +895,37 @@ mod tests {
         b.state.lock();
         b.state.unlock_password(PW).unwrap();
         assert_eq!(b.sync(&store).unwrap(), SyncOutcome::UpToDate);
+    }
+
+    #[test]
+    fn a_restore_wins_on_every_device() {
+        let store = MemoryStore::new();
+        let a = Device::create();
+        a.add("Mail");
+        a.sync(&store).unwrap();
+        let b = Device::join(&store);
+        std::thread::sleep(std::time::Duration::from_millis(3));
+        a.add("Bank");
+        a.sync(&store).unwrap();
+        b.sync(&store).unwrap();
+        assert_eq!(b.titles(), ["Bank", "Mail"]);
+
+        let before_bank = a
+            .state
+            .list_backups()
+            .unwrap()
+            .into_iter()
+            .find(|v| v.entries == Some(1))
+            .unwrap();
+        a.state.restore_backup(&before_bank.name, None).unwrap();
+        assert!(a.state.sync_status().dirty);
+        b.add("Phone");
+        b.sync(&store).unwrap();
+
+        assert_eq!(a.sync(&store).unwrap(), SyncOutcome::Merged);
+        assert_eq!(b.sync(&store).unwrap(), SyncOutcome::Pulled);
+        assert_eq!(a.titles(), ["Mail", "Phone"]);
+        assert_eq!(b.titles(), ["Mail", "Phone"]);
     }
 
     #[test]
