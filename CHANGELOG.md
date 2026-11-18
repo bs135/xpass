@@ -3,6 +3,34 @@
 All notable changes to xPass. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.0]
+
+GitHub sync: one vault on several PCs. This completes the MVP.
+
+### Added
+
+- Sync through a file in a private GitHub repository, set up in Settings → Sync: repository, branch and path, a
+  fine-grained token (stored in Windows Credential Manager, never shown again) and **Test connection**, which also
+  warns about a public repository. A guide explains how to create the token.
+- **Use my vault from GitHub** on the first screen: downloads the vault, opens it with the master password and turns
+  sync on; the existing Emergency Kit keeps working and Windows Hello can be set up for the new PC.
+- Offline-first sync: changes are saved locally and synced 10 s after the last edit, every 5 minutes, on unlock,
+  on lock and on quit; retries with backoff when offline. Concurrent edits merge per entry, keeping the older
+  version of an entry edited on two PCs in its history.
+- Sync status in the header (click to sync now), in Settings and in the tray tooltip; **Sync now** in the tray menu.
+- Banners with the fix for problems that need you: expired or under-privileged token, vault key changed on another
+  PC (enter the master password; local changes are merged), a different vault at the configured path (use another
+  path or replace this PC's vault, keeping a backup). A one-time notice when the master password was changed on
+  another PC.
+- Settings → **Restore a previous version**: restores one of the last 10 local versions as a new change, so it also
+  wins on the other PCs. Versions from before a key change ask for the password of that time.
+
+### Changed
+
+- Rotating the vault key with sync on needs a connection: the new file is uploaded first, and nothing changes if
+  that fails. The other PCs then ask for the master password once.
+- Windows Hello stays set up per PC; a synced file never turns it off on another PC.
+
 ## [0.3.0]
 
 Unlock with Windows Hello.
@@ -64,6 +92,7 @@ First release: a local-only vault on Windows.
 - Tray icon (Open / Lock / Quit), single instance, atomic saves with the last 10 backups, wrong-password throttling.
 - Per-entry merge, HLC-lite clock and tombstone purge in `xpass-core`, ready for sync in v0.3.
 
+[0.4.0]: https://github.com/bs135/xpass/releases/tag/v0.4.0
 [0.3.0]: https://github.com/bs135/xpass/releases/tag/v0.3.0
 [0.2.0]: https://github.com/bs135/xpass/releases/tag/v0.2.0
 [0.1.0]: https://github.com/bs135/xpass/releases/tag/v0.1.0

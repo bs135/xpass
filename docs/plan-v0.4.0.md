@@ -1,6 +1,6 @@
 # v0.4.0 Plan: GitHub sync
 
-Status: **draft** (2026-11-18). Parent: [PLAN.md §4 v0.4](PLAN.md#v04--github-sync-size-l-3-weeks--mvp-complete).
+Status: **done** (2026-11-18). Parent: [PLAN.md §4 v0.4](PLAN.md#v04--github-sync-size-l-3-weeks--mvp-complete).
 Spike: [docs/spikes/github-sync.md](spikes/github-sync.md), code in [`spikes/github-sync`](../spikes/github-sync).
 
 ## Goal
@@ -213,11 +213,29 @@ pass.
   GitHub (commit times, file size), how to remove the token.
 - `CHANGELOG.md` 0.4.0 section; this plan → **done**.
 
+## As built
+
+Differences from the task texts above, found while implementing:
+
+- **Status (T20):** the event payload is `{ phase, dirty, lastSyncAt, error, passwordChanged }`; `error` is the
+  usual `{ code, … }` object. An extra phase `noToken` covers a sync setup without a token on this PC (e.g. after
+  copying `settings.json`): the header shows a warning and "Sync now" is off.
+- **Commit after a sync (T20):** two counters (edits, key slots) are bumped under the session lock; when they moved
+  during a sync, the result is applied with core `rebase` (merge plus the S4/S5 slot rules), not a plain `merge`.
+- **Flows (T21):** commands `sync_join`, `sync_resolve_key_change`, `sync_replace_local`; error codes
+  `sync_remote_missing`, `sync_required`. Everything that talks to GitHub (worker sync, key-less push, join,
+  key-change resolution, replace, online rotation) holds one async mutex. While a key change waits for the
+  password, setting up Windows Hello is held back (it would wrap the old key).
+- **Restore (T22):** `list_backups` reports a `kind` per backup (`current`, `olderKey`, `otherVault`,
+  `unreadable`); backups of another vault cannot be restored. The list is its own Settings section.
+
 ## Manual test checklist (v0.4.0)
 
-Use a **private** test repository and two data directories (two PCs when available; otherwise two dev
-instances: `$env:XPASS_DATA_DIR = "$env:TEMP\xpass-a"` and `...\xpass-b`, each `npm run tauri dev` from its own
-terminal). Create the fine-grained PAT yourself and type it only into xPass.
+Use a **private** test repository and two data directories (two PCs when available; otherwise two data
+directories on one PC: `$env:XPASS_DATA_DIR = "$env:TEMP\xpass-a"` and `...\xpass-b`). Only one dev instance can
+run at a time (single-instance plugin, Vite port 5173), so run the devices one after the other and quit each one
+from the tray. Both directories hold the same vault and therefore share the Windows Hello key `xpass-<vault_id>`:
+turn Hello off in both for the rotation checks. Create the fine-grained PAT yourself and type it only into xPass.
 
 Setup and settings
 - [ ] Test connection: correct token → OK; wrong token → "token invalid"; repo not shared with the token →
