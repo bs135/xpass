@@ -16,6 +16,8 @@ interface EntriesState {
     query: string
     favoritesOnly: boolean
     load: () => Promise<void>
+    /** After a sync brought remote changes: reload the list and the shown entry (not while editing). */
+    refresh: () => Promise<void>
     select: (id: string | null) => Promise<void>
     startNew: () => void
     startEdit: () => void
@@ -42,6 +44,13 @@ export const useEntries = create<EntriesState>((set, get) => ({
     ...initial,
     load: async () => {
         set({entries: await api.listEntries()})
+    },
+    refresh: async () => {
+        await get().load()
+        const {selectedId, mode, entries} = get()
+        if (selectedId === null || mode !== 'view') return
+        if (entries.some((e) => e.id === selectedId)) await get().select(selectedId)
+        else set({selectedId: null, detail: null})
     },
     select: async (id) => {
         if (id === null) {

@@ -157,6 +157,29 @@ export interface ConnectionReport {
     remote: RemoteFile
 }
 
+/** Sync state shown in the header, the tray and Settings (`sync://status`). */
+export type SyncPhase =
+    | 'off'
+    | 'idle'
+    | 'syncing'
+    | 'offline'
+    | 'noToken'
+    | 'tokenInvalid'
+    | 'needsPassword'
+    | 'differentVault'
+    | 'error'
+
+export interface SyncStatus {
+    phase: SyncPhase
+    /** Local changes GitHub has not seen yet. */
+    dirty: boolean
+    /** Unix ms of the last successful sync. */
+    lastSyncAt: number | null
+    error: AppError | null
+    /** The master password was changed on another device and adopted here. */
+    passwordChanged: boolean
+}
+
 export interface SyncTarget {
     repo: string
     branch: string
@@ -205,6 +228,11 @@ export type AppError =
 export function isAppError(e: unknown): e is AppError {
     return typeof e === 'object' && e !== null && typeof (e as {code?: unknown}).code === 'string'
 }
+
+/** Sync status changed (payload: SyncStatus). */
+export const EVENT_SYNC_STATUS = 'sync://status'
+/** A sync brought changes from another device: reload the entry list. */
+export const EVENT_VAULT_CHANGED = 'vault://changed'
 
 /** Emitted when the vault locks; clear all entry state when received. */
 export const EVENT_LOCKED = 'vault://locked'
@@ -261,4 +289,8 @@ export const api = {
     syncTestConnection: (target: SyncTarget, token: string | null) =>
         invoke<ConnectionReport>('sync_test_connection', {...target, token}),
     syncOpenTokenPage: () => invoke<void>('sync_open_token_page'),
+    syncStatus: () => invoke<SyncStatus>('sync_status'),
+    /** Starts a sync; the result arrives as `sync://status`. */
+    syncNow: () => invoke<SyncStatus>('sync_now'),
+    syncDismissPasswordChanged: () => invoke<void>('sync_dismiss_password_changed'),
 }

@@ -33,6 +33,17 @@ impl VaultSession {
         &self.vault
     }
 
+    /// Takes a copy reconciled by sync (already written to disk by the caller).
+    pub fn adopt(&mut self, vault: UnlockedVault) {
+        self.vault = vault;
+        self.refresh_clock();
+    }
+
+    /// D2: after a merge the clock must stay ahead of every timestamp seen.
+    pub fn refresh_clock(&mut self) {
+        self.last_seen_ts = self.last_seen_ts.max(self.vault.payload.max_updated_at());
+    }
+
     /// Applies an edit to the payload, saves and writes the file atomically.
     /// `edit` receives the D2 timestamp to stamp on changed entries.
     /// On any error (from `edit` or I/O) the session keeps its previous state.

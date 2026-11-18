@@ -11,7 +11,8 @@ use crate::{
     github::ConnectionReport,
     settings::SyncSettings,
     shell,
-    state::{AppState, SyncConfig},
+    state::{AppState, SyncConfig, SyncStatus, VaultStatus},
+    sync_worker::Trigger,
 };
 
 /// GitHub page for creating a fine-grained personal access token.
@@ -54,6 +55,31 @@ pub async fn sync_test_connection(
     let target = SyncSettings::from_input(&repo, &branch, &path)?;
     let state = state.inner().clone();
     state.test_sync_connection(target, token).await
+}
+
+#[tauri::command]
+pub fn sync_status(state: State<'_, AppState>) -> SyncStatus {
+    state.sync_status()
+}
+
+/// Starts a sync now ("Sync now"). The result arrives as `sync://status`.
+#[tauri::command]
+pub fn sync_now(state: State<'_, AppState>) -> AppResult<SyncStatus> {
+    let config = state.sync_config()?;
+    if !config.enabled || !config.has_token {
+        return Err(AppError::SyncNotConfigured);
+    }
+    if state.status() != VaultStatus::Unlocked {
+        return Err(AppError::Locked);
+    }
+    state.request_sync(Trigger::Manual);
+    Ok(state.sync_status())
+}
+
+/// Hides the "password changed on another device" notice.
+#[tauri::command]
+pub fn sync_dismiss_password_changed(state: State<'_, AppState>) {
+    state.dismiss_password_changed();
 }
 
 /// Opens GitHub's "new fine-grained token" page in the default browser.
