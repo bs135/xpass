@@ -269,7 +269,8 @@
     "reenrollTitle": "Windows Hello was turned off",
     "reenrollMessage": "The vault key was changed or Windows Hello was reset on this PC, so Windows Hello no longer unlocks this vault.",
     "reenroll": "Set up again",
-    "notNow": "Not now"
+    "notNow": "Not now",
+    "keyChangePending": "The vault key was changed on another device. Enter the master password in the sync notice first, then turn Windows Hello on."
   },
   "sync": {
     "title": "Sync",

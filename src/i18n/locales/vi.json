@@ -269,7 +269,8 @@
     "reenrollTitle": "Windows Hello đã bị tắt",
     "reenrollMessage": "Khoá mã hoá kho đã được đổi hoặc Windows Hello trên máy này đã được thiết lập lại, nên Windows Hello không còn mở được kho này.",
     "reenroll": "Thiết lập lại",
-    "notNow": "Để sau"
+    "notNow": "Để sau",
+    "keyChangePending": "Khoá vault đã được đổi trên máy khác. Hãy nhập mật khẩu chính ở thông báo đồng bộ trước, rồi mới bật Windows Hello."
   },
   "sync": {
     "title": "Đồng bộ",
