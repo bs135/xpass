@@ -2,6 +2,8 @@ mod clipboard;
 mod commands;
 mod entries;
 mod error;
+#[allow(dead_code, reason = "used by the import / export commands (T26, T27)")]
+mod file_dialog;
 mod generator;
 mod github;
 mod hello;

@@ -75,6 +75,8 @@ pub enum AppError {
     SyncRemoteMissing,
     #[error("this action needs a successful sync first")]
     SyncRequired,
+    #[error("the file dialog could not be shown")]
+    DialogFailed,
     #[error("file system error: {kind}")]
     Io { kind: String },
     #[error("internal error")]

@@ -601,3 +601,18 @@ fn golden_vector_v1() {
 const GOLDEN_LEN: usize = 837;
 const GOLDEN_SHA256: &str = "09a57f185e9542ec3c70b5c6fc340731d26ecdf62e7ce26fce756ce966aec117";
 const GOLDEN_RECOVERY_PREFIX: &str = "4SKHR-6MHTJ";
+
+#[test]
+fn check_hello_verifies_without_changes() {
+    let (file, _) = sample(24);
+    let mut r = rng(240);
+    let mut v = UnlockedVault::unlock(&file, Unlock::Password(PW)).unwrap();
+    assert_eq!(v.hello_challenge().unwrap_err(), Error::NoSuchSlot);
+    assert_eq!(v.check_hello(b"sig").unwrap_err(), Error::NoSuchSlot);
+
+    let salt = UnlockedVault::new_hello_salt(&mut r);
+    v.set_hello_slot(&mut r, salt, b"sig");
+    assert_eq!(v.hello_challenge().unwrap(), hello_challenge(v.vault_id(), &salt));
+    v.check_hello(b"sig").unwrap();
+    assert_eq!(v.check_hello(b"forged").unwrap_err(), Error::BadCredentials);
+}

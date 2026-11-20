@@ -238,6 +238,7 @@ export type AppError =
     | {code: 'sync_failed'}
     | {code: 'sync_remote_missing'}
     | {code: 'sync_required'}
+    | {code: 'dialog_failed'}
     | {code: 'io'; kind: string}
     | {code: 'internal'}
 
