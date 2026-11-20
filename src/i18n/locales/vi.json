@@ -236,7 +236,8 @@
     "sync_repo_not_found": "Không tìm thấy repository, hoặc token không truy cập được. Kiểm tra tên repository và quyền của token.",
     "sync_failed": "Đồng bộ với GitHub thất bại. Hãy thử lại.",
     "sync_remote_missing": "Không có vault ở đường dẫn này trên GitHub.",
-    "sync_required": "Cần đồng bộ thành công với GitHub trước. Kiểm tra kết nối và trạng thái đồng bộ rồi thử lại. Chưa có gì bị thay đổi."
+    "sync_required": "Cần đồng bộ thành công với GitHub trước. Kiểm tra kết nối và trạng thái đồng bộ rồi thử lại. Chưa có gì bị thay đổi.",
+    "dialog_failed": "Không mở được hộp thoại chọn tệp. Vui lòng thử lại."
   },
   "about": {
     "version": "Phiên bản {{version}} · định dạng vault v{{format}}"

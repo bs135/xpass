@@ -210,6 +210,38 @@ impl UnlockedVault {
         }
     }
 
+    /// Challenge for Hello to sign for this vault's Hello slot (`NoSuchSlot` without one).
+    pub fn hello_challenge(&self) -> Result<Vec<u8>> {
+        self.slots
+            .iter()
+            .find_map(|s| match &s.params {
+                SlotParams::Hello { salt } => Some(hello_challenge(Uuid::from_bytes(self.vault_id), salt)),
+                _ => None,
+            })
+            .ok_or(Error::NoSuchSlot)
+    }
+
+    /// Checks a Hello signature against the Hello slot without changing anything
+    /// (re-authentication before a sensitive action, e.g. an export).
+    pub fn check_hello(&self, signature: &[u8]) -> Result<()> {
+        let slot = self
+            .slots
+            .iter()
+            .find(|s| s.params.kind() == SlotKind::Hello)
+            .ok_or(Error::NoSuchSlot)?;
+        let SlotParams::Hello { salt } = &slot.params else {
+            unreachable!("slot kind checked above")
+        };
+        let kek = crypto::kek_from_secret(signature, salt, INFO_HELLO);
+        let aad = Header::slot_aad(&self.vault_id, &slot.params);
+        let vk = crypto::open(&kek, &slot.nonce, &slot.wrapped, &aad).ok_or(Error::BadCredentials)?;
+        if vk.as_slice() == self.vault_key.as_slice() {
+            Ok(())
+        } else {
+            Err(Error::BadCredentials)
+        }
+    }
+
     /// Replaces only the recovery slot (new Emergency Kit). The VaultKey and the
     /// other slots stay the same, so the old recovery key stops working for files
     /// saved from now on but still opens older copies (backups, git history).

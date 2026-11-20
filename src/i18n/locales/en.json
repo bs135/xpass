@@ -236,7 +236,8 @@
     "sync_repo_not_found": "Repository not found, or the token cannot access it. Check the name and the token's repository access.",
     "sync_failed": "Sync with GitHub failed. Please try again.",
     "sync_remote_missing": "There is no vault at this path on GitHub.",
-    "sync_required": "Sync with GitHub must succeed first. Check the connection and the sync status, then try again. Nothing was changed."
+    "sync_required": "Sync with GitHub must succeed first. Check the connection and the sync status, then try again. Nothing was changed.",
+    "dialog_failed": "The file dialog could not be opened. Please try again."
   },
   "about": {
     "version": "Version {{version}} · vault format v{{format}}"
