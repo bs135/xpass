@@ -1,0 +1,2 @@
+# Byte-exact sample files (line endings are part of what the tests cover).
+*.csv -text

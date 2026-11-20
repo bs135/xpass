@@ -27,6 +27,9 @@ pub const HISTORY_NOTE_CONFLICT: &str = "conflict";
 /// `HistoryItem::note` for the version replaced by restoring a backup.
 pub const HISTORY_NOTE_RESTORE: &str = "restore";
 
+/// `HistoryItem::note` for the credentials replaced by a CSV import ("update existing").
+pub const HISTORY_NOTE_IMPORT: &str = "import";
+
 /// Unknown JSON fields preserved across load/save (D5).
 pub type Extra = Map<String, Value>;
 

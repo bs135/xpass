@@ -1,0 +1,4 @@
+name,url,username,password,note
+Example Shop,https://shop.example.com/login,bob,Sample-Pass-03,
+,https://www.forum.example.org/,carol,Sample-Pass-04,"multi
+line note"

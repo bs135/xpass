@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/xpass-core", "src-tauri"]
+members = ["crates/xpass-core", "crates/xpass-interop", "src-tauri"]
 # Spikes are standalone crates kept for reference until v0.3.
 exclude = ["spikes"]
 
