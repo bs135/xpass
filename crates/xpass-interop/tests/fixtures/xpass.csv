@@ -1,0 +1,5 @@
+title,username,password,urls,notes,tags,favorite,created,updated,fields
+Example Cloud,grace,Sample-Pass-10,"https://cloud.example.com
+https://admin.cloud.example.com","Note with ""quotes""","Work
+2fa",true,2024-05-01T12:00:00.000Z,2024-06-01T12:00:00.000Z,"[{""name"":""PIN"",""value"":""1234"",""secret"":true},{""name"":""Plan"",""value"":""Pro"",""secret"":false}]"
+Example Phone,,Sample-Pass-11,,,,false,2024-05-02T12:00:00.000Z,2024-05-02T12:00:00.000Z,

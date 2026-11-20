@@ -1,0 +1,8 @@
+folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp
+Social,1,login,Example Social,"Line one
+Line two","Recovery email: alice@example.com
+PIN: 0000",0,"https://social.example.com/login,https://m.social.example.com",alice@example.com,Sample-Pass-01,otpauth://totp/Example:alice?secret=SAMPLESECRETBASE
+,,note,Sample secure note,This is a synthetic note.,,0,,,,
+,,card,Sample card,,,0,,,,
+Work,,login,Example Mail,,,0,mail.example.com,alice,Sample-Pass-02,
+,,login,,,,0,,,,
