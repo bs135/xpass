@@ -8,7 +8,18 @@ import {BackdropDragStrip} from './WindowControls'
  * Simple modal with a title; Esc and the backdrop close it. Rendered into <body> so a
  * modal opened from inside a form cannot submit that form.
  */
-export function Modal({title, onClose, children}: {title: string; onClose: () => void; children: ReactNode}) {
+export function Modal({
+    title,
+    onClose,
+    wide,
+    children,
+}: {
+    title: string
+    onClose: () => void
+    /** Wider dialog (tables). */
+    wide?: boolean
+    children: ReactNode
+}) {
     const {t} = useTranslation()
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -29,7 +40,7 @@ export function Modal({title, onClose, children}: {title: string; onClose: () =>
                 role="dialog"
                 aria-modal="true"
                 aria-label={title}
-                className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-5 shadow-lg dark:border-neutral-700 dark:bg-neutral-900"
+                className={`flex max-h-full w-full flex-col overflow-auto ${wide ? 'max-w-3xl' : 'max-w-md'} rounded-xl border border-neutral-200 bg-white p-5 shadow-lg dark:border-neutral-700 dark:bg-neutral-900`}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="mb-4 flex items-center justify-between">

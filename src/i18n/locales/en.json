@@ -237,6 +237,12 @@
     "sync_failed": "Sync with GitHub failed. Please try again.",
     "sync_remote_missing": "There is no vault at this path on GitHub.",
     "sync_required": "Sync with GitHub must succeed first. Check the connection and the sync status, then try again. Nothing was changed.",
+    "import_too_large": "The file is too large to import (at most {{mb}} MB and {{rows}} rows).",
+    "import_invalid_csv": "This file is not a valid CSV file.",
+    "import_invalid_csv_line": "This file is not a valid CSV file (problem near line {{line}}).",
+    "import_encoding": "This file is not UTF-8 text. Export it again as UTF-8 CSV and retry.",
+    "import_empty": "This file has no entries to import.",
+    "import_expired": "The import was cancelled because the vault locked or 10 minutes passed. Open the file again.",
     "dialog_failed": "The file dialog could not be opened. Please try again."
   },
   "about": {
@@ -393,5 +399,87 @@
     "oldPassword": "Master password at that time",
     "olderKeyExplain": "This version was saved before the vault key was changed. Enter the master password it was saved with. Your current password and key stay as they are.",
     "done": "Previous version restored."
+  },
+  "import": {
+    "section": "Import & export",
+    "title": "Import from CSV",
+    "intro": "Bring in passwords exported from Bitwarden, Chrome or Edge, KeePassXC, xPass, or any CSV file. You see a preview before anything is saved.",
+    "open": "Choose CSV file…",
+    "readFailed": "Could not read the file ({{kind}}).",
+    "wizardTitle": "Import from CSV",
+    "file": "File: {{name}}",
+    "preset": "Format",
+    "detected": "(detected)",
+    "presets": {
+      "bitwarden": "Bitwarden",
+      "chrome": "Chrome / Edge",
+      "keepassxc": "KeePassXC",
+      "xpass": "xPass",
+      "generic": "Other CSV (choose columns)"
+    },
+    "mappingIntro": "Choose which column holds each field. The preview updates when you change a column.",
+    "column": "Column {{n}}",
+    "notMapped": "— not used —",
+    "fields": {
+      "title": "Title",
+      "username": "Username",
+      "password": "Password",
+      "url": "Website",
+      "notes": "Notes",
+      "tags": "Tags",
+      "favorite": "Favorite"
+    },
+    "unmapped": "Other columns",
+    "unmappedChoice": {
+      "ignore": "Leave out",
+      "notes": "Add to notes",
+      "fields": "Keep as custom fields"
+    },
+    "countNew_one": "{{count}} new",
+    "countNew_other": "{{count}} new",
+    "countExact_one": "{{count}} already in the vault",
+    "countExact_other": "{{count}} already in the vault",
+    "countPossible_one": "{{count}} possible duplicate",
+    "countPossible_other": "{{count}} possible duplicates",
+    "countSkipped_one": "{{count}} empty or unsupported row left out",
+    "countSkipped_other": "{{count}} empty or unsupported rows left out",
+    "possibleQuestion_one": "{{count}} entry has the same site and username as an existing one, but a different password:",
+    "possibleQuestion_other": "{{count}} entries have the same site and username as existing ones, but a different password:",
+    "duplicates": {
+      "skip": "Skip them",
+      "new": "Import them as new entries",
+      "update": "Update the existing entries (the old password is kept in their history)"
+    },
+    "include": "Import this row",
+    "site": "Website",
+    "status": "Status",
+    "badge": {
+      "exact": "Already in vault",
+      "possible": "Possible duplicate"
+    },
+    "noPassword": "no password",
+    "warnings": {
+      "titleFromUrl": "No title in the file; the website is used.",
+      "titleFromUsername": "No title or website in the file; the username is used.",
+      "invalidDate": "The creation date could not be read; today is used.",
+      "invalidFields": "The custom fields could not be read and were left out."
+    },
+    "showAll": "Show all {{count}} rows",
+    "commit_one": "Import {{count}} entry",
+    "commit_other": "Import {{count}} entries",
+    "doneTitle": "Import finished",
+    "added_one": "{{count}} added",
+    "added_other": "{{count}} added",
+    "updated_one": "{{count}} updated",
+    "updated_other": "{{count}} updated",
+    "skipped_one": "{{count}} skipped",
+    "skipped_other": "{{count}} skipped",
+    "undoHint": "To undo this import, use Settings → Restore a previous version and pick the version saved just before it.",
+    "deleteHint": "The CSV file is not encrypted: anyone who can read it sees your passwords. Delete it when you no longer need it.",
+    "deleteSource": "Delete the source CSV",
+    "deleteTitle": "Delete the CSV file?",
+    "deleteMessage": "xPass deletes the file it imported. This is a normal delete: on SSDs the data cannot be wiped reliably. If the file was in the Recycle Bin or synced to a cloud folder, empty those too.",
+    "deleteConfirm": "Delete file",
+    "deleted": "CSV file deleted"
   }
 }

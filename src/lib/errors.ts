@@ -13,6 +13,12 @@ export function errorMessage(t: TFunction, e: unknown): string {
             return e.retryAfterS
                 ? t('errors.sync_rate_limited_wait', {minutes: Math.max(1, Math.ceil(e.retryAfterS / 60))})
                 : t('errors.sync_rate_limited')
+        case 'import_too_large':
+            return t('errors.import_too_large', {mb: e.maxMb, rows: e.maxRows.toLocaleString()})
+        case 'import_invalid_csv':
+            return e.line === null
+                ? t('errors.import_invalid_csv')
+                : t('errors.import_invalid_csv_line', {line: e.line})
         case 'io':
             return t('errors.io', {kind: e.kind})
         default:

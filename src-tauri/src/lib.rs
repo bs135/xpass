@@ -2,7 +2,7 @@ mod clipboard;
 mod commands;
 mod entries;
 mod error;
-#[allow(dead_code, reason = "used by the import / export commands (T26, T27)")]
+#[allow(dead_code, reason = "save dialog used by the export command (T27)")]
 mod file_dialog;
 mod generator;
 mod github;
@@ -79,6 +79,11 @@ pub fn run() {
             commands::sync::sync_replace_local,
             commands::backups::list_backups,
             commands::backups::restore_backup,
+            commands::import::import_open,
+            commands::import::import_set_mapping,
+            commands::import::import_commit,
+            commands::import::import_cancel,
+            commands::import::import_delete_source,
             commands::settings::update_settings,
             commands::session::password_strength,
             commands::session::lock,
