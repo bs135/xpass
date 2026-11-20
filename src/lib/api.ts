@@ -194,6 +194,61 @@ export interface BackupInfo {
     entries: number | null
 }
 
+/** CSV import presets (`xpass-interop`, plan I4). */
+export type ImportPreset = 'bitwarden' | 'chrome' | 'keepassxc' | 'xpass' | 'generic'
+export const IMPORT_PRESETS: ImportPreset[] = ['bitwarden', 'chrome', 'keepassxc', 'xpass', 'generic']
+
+/** Generic preset: column index (0-based) for each entry field, or null. */
+export interface ImportMapping {
+    title: number | null
+    username: number | null
+    password: number | null
+    url: number | null
+    notes: number | null
+    tags: number | null
+    favorite: number | null
+    /** What happens to the columns not mapped above. */
+    unmapped: 'ignore' | 'notes' | 'fields'
+}
+
+export type ImportRowWarning = 'titleFromUrl' | 'titleFromUsername' | 'invalidDate' | 'invalidFields'
+export type ImportDuplicate = 'none' | 'exact' | 'possible'
+
+/** One row of the import preview: no password, notes or custom-field values. */
+export interface ImportPreviewRow {
+    index: number
+    line: number
+    title: string
+    username: string
+    urlHost: string | null
+    hasPassword: boolean
+    duplicate: ImportDuplicate
+    warnings: ImportRowWarning[]
+}
+
+export interface ImportPreview {
+    /** File name only, no folder. */
+    fileName: string
+    detected: ImportPreset
+    preset: ImportPreset
+    /** Column names; generic preset only (empty otherwise). */
+    headers: string[]
+    /** Set for the generic preset only. */
+    mapping: ImportMapping | null
+    rows: ImportPreviewRow[]
+    skipped: {line: number; reason: 'empty' | 'unsupportedType'}[]
+    counts: {new: number; exact: number; possible: number}
+}
+
+/** What to do with possible duplicates (same site and username, other password). */
+export type DuplicateChoice = 'skip' | 'new' | 'update'
+
+export interface ImportSummary {
+    added: number
+    updated: number
+    skipped: number
+}
+
 export interface SyncTarget {
     repo: string
     branch: string
@@ -238,6 +293,11 @@ export type AppError =
     | {code: 'sync_failed'}
     | {code: 'sync_remote_missing'}
     | {code: 'sync_required'}
+    | {code: 'import_too_large'; maxMb: number; maxRows: number}
+    | {code: 'import_invalid_csv'; line: number | null}
+    | {code: 'import_encoding'}
+    | {code: 'import_empty'}
+    | {code: 'import_expired'}
     | {code: 'dialog_failed'}
     | {code: 'io'; kind: string}
     | {code: 'internal'}
@@ -321,4 +381,14 @@ export const api = {
     listBackups: () => invoke<BackupInfo[]>('list_backups'),
     /** Restores a backup as a new change. `password` only for a backup from before a key change. */
     restoreBackup: (name: string, password: string | null) => invoke<void>('restore_backup', {name, password}),
+    /** Open dialog, then parse the file in Rust. null: the dialog was canceled. */
+    importOpen: (preset: ImportPreset | null) => invoke<ImportPreview | null>('import_open', {preset}),
+    /** Re-reads the pending file with another preset / generic mapping (null guesses it). */
+    importSetMapping: (preset: ImportPreset, mapping: ImportMapping | null) =>
+        invoke<ImportPreview>('import_set_mapping', {preset, mapping}),
+    importCommit: (duplicates: DuplicateChoice, excluded: number[]) =>
+        invoke<ImportSummary>('import_commit', {options: {duplicates, excluded}}),
+    importCancel: () => invoke<void>('import_cancel'),
+    /** Deletes the CSV file that was imported (only that file). */
+    importDeleteSource: () => invoke<void>('import_delete_source'),
 }

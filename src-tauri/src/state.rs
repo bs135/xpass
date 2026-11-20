@@ -5,6 +5,7 @@
 //! directory. The Tauri commands in `commands::session` are thin wrappers.
 
 mod backups;
+mod import;
 #[allow(dead_code, reason = "used by the export command (T27)")]
 mod reauth;
 mod sync;
@@ -45,6 +46,7 @@ use crate::{
 };
 
 pub use backups::BackupInfo;
+pub use import::ImportPreview;
 #[allow(unused_imports, reason = "used by the export command (T27)")]
 pub use reauth::Auth;
 pub use sync::{SyncPhase, SyncStatus};
@@ -164,6 +166,8 @@ struct Inner {
     /// Held by everything that talks to the remote (sync, key-less push, join,
     /// key-change resolution, replace, online rotation): one at a time.
     sync_running: tokio::sync::Mutex<()>,
+    /// Pending CSV import (v0.5 I3). Lock order: `session`, then `import`.
+    import: Mutex<import::ImportSlot>,
 }
 
 impl AppState {
@@ -192,6 +196,7 @@ impl AppState {
             sync_status: Mutex::new(SyncStatus::default()),
             sync_notifier: OnceLock::new(),
             sync_running: tokio::sync::Mutex::new(()),
+            import: Mutex::new(import::ImportSlot::default()),
         }))
     }
 
@@ -656,7 +661,9 @@ impl AppState {
     /// still holds a secret we copied. Returns whether the vault was unlocked.
     pub fn lock(&self) -> bool {
         self.0.clipboard.clear_if_ours();
-        lock(&self.0.session).take().is_some()
+        let was_unlocked = lock(&self.0.session).take().is_some();
+        self.clear_import();
+        was_unlocked
     }
 
     /// Locks and remembers why, if the vault was unlocked. Returns whether it was.
