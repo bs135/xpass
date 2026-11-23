@@ -65,4 +65,5 @@ windows-sys = { version = "0.61", features = [
 ] }
 
 [dev-dependencies]
+keepass = "0.17"
 tempfile = "3"

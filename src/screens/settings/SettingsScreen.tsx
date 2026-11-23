@@ -10,6 +10,7 @@ import {useSession} from '../../stores/session'
 import {useSync} from '../../stores/sync'
 import {useToast} from '../../stores/toast'
 import {useUi} from '../../stores/ui'
+import {ExportSettings} from './ExportSettings'
 import {HelloSettings} from './HelloSettings'
 import {ImportSettings} from './ImportSettings'
 import {PasswordPrompt} from './PasswordPrompt'
@@ -39,6 +40,8 @@ export function SettingsScreen() {
                 </Section>
                 <Section title={t('import.section')}>
                     <ImportSettings/>
+                    <hr className="my-6 border-neutral-200 dark:border-neutral-800"/>
+                    <ExportSettings/>
                 </Section>
                 <Section title={t('restore.title')}>
                     <RestoreSettings/>

@@ -472,5 +472,32 @@
     "deleteMessage": "xPass sẽ xóa đúng tệp vừa nhập. Đây là thao tác xóa thông thường: trên ổ SSD dữ liệu không thể bị xóa sạch hoàn toàn. Nếu tệp nằm trong Thùng rác hoặc thư mục đồng bộ đám mây, hãy dọn cả ở đó.",
     "deleteConfirm": "Xóa tệp",
     "deleted": "Đã xóa tệp CSV"
+  },
+  "export": {
+    "title": "Xuất",
+    "intro": "Lưu một bản sao các mục để dùng trong trình quản lý mật khẩu khác. Mỗi lần xuất đều hỏi mật khẩu chính hoặc Windows Hello.",
+    "kdbx": "Xuất dạng KeePass (KDBX)",
+    "csv": "Xuất dạng CSV",
+    "csvTitle": "Xuất dạng CSV",
+    "csvWarning": "Tệp CSV không được mã hóa. Ai đọc được tệp sẽ thấy toàn bộ mật khẩu của bạn.",
+    "csvRules": [
+      "Đừng mở tệp bằng Excel hay ứng dụng bảng tính khác: chúng có thể đổi giá trị và giữ bản sao.",
+      "Đừng lưu tệp vào thư mục đồng bộ lên đám mây.",
+      "Xóa tệp ngay sau khi đã nhập vào nơi khác."
+    ],
+    "understand": "Tôi hiểu tệp này không được bảo vệ",
+    "continue": "Tiếp tục",
+    "kdbxTitle": "Xuất dạng KeePass (KDBX)",
+    "kdbxExplain": "Tệp KeePass được mã hóa bằng mật khẩu xuất. Hãy chọn mật khẩu mới, đừng dùng lại mật khẩu chính. Bạn cần nó để mở tệp trong KeePass hoặc KeePassXC.",
+    "kdbxPassword": "Mật khẩu xuất",
+    "authTitle": "Xác nhận đó là bạn",
+    "authExplain": "Nhập mật khẩu chính để xuất vault. Sau đó chọn nơi lưu tệp.",
+    "useHello": "Dùng Windows Hello",
+    "chooseFile": "Chọn tệp…",
+    "canceled": "Đã hủy xuất. Không có gì được lưu.",
+    "doneTitle": "Đã xuất xong",
+    "done_other": "Đã lưu {{count}} mục vào {{name}}.",
+    "csvAfter": "Tệp này không được mã hóa. Hãy chuyển nó đến nơi cần dùng và xóa sau khi dùng xong, rồi dọn cả Thùng rác.",
+    "kdbxAfter": "Hãy cất mật khẩu xuất ở nơi an toàn: không có nó thì không mở được tệp."
   }
 }
