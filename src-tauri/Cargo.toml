@@ -24,6 +24,7 @@ keyring = { version = "3.6", features = ["windows-native"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2", "system-proxy"] }
 tokio = { version = "1", features = ["macros", "sync", "time"] }
 xpass-core = { path = "../crates/xpass-core" }
+xpass-interop = { path = "../crates/xpass-interop" }
 serde = { version = "1", features = ["derive"] }
 rand = "0.8"
 serde_json = "1"

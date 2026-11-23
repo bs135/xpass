@@ -75,6 +75,16 @@ pub enum AppError {
     SyncRemoteMissing,
     #[error("this action needs a successful sync first")]
     SyncRequired,
+    #[error("the import file is too large")]
+    ImportTooLarge { max_mb: usize, max_rows: usize },
+    #[error("the import file is not a valid CSV file")]
+    ImportInvalidCsv { line: Option<u64> },
+    #[error("the import file is not UTF-8 text")]
+    ImportEncoding,
+    #[error("the import file has no data rows")]
+    ImportEmpty,
+    #[error("the import was cancelled or timed out")]
+    ImportExpired,
     #[error("the file dialog could not be shown")]
     DialogFailed,
     #[error("file system error: {kind}")]
@@ -112,6 +122,25 @@ impl From<xpass_core::sync::StoreError> for AppError {
             E::RateLimited { retry_after_s } => Self::SyncRateLimited { retry_after_s },
             E::RepoNotFound => Self::SyncRepoNotFound,
             E::Conflict | E::InvalidResponse | E::Http(_) => Self::SyncFailed,
+        }
+    }
+}
+
+impl From<xpass_interop::ImportError> for AppError {
+    fn from(e: xpass_interop::ImportError) -> Self {
+        use xpass_interop::{
+            decode::{MAX_FILE_BYTES, MAX_ROWS},
+            ImportError as E,
+        };
+        match e {
+            E::TooLarge { .. } | E::TooManyRows { .. } => Self::ImportTooLarge {
+                max_mb: MAX_FILE_BYTES / (1024 * 1024),
+                max_rows: MAX_ROWS,
+            },
+            E::Encoding => Self::ImportEncoding,
+            E::InvalidCsv { line } => Self::ImportInvalidCsv { line },
+            E::Empty => Self::ImportEmpty,
+            E::NoSuchColumn { .. } | E::NothingMapped => Self::InvalidInput { field: "mapping" },
         }
     }
 }
