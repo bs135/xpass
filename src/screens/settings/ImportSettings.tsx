@@ -1,4 +1,4 @@
-import {useEffect, useMemo, useRef, useState} from 'react'
+import {useMemo, useRef, useState} from 'react'
 import {AlertTriangle, FileUp, Trash2} from 'lucide-react'
 import clsx from 'clsx'
 import {useTranslation} from 'react-i18next'
@@ -83,13 +83,14 @@ function ImportWizard({initial, onClose}: {initial: ImportPreview; onClose: () =
     const [expired, setExpired] = useState(false)
     const committed = useRef(false)
 
-    // Closing without importing drops the parsed rows in Rust.
-    useEffect(
-        () => () => {
-            if (!committed.current) void api.importCancel().catch(() => undefined)
-        },
-        [],
-    )
+    // Closing without importing drops the parsed rows in Rust. Done here, not in an
+    // effect cleanup: StrictMode runs cleanups right after the first mount in dev,
+    // which cancelled the import as soon as the wizard opened. Unmounting on lock
+    // needs nothing: Rust drops the pending import itself.
+    const cancel = () => {
+        if (!committed.current) void api.importCancel().catch(() => undefined)
+        onClose()
+    }
 
     const fail = (e: unknown) => {
         if (isAppError(e) && e.code === 'import_expired') setExpired(true)
@@ -138,14 +139,14 @@ function ImportWizard({initial, onClose}: {initial: ImportPreview; onClose: () =
     if (summary) return <ImportResult summary={summary} onClose={onClose}/>
 
     return (
-        <Modal title={t('import.wizardTitle')} wide onClose={onClose}>
+        <Modal title={t('import.wizardTitle')} wide onClose={cancel}>
             <p className="mb-3 truncate text-sm text-neutral-600 dark:text-neutral-400">
                 {t('import.file', {name: preview.fileName})}
             </p>
             {error && <Alert>{error}</Alert>}
             {expired ? (
                 <div className="flex justify-end">
-                    <Button onClick={onClose}>{t('actions.close')}</Button>
+                    <Button onClick={cancel}>{t('actions.close')}</Button>
                 </div>
             ) : (
                 <>
@@ -212,7 +213,7 @@ function ImportWizard({initial, onClose}: {initial: ImportPreview; onClose: () =
                     />
 
                     <div className="mt-4 flex justify-end gap-2">
-                        <Button variant="secondary" onClick={onClose}>
+                        <Button variant="secondary" onClick={cancel}>
                             {t('actions.cancel')}
                         </Button>
                         <Button busy={busy} disabled={toImport === 0} onClick={() => void commit()}>
