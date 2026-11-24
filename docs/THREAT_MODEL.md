@@ -93,9 +93,9 @@ Known gaps that v0.6 does **not** close. Each was weighed against its cost; revi
 |---|---|---|
 | Malware as the user (A5) | Full compromise while unlocked; PAT readable any time | No user-mode defence exists; lock early. |
 | JavaScript strings cannot be wiped; WebView2 is a separate process | A revealed password or the edit form's password may stay in WebView memory until GC | Secrets reach the WebView only on explicit reveal / edit; auto-hide 15 s. |
-| Tauri IPC buffers (request and response JSON) are not wiped | Passwords sent to Rust (unlock, re-auth, edit) and revealed secrets leave copies in freed memory | After T32 the Rust-side `String`s are `Zeroizing`; the framework's buffers stay. |
+| Tauri IPC buffers (request and response JSON) are not wiped | Passwords sent to Rust (unlock, re-auth, edit) and revealed secrets leave copies in freed memory (Tauri parses the request into a `serde_json::Value` and deserializes each argument from it) | On the Rust side every secret argument is moved into a `Zeroizing` buffer or a `ZeroizeOnDrop` struct as soon as the command runs; the framework's buffers stay. |
 | `serde_json` scratch buffer when decoding escaped strings; `csv` crate buffers | Fragments of plaintext in freed memory | No API to wipe them; short-lived. |
-| Decrypted payload not page-locked | Entry plaintext could be written to the pagefile | T32 locks the VaultKey page only; locking the payload needs a custom allocator. |
+| Decrypted payload not page-locked | Entry plaintext could be written to the pagefile | Since T32 the VaultKey has its own locked page (`xpass-core::secret::LockedKey`); locking the payload needs a custom allocator. |
 | Hibernation | `hiberfil.sys` contains all RAM, locked pages included | xPass locks on suspend; hibernation after the lock contains no key. A crash dump (WER) while unlocked would contain secrets — excluding the process from WER is a v0.7+ item. |
 | Git history and local backups keep old encrypted copies | An old password (A2) opens old copies forever | Rotate after a suspected compromise; README explains. History rewrite (IDEA §3.3) is a v0.7+ item. Local backups after a rotation are still the old key's copies (last 10). |
 | Metadata leaks to GitHub | Commit times, file size ≈ entry count, IP address | Accepted for personal use (IDEA §3.3). |
@@ -124,9 +124,9 @@ Checklist from [IDEA.md §3](IDEA.md#3-design-issues) and the milestone plans, c
 | R8 | Strict CSP, no remote content, minimal capabilities, no `fs`, devtools off (§3.6) | OK | `tauri.conf.json`, `capabilities/default.json` |
 | R9 | npm supply chain: minimal deps, audit (§3.6, PLAN §6) | v0.6 | 8 runtime deps; `npm audit` in CI — **T31** |
 | R10 | Crate advisories and licences (no AGPL / GPL) | v0.6 | `cargo deny` in CI — **T31** |
-| R11 | `zeroize` on keys and payload; `secrecy`-style care at deserialization (§3.6) | v0.6 | Keys / payload OK. **Gap:** IPC arguments carrying passwords (`unlock_password`, `create_vault`, `change_password`, `rotate_vault_key`, `new_recovery_key`, `restore_backup`, `hello_enable`, `sync_join`, `sync_resolve_key_change`, `sync_replace_local`, `sync_set_token`, `export_vault`, `Auth::Password`, `EntryInput.password`, `password_strength`) are plain `String` → **T32** |
-| R12 | No plaintext copies from `Vec` growth when saving | v0.6 | `UnlockedVault::save` uses `serde_json::to_vec` → **T32** (pre-sized buffer) |
-| R13 | `VirtualLock` for keys (§3.6) | v0.6 | VaultKey inline in `UnlockedVault` → **T32** (`LockedKey`); payload: limit |
+| R11 | `zeroize` on keys and payload; `secrecy`-style care at deserialization (§3.6) | OK | Keys / payload `Zeroizing` / `ZeroizeOnDrop`. IPC arguments: every command moves secret arguments into `Zeroizing` on entry, `Auth` and `EntryInput` are `ZeroizeOnDrop` (the T30 draft listed them as a gap; the T32 check showed the move already wipes the deserialized buffer). T32 fixed what was left: `Debug` of `EntryInput` / `Generated` printed passwords (never logged, now redacted), and the generator built passwords in growing `String`s (reallocation copies). |
+| R12 | No plaintext copies from `Vec` growth when saving | OK | T32: `UnlockedVault::save` counts the JSON size first and serializes into an exact-size `Zeroizing` buffer (test `payload_json_is_written_without_reallocation`) |
+| R13 | `VirtualLock` for keys (§3.6) | OK | T32: VaultKey in `LockedKey` (own page, locked before the key is written, wiped before unlock); a failure is logged once. Payload: limit |
 | R14 | Clipboard excluded from history / cloud / monitoring; clear only if unchanged (§3.7) | OK | `clipboard.rs` + tests |
 | R15 | Auto-lock: idle, Windows lock, sleep, exit (§4) | OK | `lock_watch.rs`; also display off (Modern Standby) |
 | R16 | Strength check for the master password (§4) | OK | zxcvbn ≥ 3 |
@@ -144,8 +144,9 @@ Checklist from [IDEA.md §3](IDEA.md#3-design-issues) and the milestone plans, c
 | R28 | Crash dumps while unlocked | later | WER exclusion v0.7+ |
 | R29 | Signed auto-update | later | v0.7+ |
 
-Findings of this review that were not already in the v0.6 plan: `sync_set_token` (PAT) and `copy_text` also take a
-plain `String` over IPC (`copy_text` wraps it right after) — added to T32's list (R11).
+Findings of this review that were not already in the v0.6 plan: `sync_set_token` (PAT) and `copy_text` take a
+plain `String` over IPC. Rechecked in T32: like the other commands they move it into `Zeroizing` on entry, so R11
+needed no signature changes (see R11).
 
 ## 7. Reporting a vulnerability
 

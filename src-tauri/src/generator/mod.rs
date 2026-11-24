@@ -42,13 +42,21 @@ pub enum Options {
     },
 }
 
-#[derive(Debug, Serialize, Zeroize, ZeroizeOnDrop)]
+#[derive(Serialize, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct Generated {
     pub password: String,
     /// Entropy of the generation process (not of the string), in bits.
     #[zeroize(skip)]
     pub entropy_bits: f64,
+}
+
+impl std::fmt::Debug for Generated {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Generated")
+            .field("entropy_bits", &self.entropy_bits)
+            .finish_non_exhaustive()
+    }
 }
 
 pub fn generate(options: &Options) -> AppResult<Generated> {
@@ -107,7 +115,9 @@ fn chars(
         out.push(*pool.choose(rng).expect("pool is non-empty"));
     }
     out.shuffle(rng);
-    let password: String = out.iter().collect();
+    // Sized up front: a growing `String` would leave freed, unwiped partial copies.
+    let mut password = String::with_capacity(out.iter().map(|c| c.len_utf8()).sum());
+    password.extend(out.iter());
     out.zeroize();
     Ok(Generated {
         password,
@@ -132,14 +142,15 @@ fn passphrase(
     let mut picked: Vec<String> = (0..words)
         .map(|_| {
             let w = *list.choose(rng).expect("wordlist is non-empty");
+            // Room for a capitalized first letter (up to 3 chars) and the optional
+            // digit, so neither step reallocates and leaves a stray copy.
+            let mut word = String::with_capacity(w.len() + 4 * 3 + 1);
+            let mut c = w.chars();
             if capitalize {
-                let mut c = w.chars();
-                c.next()
-                    .map(|f| f.to_uppercase().chain(c).collect())
-                    .unwrap_or_default()
-            } else {
-                w.to_owned()
+                word.extend(c.next().into_iter().flat_map(char::to_uppercase));
             }
+            word.extend(c);
+            word
         })
         .collect();
     let mut entropy = words as f64 * (list.len() as f64).log2();
@@ -251,6 +262,22 @@ mod tests {
         assert!((g.entropy_bits - (5.0 * 7776f64.log2() + 10f64.log2())).abs() < 1e-9);
         // ~64.6 + 3.3 bits
         assert!(g.entropy_bits > 67.0);
+    }
+
+    #[test]
+    fn output_is_built_without_reallocation_and_not_in_debug() {
+        let g = generate(&chars_opts(64, [true; 4], false)).unwrap();
+        assert_eq!(g.password.len(), g.password.capacity());
+        assert!(!format!("{g:?}").contains(&g.password));
+        let opts = Options::Passphrase {
+            words: 6,
+            separator: "-".into(),
+            capitalize: true,
+            add_digit: true,
+        };
+        let g = generate(&opts).unwrap();
+        assert_eq!(g.password.len(), g.password.capacity(), "join sizes its buffer exactly");
+        assert!(!format!("{g:?}").contains(&g.password));
     }
 
     #[test]

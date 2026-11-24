@@ -12,10 +12,12 @@ use uuid::Uuid;
 use zeroize::Zeroizing;
 
 use crate::{
-    crypto::{self, KdfParams, Key, KEY_LEN},
+    crypto::{self, KdfParams, KEY_LEN},
     format::{self, Header, Slot, SlotKind, SlotParams, WRAPPED_LEN},
     model::Payload,
-    recovery, Error, Result,
+    recovery,
+    secret::LockedKey,
+    Error, Result,
 };
 
 const INFO_RECOVERY: &[u8] = b"xpass/kek-recovery/v1";
@@ -33,12 +35,41 @@ pub enum Unlock<'a> {
     },
 }
 
-/// Vault in memory after unlock. Holds the VaultKey; dropping it wipes the key
-/// and the payload secrets.
+/// Payload JSON in a buffer sized up front: serializing into a growing `Vec`
+/// would free partial plaintext copies on every reallocation without wiping
+/// them (v0.6 plan H8). The first pass only counts bytes.
+fn serialize_payload(payload: &Payload) -> Result<Zeroizing<Vec<u8>>> {
+    let to_err = |e: serde_json::Error| Error::Payload(e.to_string());
+    let mut counter = ByteCounter(0);
+    serde_json::to_writer(&mut counter, payload).map_err(to_err)?;
+    let mut out = Zeroizing::new(Vec::with_capacity(counter.0));
+    let capacity = out.capacity();
+    serde_json::to_writer(&mut *out, payload).map_err(to_err)?;
+    debug_assert_eq!(out.len(), counter.0);
+    debug_assert_eq!(out.capacity(), capacity, "payload JSON was reallocated");
+    Ok(out)
+}
+
+/// `io::Write` sink that only counts bytes.
+struct ByteCounter(usize);
+
+impl std::io::Write for ByteCounter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0 += buf.len();
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Vault in memory after unlock. Holds the VaultKey (in a page-locked page, see
+/// [`LockedKey`]); dropping it wipes the key and the payload secrets.
 #[derive(Clone)]
 pub struct UnlockedVault {
     vault_id: [u8; 16],
-    vault_key: Key,
+    vault_key: LockedKey,
     slots: Vec<Slot>,
     pub payload: Payload,
 }
@@ -64,7 +95,7 @@ impl UnlockedVault {
         kdf.validate()?;
         let mut vault = Self {
             vault_id: crypto::random_bytes(rng),
-            vault_key: crypto::random_key(rng),
+            vault_key: LockedKey::new(&crypto::random_key(rng)),
             slots: Vec::new(),
             payload: Payload::default(),
         };
@@ -103,8 +134,7 @@ impl UnlockedVault {
 
         let aad = Header::slot_aad(&header.vault_id, &slot.params);
         let vk = crypto::open(&kek, &slot.nonce, &slot.wrapped, &aad).ok_or(Error::BadCredentials)?;
-        let mut vault_key = Zeroizing::new([0u8; KEY_LEN]);
-        vault_key.copy_from_slice(&vk);
+        let vault_key = LockedKey::from_slice(&vk).ok_or(Error::Format("bad wrapped key length"))?;
 
         let plaintext = crypto::open(
             &vault_key,
@@ -168,7 +198,7 @@ impl UnlockedVault {
             payload_nonce: crypto::random_bytes(rng),
         };
         let header_bytes = header.encode();
-        let plaintext = Zeroizing::new(serde_json::to_vec(&self.payload).map_err(|e| Error::Payload(e.to_string()))?);
+        let plaintext = serialize_payload(&self.payload)?;
         let ciphertext = crypto::seal(&self.vault_key, &header.payload_nonce, &plaintext, &header_bytes);
         let mut out = header_bytes;
         out.extend_from_slice(&ciphertext);
@@ -261,7 +291,7 @@ impl UnlockedVault {
         kdf: KdfParams,
     ) -> Result<Zeroizing<String>> {
         kdf.validate()?;
-        self.vault_key = crypto::random_key(rng);
+        self.vault_key = LockedKey::new(&crypto::random_key(rng));
         self.slots.clear();
         self.set_password_slot(rng, password, kdf)?;
         Ok(self.new_recovery_slot(rng))
@@ -323,6 +353,11 @@ impl UnlockedVault {
         Sha256::digest(self.vault_key.as_ref())[..8]
             .try_into()
             .expect("8 bytes")
+    }
+
+    /// True when the VaultKey's page is locked in RAM (kept out of the pagefile).
+    pub fn key_locked(&self) -> bool {
+        self.vault_key.is_locked()
     }
 
     pub fn slot_kinds(&self) -> Vec<SlotKind> {
@@ -402,4 +437,39 @@ pub fn hello_challenge_for_file(file: &[u8]) -> Result<Vec<u8>> {
             _ => None,
         })
         .ok_or(Error::NoSuchSlot)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::Entry;
+
+    #[test]
+    fn payload_json_is_written_without_reallocation() {
+        let mut payload = Payload::default();
+        for i in 0..200 {
+            let mut e = Entry::new(&format!("Entry {i} with \"quotes\" and ünïcode"), 1);
+            e.password = "Sample-Pass-01".repeat(3);
+            e.notes = "line\n".repeat(20);
+            payload.entries.push(e);
+        }
+        let out = serialize_payload(&payload).unwrap();
+        assert_eq!(out.len(), out.capacity());
+        assert_eq!(*out, serde_json::to_vec(&payload).unwrap());
+    }
+
+    #[test]
+    fn unlocked_vault_keeps_the_key_locked() {
+        let mut rng = rand::rngs::OsRng;
+        let kdf = KdfParams {
+            m_kib: 8 * 1024,
+            t: 1,
+            p: 1,
+        };
+        let (vault, _kit) = UnlockedVault::create(&mut rng, b"pw", kdf).unwrap();
+        #[cfg(windows)]
+        assert!(vault.key_locked());
+        let copy = vault.clone();
+        assert_eq!(copy.vault_key_fingerprint(), vault.vault_key_fingerprint());
+    }
 }
