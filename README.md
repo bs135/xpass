@@ -196,6 +196,16 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
+Dependency audit (CI job `audit`, also every Monday): Rust advisories, licences and sources with
+[cargo-deny](https://github.com/EmbarkStudios/cargo-deny) (rules in `deny.toml`: permissive licences only, every
+ignored advisory has a reason), and npm advisories at level high or above:
+
+```bash
+cargo install --locked cargo-deny   # once
+cargo deny --workspace check
+npm audit --audit-level=high
+```
+
 Release build: `npm run tauri build` (NSIS and MSI installers in `target/release/bundle/`).
 
 Layout:
