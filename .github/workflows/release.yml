@@ -54,7 +54,33 @@ jobs:
           set -euo pipefail
           npm version "$NEW_VERSION" --no-git-tag-version --allow-same-version
           sed -i "0,/^version = \".*\"/s//version = \"${NEW_VERSION}\"/" src-tauri/Cargo.toml
-          cargo update -p xpass --offline || true
+          # Refresh only the workspace members' entries in Cargo.lock (no dependency
+          # upgrades). Not `--offline`: a fresh runner has no registry cache, so that
+          # failed and `|| true` hid it — v0.5.0 shipped with `xpass 0.4.0` in the lock.
+          cargo update --workspace
+
+      - name: Verify version files agree
+        if: steps.tag_version.outputs.new_tag != ''
+        env:
+          NEW_VERSION: ${{ steps.tag_version.outputs.new_version }}
+        run: |
+          set -euo pipefail
+          # Fails if Cargo.lock still needs changes for the current manifests.
+          cargo metadata --format-version 1 --locked > /dev/null
+          toml_version=$(cargo metadata --format-version 1 --locked --no-deps \
+            | jq -r '.packages[] | select(.name == "xpass") | .version')
+          npm_version=$(jq -r .version package.json)
+          npm_lock_version=$(jq -r .version package-lock.json)
+          echo "expected=${NEW_VERSION} Cargo.toml=${toml_version} package.json=${npm_version} package-lock.json=${npm_lock_version}"
+          if [ "$toml_version" != "$NEW_VERSION" ] || [ "$npm_version" != "$NEW_VERSION" ] || [ "$npm_lock_version" != "$NEW_VERSION" ]; then
+            echo "::error::Version files disagree; not tagging."
+            exit 1
+          fi
+          lock_entry=$(grep -A1 '^name = "xpass"$' Cargo.lock | sed -n 's/^version = "\(.*\)"$/\1/p')
+          if [ "$lock_entry" != "$NEW_VERSION" ]; then
+            echo "::error::Cargo.lock has xpass ${lock_entry}, expected ${NEW_VERSION}."
+            exit 1
+          fi
 
       - name: Commit version bump and push tag
         if: steps.tag_version.outputs.new_tag != ''
