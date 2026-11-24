@@ -19,6 +19,7 @@ mod sync_state;
 mod sync_worker;
 mod throttle;
 mod tray;
+mod update;
 
 use tauri::{Manager, RunEvent};
 use xpass_core::crypto::KdfParams;
@@ -42,15 +43,20 @@ pub fn run() {
                 state.set_idle_timeout(Some(timeout));
             }
             app.manage(state);
+            app.manage(update::UpdateState::default());
             lock_watch::start(app.handle().clone());
             tray::setup(app)?;
             sync_worker::start(app.handle().clone());
+            update::start(app.handle().clone());
             Ok(())
         })
         .on_window_event(tray::on_window_event)
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::open_project_page,
+            update::check_update,
+            update::update_status,
+            update::open_release_page,
             commands::session::vault_status,
             commands::session::create_vault,
             commands::session::unlock_password,

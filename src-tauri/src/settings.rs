@@ -50,6 +50,11 @@ pub struct Settings {
     pub lock_on_minimize: bool,
     /// When the current Emergency Kit was generated (Unix ms); set by the app only.
     pub last_kit_at: Option<i64>,
+    /// Ask GitHub for a newer release at startup, at most once a day (v0.6 H9).
+    /// Off by default: xpass makes no network request unless asked to.
+    pub check_updates_on_startup: bool,
+    /// When the last update check ran (Unix ms); set by the app only.
+    pub last_update_check_at: Option<i64>,
     /// GitHub sync target; changed only through the sync commands. The token is
     /// in Windows Credential Manager, never here.
     pub sync: SyncSettings,
@@ -188,6 +193,8 @@ impl Default for Settings {
             close_to_tray: true,
             lock_on_minimize: false,
             last_kit_at: None,
+            check_updates_on_startup: false,
+            last_update_check_at: None,
             sync: SyncSettings::default(),
         }
     }
@@ -270,6 +277,8 @@ mod tests {
             close_to_tray: false,
             lock_on_minimize: true,
             last_kit_at: Some(123),
+            check_updates_on_startup: true,
+            last_update_check_at: Some(456),
             sync: SyncSettings {
                 repo: "octo/vault".into(),
                 branch: "main".into(),

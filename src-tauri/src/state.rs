@@ -330,12 +330,22 @@ impl AppState {
     pub fn update_settings(&self, mut new: Settings) -> AppResult<Settings> {
         let mut current = lock(&self.0.settings);
         new.last_kit_at = current.last_kit_at;
+        new.last_update_check_at = current.last_update_check_at;
         new.sync = current.sync.clone();
         new.validate()?;
         settings::save(&self.0.settings_path, &new)?;
         self.set_idle_timeout(new.idle_timeout());
         *current = new.clone();
         Ok(new)
+    }
+
+    /// Records when an update check ran (startup throttle, v0.6 H9). Best effort.
+    pub fn record_update_check(&self, at: i64) {
+        let mut current = lock(&self.0.settings);
+        current.last_update_check_at = Some(at);
+        if let Err(e) = settings::save(&self.0.settings_path, &current) {
+            eprintln!("xpass: saving settings failed: {e}");
+        }
     }
 
     /// Records that a new Emergency Kit was shown. Best effort: the kit date is
@@ -1325,8 +1335,16 @@ mod tests {
         s.auto_lock_minutes = Some(15);
         s.clipboard_clear_seconds = 45;
         s.last_kit_at = Some(1); // ignored: owned by the app
+        s.last_update_check_at = Some(2); // ignored: owned by the app
         let saved = state.update_settings(s).unwrap();
         assert_eq!(saved.last_kit_at, kit_at);
+        assert_eq!(saved.last_update_check_at, None);
+        assert!(
+            !saved.check_updates_on_startup,
+            "startup update check is off by default"
+        );
+        state.record_update_check(42);
+        assert_eq!(settings::load(&paths.settings()).last_update_check_at, Some(42));
         assert_eq!(state.idle_timeout(), Some(Duration::from_secs(15 * 60)));
 
         let mut bad = state.settings();

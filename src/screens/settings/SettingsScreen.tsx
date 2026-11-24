@@ -1,5 +1,5 @@
 import {type ReactNode, useEffect, useState} from 'react'
-import {ArrowLeft, ExternalLink} from 'lucide-react'
+import {ArrowLeft, ExternalLink, RefreshCw} from 'lucide-react'
 import {useTranslation} from 'react-i18next'
 import {NewPasswordForm} from '../../components/NewPasswordForm'
 import {Button, Field, PasswordInput} from '../../components/ui'
@@ -10,6 +10,7 @@ import {useSession} from '../../stores/session'
 import {useSync} from '../../stores/sync'
 import {useToast} from '../../stores/toast'
 import {useUi} from '../../stores/ui'
+import {useUpdate} from '../../stores/update'
 import {ExportSettings} from './ExportSettings'
 import {HelloSettings} from './HelloSettings'
 import {ImportSettings} from './ImportSettings'
@@ -281,6 +282,69 @@ function AboutSection() {
                 <ExternalLink className="size-4" aria-hidden/>
                 {t('settings.projectPage')}
             </Button>
+            <UpdateCheck/>
         </Section>
+    )
+}
+
+/** Settings → About: update check (Rust asks GitHub; nothing is downloaded or installed). */
+function UpdateCheck() {
+    const {t, i18n} = useTranslation()
+    const {settings, update} = useUi()
+    const {info, set} = useUpdate()
+    const show = useToast((s) => s.show)
+    const [checking, setChecking] = useState(false)
+
+    const check = () => {
+        setChecking(true)
+        api.checkUpdate()
+            .then(set)
+            .catch((e) => show(errorMessage(t, e), 4000))
+            .finally(() => setChecking(false))
+    }
+
+    return (
+        <div className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+            <div className="mb-3 flex flex-wrap items-center gap-3">
+                <Button variant="secondary" disabled={checking} onClick={check}>
+                    <RefreshCw className="size-4" aria-hidden/>
+                    {checking ? t('update.checking') : t('update.check')}
+                </Button>
+                {info && !info.newer && <span className="text-sm text-neutral-500">{t('update.upToDate')}</span>}
+                {info?.newer && (
+                    <>
+                        <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                            {t('update.available', {version: info.latest})}
+                        </span>
+                        <Button
+                            variant="secondary"
+                            onClick={() => api.openReleasePage().catch((e) => show(errorMessage(t, e), 4000))}
+                        >
+                            <ExternalLink className="size-4" aria-hidden/>
+                            {t('update.openRelease')}
+                        </Button>
+                    </>
+                )}
+            </div>
+            {info && (
+                <p className="mb-3 text-xs text-neutral-500">
+                    {t('update.lastChecked', {date: new Date(info.checkedAt).toLocaleString(i18n.language)})}
+                </p>
+            )}
+            <label className="flex items-center gap-2 text-sm">
+                <input
+                    type="checkbox"
+                    className="accent-emerald-600"
+                    checked={settings.checkUpdatesOnStartup}
+                    onChange={(e) =>
+                        void update({checkUpdatesOnStartup: e.target.checked})
+                            .then(() => show(t('settings.saved')))
+                            .catch((err) => show(errorMessage(t, err), 4000))
+                    }
+                />
+                {t('update.onStartup')}
+            </label>
+            <p className="mt-1 text-xs text-neutral-500">{t('update.hint')}</p>
+        </div>
     )
 }

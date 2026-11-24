@@ -87,6 +87,8 @@ pub enum AppError {
     ImportExpired,
     #[error("the file dialog could not be shown")]
     DialogFailed,
+    #[error("the update check failed")]
+    UpdateFailed,
     #[error("file system error: {kind}")]
     Io { kind: String },
     #[error("internal error")]

@@ -138,7 +138,7 @@ Checklist from [IDEA.md §3](IDEA.md#3-design-issues) and the milestone plans, c
 | R22 | URLs opened only as http(s) with a host, by Rust | OK | `entries::normalize_url`, `shell.rs` |
 | R23 | PAT never in logs / settings / errors / WebView | OK | `secrets.rs`, `github.rs` redaction test |
 | R24 | Logs carry no secrets | OK | `eprintln!` only for lock reasons, window messages, Hello focus and panic location (panic payload not printed); release builds have no console |
-| R25 | Update check from Rust, no WebView network (D10) | v0.6 | **T35** |
+| R25 | Update check from Rust, no WebView network (D10) | OK | T35: `update.rs` calls the GitHub Releases API (rustls, HTTPS only, 256 KB cap, no token), compares semver, opens only `https://github.com/bs135/xpass/releases/…`; startup check opt-in, at most daily; CSP and capabilities unchanged |
 | R26 | Release integrity for unsigned builds | v0.6 | SHA-256 checksums — **T36**; code signing later |
 | R27 | Branch protection on `main` while releasing | v0.6 | Ruleset currently disabled; release workflow stops pushing to `main` — **T34**, user re-enables the ruleset |
 | R28 | Crash dumps while unlocked | later | WER exclusion v0.7+ |

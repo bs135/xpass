@@ -9,9 +9,11 @@ import {
     type AppInfo,
     EVENT_LOCKED,
     EVENT_SYNC_STATUS,
+    EVENT_UPDATE_STATUS,
     EVENT_VAULT_CHANGED,
     type LockReason,
     type SyncStatus,
+    type UpdateInfo,
 } from './lib/api'
 import {applyTheme, resolveTheme} from './lib/theme'
 import {EmergencyKitScreen} from './screens/EmergencyKitScreen'
@@ -24,6 +26,7 @@ import {UnlockScreen} from './screens/UnlockScreen'
 import {useEntries} from './stores/entries'
 import {type Screen, useSession} from './stores/session'
 import {useSync} from './stores/sync'
+import {useUpdate} from './stores/update'
 import {useUi} from './stores/ui'
 
 export default function App() {
@@ -55,7 +58,9 @@ export default function App() {
                 useEntries.getState().refresh().catch((e) => console.error('reload after sync failed', e))
             }
         })
+        const unlistenUpdate = listen<UpdateInfo>(EVENT_UPDATE_STATUS, (e) => useUpdate.getState().set(e.payload))
         useSync.getState().refresh()
+        useUpdate.getState().refresh()
         // Events can be lost while the WebView is frozen (sleep): re-check when shown again.
         const resync = () => {
             if (document.visibilityState === 'visible') {
@@ -69,6 +74,7 @@ export default function App() {
             void unlisten.then((off) => off())
             void unlistenSync.then((off) => off())
             void unlistenChanged.then((off) => off())
+            void unlistenUpdate.then((off) => off())
             document.removeEventListener('visibilitychange', resync)
             window.removeEventListener('focus', resync)
         }

@@ -245,7 +245,8 @@
     "import_encoding": "Tệp này không phải văn bản UTF-8. Hãy xuất lại dưới dạng CSV UTF-8 rồi thử lại.",
     "import_empty": "Tệp này không có mục nào để nhập.",
     "import_expired": "Lần nhập đã bị hủy vì vault bị khóa hoặc đã quá 10 phút. Hãy mở lại tệp.",
-    "dialog_failed": "Không mở được hộp thoại chọn tệp. Vui lòng thử lại."
+    "dialog_failed": "Không mở được hộp thoại chọn tệp. Vui lòng thử lại.",
+    "update_failed": "Không kiểm tra được bản cập nhật. Hãy kiểm tra kết nối rồi thử lại."
   },
   "about": {
     "version": "Phiên bản {{version}} · định dạng vault v{{format}}"
@@ -513,5 +514,16 @@
     "use": "Dùng mật khẩu này",
     "useTitle": "Dùng mật khẩu này?",
     "useMessage": "Mật khẩu này sẽ thành mật khẩu hiện tại. Mật khẩu hiện tại được giữ trong lịch sử."
+  },
+  "update": {
+    "check": "Kiểm tra cập nhật",
+    "checking": "Đang kiểm tra…",
+    "upToDate": "xPass đang ở phiên bản mới nhất.",
+    "available": "Đã có phiên bản {{version}}.",
+    "openRelease": "Mở trang phát hành",
+    "lastChecked": "Kiểm tra lần cuối: {{date}}",
+    "onStartup": "Kiểm tra cập nhật khi mở xPass (tối đa mỗi ngày một lần)",
+    "hint": "xPass chỉ hỏi GitHub số phiên bản mới nhất. Không tải hay cài đặt gì: hãy lấy bản mới từ trang phát hành.",
+    "badge": "Cài đặt (có bản cập nhật)"
   }
 }
