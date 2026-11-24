@@ -5,6 +5,7 @@ import {useTranslation} from 'react-i18next'
 import {LANGUAGES} from '../i18n'
 import {THEMES, type Theme} from '../lib/theme'
 import {useSession} from '../stores/session'
+import {useUpdate} from '../stores/update'
 import {Generator} from './Generator'
 import {Modal} from './Modal'
 import {SyncIndicator} from './SyncIndicator'
@@ -31,6 +32,7 @@ export function Header() {
     const screen = useSession((s) => s.screen)
     const lock = useSession((s) => s.lock)
     const go = useSession((s) => s.go)
+    const updateAvailable = useUpdate((s) => s.info?.newer ?? false)
     const unlocked = screen === 'unlocked' || screen === 'settings'
     const [generator, setGenerator] = useState(false)
     const ThemeIcon = THEME_ICONS[theme]
@@ -58,8 +60,15 @@ export function Header() {
                     </IconButton>
                 )}
                 {screen === 'unlocked' && (
-                    <IconButton label={t('settings.title')} onClick={() => go('settings')}>
+                    <IconButton
+                        label={updateAvailable ? t('update.badge') : t('settings.title')}
+                        className="relative"
+                        onClick={() => go('settings')}
+                    >
                         <Settings className="size-4" aria-hidden/>
+                        {updateAvailable && (
+                            <span className="absolute top-1 right-1 size-1.5 rounded-full bg-emerald-500" aria-hidden/>
+                        )}
                     </IconButton>
                 )}
                 {unlocked && (

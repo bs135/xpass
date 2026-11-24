@@ -17,6 +17,7 @@ pub struct VaultSession {
 
 impl VaultSession {
     pub fn new(vault: UnlockedVault, recovered: bool) -> Self {
+        report_key_lock(&vault);
         let last_seen_ts = vault.payload.max_updated_at();
         Self {
             vault,
@@ -73,5 +74,14 @@ impl VaultSession {
         storage.write(&bytes, now_ms)?;
         self.vault = next;
         Ok(out)
+    }
+}
+
+/// Logs once per process when the VaultKey page could not be locked in RAM
+/// (v0.6 H6): the vault still works, but the key may reach the pagefile.
+fn report_key_lock(vault: &UnlockedVault) {
+    static REPORTED: std::sync::Once = std::sync::Once::new();
+    if !vault.key_locked() {
+        REPORTED.call_once(|| eprintln!("xpass: VirtualLock failed; the vault key is not locked in RAM"));
     }
 }

@@ -1,7 +1,7 @@
 {
   "name": "xpass",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Zero-knowledge personal password manager",
   "license": "MIT",
   "author": "bs135",
@@ -12,7 +12,8 @@
     "typecheck": "tsc -b",
     "lint": "oxlint",
     "test": "vitest run",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "release:prepare": "node scripts/release-prepare.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",

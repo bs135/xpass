@@ -11,7 +11,7 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   <img src="docs/screenshots/unlock.png" alt="xPass unlock screen with Windows Hello and the master password" width="500">
 </p>
 
-## Features (v0.5)
+## Features (v0.6)
 
 - **Encrypted local vault** — one file, `%APPDATA%\com.bs135.xpass\vault.xpv`, with the last 10 versions kept in
   `backups\`.
@@ -37,6 +37,8 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   version of an entry edited on two PCs is kept in its history. See [Sync with GitHub](#sync-with-github).
 - **Restore a previous version** — put the entries back as they were in one of the last 10 local versions; with
   sync on, the restore reaches your other PCs too.
+- **Update check** — Settings → About checks GitHub for a newer release and opens its page; optional check at
+  startup (off by default). Nothing is downloaded automatically.
 - English and Vietnamese UI, light/dark theme, self-drawn title bar that follows the theme.
 
 ## Security model (summary)
@@ -51,8 +53,9 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   password only when you reveal it or open the edit form.
 - Strict Content Security Policy (no remote content, no `eval`), minimal Tauri capabilities, no file-system or shell
   plugins.
-- Secrets in memory are zeroized when the vault locks or the app exits (best effort; see the threat model in
-  [docs/IDEA.md](docs/IDEA.md)).
+- Secrets in memory are zeroized when the vault locks or the app exits, and the vault key sits in a memory page
+  kept out of the pagefile (best effort; see the threat model in [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)).
+- Dependencies are checked in CI (`cargo deny`, `npm audit`) and the vault file parser is fuzzed.
 - **GitHub sync** uploads only the encrypted vault file. The token is kept in Windows Credential Manager and used
   only by the Rust side for requests to `api.github.com`; the WebView has no network access at all.
 - **Import and export** run in Rust: files are picked in the native Windows dialog, read, parsed and written in
@@ -60,7 +63,8 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   export asks for the master password or Windows Hello first. A plaintext CSV export is as sensitive as the vault
   itself: see [Import and export](#import-and-export).
 - **Not protected against:** malware running as your Windows user, or a stolen backup file plus a weak master
-  password. Older backups keep opening with the credentials that were valid when they were written.
+  password. Older backups keep opening with the credentials that were valid when they were written. Full list of
+  what is and is not covered: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
 ## Sync with GitHub
 
@@ -168,8 +172,39 @@ not exported, and neither is password history in the CSV.
 
 ## Install
 
-Download the installer (`.exe` or `.msi`) from [Releases](https://github.com/bs135/xpass/releases). Builds are not
-code-signed yet, so Windows SmartScreen may warn on first start ("More info" → "Run anyway").
+Download one installer from [Releases](https://github.com/bs135/xpass/releases):
+
+- `xpass_<version>_windows_x64-setup.exe` (NSIS, recommended): installs for your Windows user only, without an
+  administrator prompt, into `%LOCALAPPDATA%\xpass`. The first install asks for English or Vietnamese; later
+  installs and updates reuse that choice.
+- `xpass_<version>_windows_x64.msi`: for managed installs (Intune, Group Policy).
+
+The WebView2 runtime is downloaded by the installer if Windows does not have it yet (it ships with Windows 11).
+Installing a newer version over an older one keeps your vault and settings.
+
+### Check the download
+
+Builds are **not code-signed** yet. Each release (from v0.6.0) also has `SHA256SUMS.txt`; compare the installer's
+hash with the line for its file name before running it:
+
+```powershell
+(Get-FileHash .\xpass_0.6.0_windows_x64-setup.exe -Algorithm SHA256).Hash.ToLower()
+```
+
+### Windows SmartScreen
+
+Because the installer is not signed, SmartScreen may show "Windows protected your PC" on the first run. It means
+Windows does not know the publisher yet, not that the file is harmful. After checking the hash, choose
+**More info** → **Run anyway**. Download xPass only from the Releases page above.
+
+### Uninstall
+
+Settings → Apps → Installed apps → xPass → Uninstall. By default your data is **not** removed: the vault, its
+backups and settings stay in `%APPDATA%\com.bs135.xpass`, and the GitHub token stays in Windows Credential Manager
+(`xpass/github-token`) unless you turn sync off before uninstalling.
+
+The uninstaller also offers a checkbox to delete the application data. Ticking it **deletes the vault and all local
+backups** in `%APPDATA%\com.bs135.xpass`; only do that if the vault is synced to GitHub or you no longer need it.
 
 ## Development
 
@@ -195,6 +230,35 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
+Dependency audit (CI job `audit`, also every Monday): Rust advisories, licences and sources with
+[cargo-deny](https://github.com/EmbarkStudios/cargo-deny) (rules in `deny.toml`: permissive licences only, every
+ignored advisory has a reason), and npm advisories at level high or above:
+
+```bash
+cargo install --locked cargo-deny   # once
+cargo deny --workspace check
+npm audit --audit-level=high
+```
+
+Fuzzing (on demand, not part of CI): `crates/xpass-core/fuzz` has `cargo-fuzz` targets for the vault file parser
+(`parse`), Hello unlock and sibling open (`unlock_hello`) and recovery-key input (`recovery_decode`). Every CI run
+replays the checked-in seeds and regressions on stable (`cargo test`); longer runs use the **Fuzz** workflow
+(Actions → Fuzz → Run workflow) or nightly locally:
+
+```bash
+rustup toolchain install nightly --profile minimal
+cargo install --locked cargo-fuzz
+cd crates/xpass-core
+cargo +nightly fuzz run parse fuzz/corpus/parse fuzz/seeds/parse fuzz/regressions/parse -- -max_total_time=600
+```
+
+On Windows the AddressSanitizer runtime comes with Visual Studio: put the folder holding
+`clang_rt.asan_dynamic-x86_64.dll` (`VC\Tools\MSVC\<version>\bin\Hostx64\x64`) on `PATH` first, otherwise the
+target exits with `STATUS_DLL_NOT_FOUND`. A crash input lands in `fuzz/artifacts/<target>/`; after the fix, copy
+it to `fuzz/regressions/<target>/` so the
+replay test keeps it covered. Seeds are regenerated with
+`cargo run -p xpass-core --example fuzz_seeds --features fuzzing`.
+
 Release build: `npm run tauri build` (NSIS and MSI installers in `target/release/bundle/`).
 
 Layout:
@@ -204,18 +268,19 @@ crates/xpass-core/   vault format, crypto, model, merge (no UI / OS code)
 crates/xpass-interop/ CSV import / export and KDBX export (no UI / OS code)
 src-tauri/           Tauri app: commands and Windows integration
 src/                 React + TypeScript frontend
-spikes/              feasibility spikes (reference only)
 ```
 
 ## Documentation
 
 - [docs/IDEA.md](docs/IDEA.md) — concept review and design decisions
 - [docs/PLAN.md](docs/PLAN.md) — implementation plan and milestones
+- [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) — assets, attackers, accepted limits and the security self-review
 - [docs/plan-v0.1.0.md](docs/plan-v0.1.0.md) — v0.1 tasks and manual test checklist
 - [docs/plan-v0.2.0.md](docs/plan-v0.2.0.md) — v0.2 tasks (custom title bar) and manual test checklist
 - [docs/plan-v0.3.0.md](docs/plan-v0.3.0.md) — v0.3 tasks (Windows Hello unlock) and manual test checklist
 - [docs/plan-v0.4.0.md](docs/plan-v0.4.0.md) — v0.4 tasks (GitHub sync, restore) and the two-device test checklist
 - [docs/plan-v0.5.0.md](docs/plan-v0.5.0.md) — v0.5 tasks (import / export, password history) and test checklist
+- [docs/plan-v0.6.0.md](docs/plan-v0.6.0.md) — v0.6 tasks (hardening, update check, release process) and test checklist
 - [docs/spikes/](docs/spikes) — feasibility spikes (Windows Hello, vault format, GitHub sync)
 - [CHANGELOG.md](CHANGELOG.md)
 

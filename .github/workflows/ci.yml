@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
     branches: [develop]
+  # Weekly dependency audit (Monday 02:00 UTC): new advisories show up without a code change.
+  schedule:
+    - cron: "0 2 * * 1"
   workflow_dispatch:
 
 concurrency:
@@ -11,8 +14,57 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  audit:
+    name: Dependency audit
+    # Reads lockfiles only, so Linux is enough (deny.toml checks the Windows target graph).
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Rust advisories, licences, sources (cargo deny)
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          # Same feature set as a local `cargo deny check` (the action defaults to --all-features).
+          arguments: --workspace
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # Dev dependencies are included: vite and the Tauri CLI run at build time.
+      - name: npm audit
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=high
+
+  version:
+    name: Release version
+    # Release PRs (develop -> main) must carry the version bump made with
+    # `npm run release:prepare`; the release workflow only tags (v0.6 plan H10).
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Version files agree and are above the latest tag
+        run: node scripts/release-prepare.mjs --check --newer-than-tag
+
   check:
     name: Lint and test
+    # The weekly schedule only runs the audit.
+    if: github.event_name != 'schedule'
     # Windows: the app uses Windows-only APIs (Hello, WTS, clipboard history flags).
     runs-on: windows-latest
     steps:

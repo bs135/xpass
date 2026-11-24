@@ -6,5 +6,11 @@
     "react/only-export-components": ["warn", { "allowConstantExport": true }],
     "no-console": ["error", { "allow": ["error"] }]
   },
-  "ignorePatterns": ["dist", "src-tauri", "crates", "spikes", "target"]
+  "overrides": [
+    {
+      "files": ["scripts/**"],
+      "rules": { "no-console": "off" }
+    }
+  ],
+  "ignorePatterns": ["dist", "src-tauri", "crates", "target"]
 }

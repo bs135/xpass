@@ -56,7 +56,7 @@ pub struct FieldView {
 
 /// Create (`id: None`) or update an entry. Custom fields are kept as they are
 /// (no UI for them in v0.1).
-#[derive(Debug, Deserialize, Zeroize, ZeroizeOnDrop)]
+#[derive(Deserialize, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct EntryInput {
     #[zeroize(skip)]
@@ -75,6 +75,16 @@ pub struct EntryInput {
     pub tags: Vec<String>,
     #[serde(default)]
     pub favorite: bool,
+}
+
+/// No field values: `Debug` output must never carry a password or notes.
+impl std::fmt::Debug for EntryInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EntryInput")
+            .field("id", &self.id)
+            .field("password_set", &self.password.is_some())
+            .finish_non_exhaustive()
+    }
 }
 
 /// A copyable/revealable part of an entry.
@@ -648,5 +658,17 @@ mod tests {
         let json = serde_json::to_string(&detail(&p, id).unwrap()).unwrap();
         assert!(!json.contains("fake-seed"));
         assert!(!json.contains("pw1"));
+    }
+
+    #[test]
+    fn entry_input_debug_has_no_values() {
+        let input: EntryInput = serde_json::from_str(
+            r#"{"title":"Bank","username":"me@example.com","password":"Sample-Pass-01","notes":"pin 1234"}"#,
+        )
+        .unwrap();
+        let text = format!("{input:?}");
+        for value in ["Bank", "me@example.com", "Sample-Pass-01", "1234"] {
+            assert!(!text.contains(value), "{text}");
+        }
     }
 }

@@ -1,0 +1,81 @@
+name: Fuzz
+# On-demand fuzzing of the vault file parser (v0.6 plan H5). xpass-core has no OS
+# code, so Linux fuzzes the same parser the Windows app ships. Normal CI only
+# replays the checked-in seeds and regressions on stable (`cargo test`).
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Fuzz target
+        type: choice
+        options: [all, parse, unlock_hello, recovery_decode]
+        default: all
+      minutes:
+        description: Minutes per target
+        type: number
+        default: 10
+
+permissions:
+  contents: read
+
+jobs:
+  targets:
+    name: Pick targets
+    runs-on: ubuntu-latest
+    outputs:
+      list: ${{ steps.pick.outputs.list }}
+    steps:
+      - id: pick
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          if [ "$TARGET" = "all" ]; then
+            echo 'list=["parse","unlock_hello","recovery_decode"]' >> "$GITHUB_OUTPUT"
+          else
+            echo "list=[\"$TARGET\"]" >> "$GITHUB_OUTPUT"
+          fi
+
+  fuzz:
+    name: Fuzz ${{ matrix.target }}
+    needs: targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.targets.outputs.list) }}
+    defaults:
+      run:
+        working-directory: crates/xpass-core
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+
+      - name: Run
+        env:
+          TARGET: ${{ matrix.target }}
+          MINUTES: ${{ inputs.minutes }}
+        run: |
+          set -euo pipefail
+          mkdir -p "fuzz/corpus/$TARGET"
+          # First directory is the working corpus; seeds and regressions are read-only inputs.
+          cargo +nightly fuzz run "$TARGET" "fuzz/corpus/$TARGET" "fuzz/seeds/$TARGET" "fuzz/regressions/$TARGET" \
+            -- -max_total_time=$((MINUTES * 60)) -max_len=65536
+
+      - name: Upload crash inputs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-artifacts-${{ matrix.target }}
+          path: crates/xpass-core/fuzz/artifacts/
+          if-no-files-found: ignore
+          retention-days: 30

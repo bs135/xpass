@@ -144,6 +144,19 @@ export interface Settings {
     lockOnMinimize: boolean
     /** Set by the app when an Emergency Kit is generated (Unix ms). */
     lastKitAt: number | null
+    /** Ask GitHub for a newer release at startup, at most once a day (off by default). */
+    checkUpdatesOnStartup: boolean
+    /** Set by the app when an update check ran (Unix ms). */
+    lastUpdateCheckAt: number | null
+}
+
+/** Result of an update check (Rust asks the GitHub Releases API; nothing is downloaded). */
+export interface UpdateInfo {
+    current: string
+    latest: string
+    newer: boolean
+    url: string
+    checkedAt: number
 }
 
 /** Sync setup (`settings.json` + whether a token is stored). The token itself never comes back. */
@@ -332,6 +345,8 @@ export function isAppError(e: unknown): e is AppError {
 
 /** Sync status changed (payload: SyncStatus). */
 export const EVENT_SYNC_STATUS = 'sync://status'
+/** Result of the optional startup update check ({@link UpdateInfo}). */
+export const EVENT_UPDATE_STATUS = 'update://status'
 /** A sync brought changes from another device: reload the entry list. */
 export const EVENT_VAULT_CHANGED = 'vault://changed'
 
@@ -344,6 +359,9 @@ export type LockReason = 'manual' | 'idle' | 'sessionLocked' | 'displayOff' | 's
 export const api = {
     appInfo: () => invoke<AppInfo>('app_info'),
     openProjectPage: () => invoke<void>('open_project_page'),
+    checkUpdate: () => invoke<UpdateInfo>('check_update'),
+    updateStatus: () => invoke<UpdateInfo | null>('update_status'),
+    openReleasePage: () => invoke<void>('open_release_page'),
     /** Status, why the vault was locked (while locked) and the Windows Hello state. */
     vaultStatus: () => invoke<SessionInfo>('vault_status'),
     createVault: (password: string) => invoke<RecoveryKit>('create_vault', {password}),

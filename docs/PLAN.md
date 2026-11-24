@@ -4,7 +4,7 @@ Status: **approved** (2026-11-16). Inputs: [IDEA.md](IDEA.md) (decisions) and th
 [windows-hello](spikes/windows-hello.md), [vault-format](spikes/vault-format.md), [github-sync](spikes/github-sync.md).
 
 Each milestone is a runnable, releasable app. MVP = **v0.1 → v0.4**, complete with v0.4.0 (2026-11-18).
-v0.5 (import / export, password history) done 2026-11-24.
+v0.5 (import / export, password history) done 2026-11-24. v0.6 (hardening, update check) done 2026-11-24.
 
 ---
 
@@ -25,7 +25,9 @@ v0.5 (import / export, password history) done 2026-11-24.
 
 - v0.5 (done): CSV import (Bitwarden, Chrome, KeePassXC, generic), CSV + KDBX export, password history UI,
   read-only custom fields.
-- v0.6 → 1.0: hardening, security review, signed auto-update.
+- v0.6 (done): threat model and self-review, dependency audit in CI, fuzzing, page-locked vault key, update
+  check, release process with a protected `main`, installer notes.
+- v0.7 → 1.0: signed auto-update, code signing, crash-dump exclusion, history rewrite, third-party review.
 - Later: auto-type (global hotkey), TOTP codes, password health (weak/reused), editing custom fields, Touch ID
   (macOS).
 
@@ -65,8 +67,7 @@ xpass/
 │   └── xpass-interop/       # pure Rust: CSV import (presets, mapping, duplicates), CSV + KDBX export (v0.5)
 ├── src-tauri/               # Tauri app: commands, state, Hello, clipboard, keyring, GitHub store, auto-lock, tray
 ├── src/                     # React + TS frontend
-├── docs/                    # IDEA, PLAN, spikes, THREAT_MODEL, release notes
-├── spikes/                  # kept as reference until v0.4, then removed
+├── docs/                    # IDEA, PLAN, spike write-ups (docs/spikes), THREAT_MODEL, plans per milestone
 └── .github/workflows/       # ci.yml (lint + test), release.yml (Windows build, from xmark)
 ```
 
@@ -135,7 +136,7 @@ Frontend never holds the VaultKey; it receives passwords only for an explicit re
 | Sync setup | `sync_get_config`, `sync_configure`, `sync_set_token`, `sync_disconnect`, `sync_test_connection`, `sync_open_token_page` |
 | Sync | `sync_status`, `sync_now`, `sync_dismiss_password_changed`, `sync_join`, `sync_resolve_key_change`, `sync_replace_local`; events `sync://status`, `vault://changed` |
 | Backups | `list_backups`, `restore_backup` |
-| App | `settings_get/set`, `check_update` |
+| App | `get_settings`, `update_settings`, `app_info`, `open_project_page`, `check_update`, `update_status`, `open_release_page`; event `update://status` |
 
 ---
 
@@ -219,14 +220,28 @@ Done in T24–T29; decisions I1–I11, as-built notes and the manual checklist: 
 Files are chosen in the native Windows dialog from Rust (no `dialog` / `fs` plugin), parsed in the new pure crate
 `xpass-interop`, and the WebView only sees previews and file names. Every export re-authenticates.
 
-### v0.6 → v1.0 — Hardening & release (size: M, ~2 weeks)
+### v0.6 — Hardening (size: M, ~2 weeks)
 
-- `docs/THREAT_MODEL.md`; security self-review against IDEA.md §3; `cargo audit`, `cargo deny`, `npm audit`
-  in CI; `cargo-fuzz` target for the header parser.
-- Memory: `VirtualLock` for key material, review copies of secrets at IPC/serde boundaries.
-- Update check (D10); optional signed updater later.
-- Installer: NSIS; document SmartScreen warning for unsigned builds.
-- README, CHANGELOG, screenshots; remove `spikes/`.
+Done in T30–T37; decisions H1–H12, as-built notes and the manual checklist: [plan-v0.6.0.md](plan-v0.6.0.md).
+
+- [THREAT_MODEL.md](THREAT_MODEL.md): assets, attackers, accepted limits and a security self-review against IDEA.md §3.
+- CI: `cargo deny` (advisories, licences — no GPL / AGPL —, sources; replaces `cargo audit`) and `npm audit`, also
+  weekly; `cargo-fuzz` targets for the vault parser, run on demand, seeds replayed in every CI run.
+- Memory: the VaultKey in its own `VirtualLock`ed page; payload JSON and generated passwords without reallocation
+  copies.
+- Update check (D10) in Rust, nothing downloaded; startup check opt-in.
+- Release: version bumped in the release PR (`npm run release:prepare`), the workflow only tags, so `main` can be
+  protected; `SHA256SUMS.txt` per release; NSIS installer per user in English / Vietnamese; `spikes/` removed.
+
+### v0.7 → v1.0 — Release (outline)
+
+Planned in its own `plan-v0.7.0.md` when it starts (v0.6 plan H1):
+
+- Signed auto-update (`tauri-plugin-updater` and an update signing key) replacing the notify-only check.
+- Authenticode code signing of the installers.
+- Exclude the process from Windows Error Reporting dumps while unlocked.
+- Optional git-history rewrite after a suspected compromise (IDEA §3.3).
+- Scheduled fuzzing, SBOM, a third-party security review before 1.0.
 
 ---
 
@@ -234,7 +249,7 @@ Files are chosen in the native Windows dialog from Rust (no `dialog` / `fs` plug
 
 | Layer | How |
 |---|---|
-| `xpass-core` | Unit tests ported from spikes (format, tamper, rotation, merge algebra, races, offline); golden vector freezes format v1; fuzz target (v0.6). |
+| `xpass-core` | Unit tests ported from spikes (format, tamper, rotation, merge algebra, races, offline); golden vector freezes format v1; `cargo-fuzz` targets `parse`, `unlock_hello`, `recovery_decode` (on demand), seeds and regressions replayed by `cargo test`. |
 | Sync | Engine tests with `MemoryStore`; manual two-device checklist against a private test repo each release touching sync. |
 | Tauri commands | Rust tests on command handlers with a temp app dir. |
 | Windows-specific | Manual checklist per release: Hello enroll/unlock/reset, clipboard history exclusion, lock triggers, tray. |
@@ -246,7 +261,8 @@ Files are chosen in the native Windows dialog from Rust (no `dialog` / `fs` plug
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Frontend supply chain (npm) | Secrets exfiltrated from WebView | Minimal deps, lockfile, `npm audit`, strict CSP + no network from WebView, no secrets in frontend state. |
+| Frontend supply chain (npm) | Secrets exfiltrated from WebView | Minimal deps, lockfile, `npm audit` in CI and weekly (v0.6), strict CSP + no network from WebView, no secrets in frontend state. |
+| Crate supply chain | Malicious or vulnerable Rust dependency; licence conflict | Lockfile, `cargo deny` in CI and weekly (advisories, unmaintained crates, permissive licences only, crates.io only); every ignored advisory has a reason and a review date (v0.6). |
 | Bug in merge loses data | High | Algebraic tests, history copy (D1), local backups, git history as last resort. |
 | Hello prompt behind Tauri window | UX | Focus watcher from the spike; verified in v0.3: the prompt shows in front of the window. |
 | Forgotten master password and lost Emergency Kit | Total loss | Kit is mandatory at setup with confirmation; reminder in Settings. |
@@ -255,16 +271,25 @@ Files are chosen in the native Windows dialog from Rust (no `dialog` / `fs` plug
 | VaultKey rotated while another PC has unsynced edits | Edits encrypted with a discarded key | Rotation only online with sync on (S6); the other PC merges after the password prompt (S7). |
 | Restored backup loses to newer copies on other PCs | Restore undone by the next sync | Restore is a new edit with fresh timestamps (S14). |
 | Clock skew | Wrong LWW winner | D2 + history copy (D1). |
+| Fake "update available" (GitHub account or API compromised) | User tricked into a bad download | The check only shows a version and opens a fixed `github.com/bs135/xpass/releases/` page; nothing is downloaded or installed; `SHA256SUMS.txt` per release (v0.6). Signed updater later. |
+| Unsigned installer | SmartScreen warning; a swapped download is not detected by signature | Checksums per release and README steps (v0.6); code signing in v0.7+. |
+| Uninstaller "delete application data" ticked | Local vault and backups deleted | Off by default; README warns; GitHub copy survives when sync is on (v0.6). |
 | Plaintext CSV export left on disk or synced to a cloud folder | All passwords readable | Warning + "I understand" checkbox, re-auth, written only to the chosen path (temp + rename, never `%TEMP%`); KDBX export offered first (v0.5). |
 | Hostile or malformed CSV during import | Crash, memory blow-up, data from the file in errors | 10 MB / 10 000-row limits checked before parsing, UTF-8 only, parser in pure Rust, errors without file content; nothing is written before the user confirms the preview (v0.5). |
-| Parsed rows kept in memory | Plaintext from an import lingers | Pending import zeroized and dropped on cancel, commit, lock and after 10 min; the `csv` crate's own buffers are not zeroized (noted for the v0.6 threat model). |
+| Parsed rows kept in memory | Plaintext from an import lingers | Pending import zeroized and dropped on cancel, commit, lock and after 10 min; the `csv` crate's own buffers are not zeroized (accepted limit in THREAT_MODEL §5). |
 
 ---
 
 ## 7. Workflow
 
 - Branches: `main` (releases) ← `develop` ← feature branches, PRs as in xmark/logledge.
-- Conventional Commits; release workflow bumps version and tags from commit types (as in xmark): `feat` → minor,
-  `fix`/`perf` → patch. A milestone with a `feat` is therefore a minor release (`v0.X.0`); milestones are numbered
-  to match.
+- Conventional Commits; the version follows the commit types: `feat` → minor, `fix`/`perf` → patch (a breaking
+  change is a minor bump before 1.0). A milestone with a `feat` is therefore a minor release (`v0.X.0`); milestones
+  are numbered to match.
+- Release (since v0.6, plan H10): on `develop`, `npm run release:prepare` computes the version from the commits since
+  the last tag, bumps `package.json`, `package-lock.json`, `src-tauri/Cargo.toml` and `Cargo.lock`, and turns
+  `CHANGELOG.md`'s "Unreleased" heading into the version; commit it as `chore(release): x.y.z`. The release PR
+  `develop` → `main` must pass the `version` check. After the merge, `release.yml` only creates the tag `vx.y.z`
+  and builds the release (notes from the CHANGELOG section); it never pushes to `main`, so the branch stays
+  protected.
 - One `docs/plan-vX.Y.Z.md` per milestone with the detailed task list, written when the milestone starts.

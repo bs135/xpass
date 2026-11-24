@@ -245,7 +245,8 @@
     "import_encoding": "This file is not UTF-8 text. Export it again as UTF-8 CSV and retry.",
     "import_empty": "This file has no entries to import.",
     "import_expired": "The import was cancelled because the vault locked or 10 minutes passed. Open the file again.",
-    "dialog_failed": "The file dialog could not be opened. Please try again."
+    "dialog_failed": "The file dialog could not be opened. Please try again.",
+    "update_failed": "Could not check for updates. Check the connection and try again."
   },
   "about": {
     "version": "Version {{version}} · vault format v{{format}}"
@@ -524,5 +525,16 @@
     "use": "Use this password",
     "useTitle": "Use this password?",
     "useMessage": "It becomes the current password. The current password is kept in the history."
+  },
+  "update": {
+    "check": "Check for updates",
+    "checking": "Checking…",
+    "upToDate": "xPass is up to date.",
+    "available": "Version {{version}} is available.",
+    "openRelease": "Open release page",
+    "lastChecked": "Last checked: {{date}}",
+    "onStartup": "Check for updates when xPass starts (at most once a day)",
+    "hint": "xPass only asks GitHub for the latest version number. Nothing is downloaded or installed: get the new version from the release page.",
+    "badge": "Settings (update available)"
   }
 }

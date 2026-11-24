@@ -1,0 +1,42 @@
+[package]
+name = "xpass-core-fuzz"
+version = "0.0.0"
+description = "cargo-fuzz targets for xpass-core (v0.6 plan H5); nightly only, not a workspace member"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+xpass-core = { path = "..", features = ["fuzzing"] }
+
+# Own workspace: built only by `cargo fuzz` on nightly, never by the app workspace.
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "parse"
+path = "fuzz_targets/parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "unlock_hello"
+path = "fuzz_targets/unlock_hello.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "recovery_decode"
+path = "fuzz_targets/recovery_decode.rs"
+test = false
+doc = false
+bench = false
