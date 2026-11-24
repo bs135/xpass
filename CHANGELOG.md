@@ -3,6 +3,39 @@
 All notable changes to xPass. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/).
 
+## [0.5.0]
+
+Import / export and password history.
+
+### Added
+
+- Settings → **Import & export** → **Import from CSV**: Bitwarden, Chrome / Edge, KeePassXC and xPass files are
+  detected from the header row; any other CSV is imported by choosing which column holds each field. A preview
+  shows every row (without passwords) with its duplicate status before anything is saved. Rows already in the vault
+  are skipped; for rows with the same site and username but another password, choose skip, import as new, or
+  update the existing entry (the old password goes to its history). The whole import is one change (one backup,
+  one sync), and the result screen offers to delete the source CSV.
+- **Export as KeePass (KDBX)**: an encrypted KDBX 4 file with its own export password, readable by KeePassXC and
+  KeePass 2, including extra websites, tags, custom fields and password history.
+- **Export as CSV**: a plaintext file behind a warning and an "I understand" checkbox; it imports back into xPass.
+- Every export asks for the master password or Windows Hello, then shows the Windows save dialog.
+- Entry view: **Password history (n)** with the date, the username of that time when it differed, labels for sync
+  conflicts, restores and imports, reveal (hides after 15 s), copy (cleared from the clipboard like the password)
+  and **Use this password**.
+- Entry view: custom fields, read-only, with copy and reveal for secret ones (for example a TOTP secret from an
+  import).
+
+### Changed
+
+- Dialogs taller than the window scroll their content instead of squeezing it.
+
+### Security
+
+- Files are chosen in the native Windows dialog and read, parsed and written in Rust; the file path and the file
+  contents never reach the WebView. No new Tauri plugin, capability or CSP change.
+- Exports are written next to the target (temporary file and rename), never to `%TEMP%`; nothing is written if the
+  vault locks before the write.
+
 ## [0.4.0]
 
 GitHub sync: one vault on several PCs. This completes the MVP.
@@ -92,6 +125,7 @@ First release: a local-only vault on Windows.
 - Tray icon (Open / Lock / Quit), single instance, atomic saves with the last 10 backups, wrong-password throttling.
 - Per-entry merge, HLC-lite clock and tombstone purge in `xpass-core`, ready for sync in v0.3.
 
+[0.5.0]: https://github.com/bs135/xpass/releases/tag/v0.5.0
 [0.4.0]: https://github.com/bs135/xpass/releases/tag/v0.4.0
 [0.3.0]: https://github.com/bs135/xpass/releases/tag/v0.3.0
 [0.2.0]: https://github.com/bs135/xpass/releases/tag/v0.2.0

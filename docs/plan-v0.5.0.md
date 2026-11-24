@@ -1,6 +1,6 @@
 # v0.5.0 Plan: Import / Export
 
-Status: **approved** (2026-11-20). Parent: [PLAN.md §4 v0.5](PLAN.md#v05--import--export-size-m-2-weeks).
+Status: **done** (2026-11-24). Parent: [PLAN.md §4 v0.5](PLAN.md#v05--import--export-size-m-2-weeks).
 
 ## Goal
 
@@ -203,6 +203,40 @@ preset.
   imported; plaintext CSV warning; KDBX compatibility).
 - `docs/PLAN.md`: v0.5 status and IPC table; risks (plaintext export, CSV parser input).
 - `CHANGELOG.md` 0.5.0 section; this plan → **done** with an "As built" section.
+
+## As built
+
+Differences from the decisions and task texts above, found while implementing:
+
+- **Re-auth (T25, I7):** `AppState::reauthorize(Auth)` with `Auth = { method: password, password } | { method:
+  hello }`. The Hello check is `UnlockedVault::check_hello` in `xpass-core` (signs `hello_challenge`, opens the
+  Hello slot, changes nothing). A re-created Hello credential marks Hello broken, as at unlock. A recovery-key session
+  is not asked again in Rust, but the UI still shows the password field (it does not know the session kind).
+- **File dialogs (T25, I1):** `file_dialog.rs` runs `IFileOpenDialog` / `IFileSaveDialog` on its own COM STA
+  thread, modal to the main window; files are not added to Recent. Cancel → `null`; failure → `dialog_failed`. Two
+  `#[ignore]` tests open and close the real dialogs (`cargo test -p xpass --lib file_dialog -- --ignored`).
+- **Preview (T26, I3):** `headers` is sent only for the generic preset (a file without a header row would otherwise
+  put its first data row in the WebView). The 10-minute limit is also checked by the idle watcher every 10 s, so
+  parsed rows do not stay in memory. `import_delete_source` works on the pending or last committed import; that
+  path is forgotten on lock. Possible-duplicate badges in the preview are computed without the unticked rows'
+  effect; the commit recomputes them, so the result counts are right.
+- **Generic mapping (T26, I4):** `site` is the last URL guess (`Name` + `Site` → title + website; `Site` + `URL` →
+  title + website). Mapping errors return `invalid_input` (`field: "mapping"`).
+- **Import wizard (T26):** the wizard cancels the pending import from its close actions, not from an effect cleanup
+  (React StrictMode ran the cleanup right after mounting in dev and cancelled every import; fixed in T27).
+- **KDBX (T27, I9):** fixed Argon2id cost 64 MiB / 25 passes / p = 2 (10 passes measured 0.4 s in a release build)
+  instead of tuning at runtime; ChaCha20 outer and inner cipher. A custom field named like a standard field gets
+  ` (2)`. Unit tests use a 1 MiB / 1 pass KDF. New dependencies: `keepass` 0.17, `chrono`, `rust-argon2` (MIT /
+  Apache-2.0).
+- **Export (T27, I7–I10):** `export_vault(format, auth, kdbxPassword)` takes separate arguments. The export password
+  must pass the same strength check as the master password (`weak_password` otherwise), and it is checked before
+  re-auth. The file is built from a payload snapshot after the save dialog; the lock check runs again just before
+  the write.
+- **History (T28, I11):** `list_history` sends the username only when it differs from the current one. The entry
+  view reveals one secret at a time (password, secret field or old password), keyed by entry version, so a save or
+  sync hides it. "Use this password" asks for confirmation.
+- **Dialogs (T28):** `Modal` keeps the title fixed and scrolls its body (the import wizard was squeezed and could not
+  scroll).
 
 ## Manual test checklist (v0.5.0)
 
