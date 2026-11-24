@@ -172,7 +172,8 @@ not exported, and neither is password history in the CSV.
 Download one installer from [Releases](https://github.com/bs135/xpass/releases):
 
 - `xpass_<version>_windows_x64-setup.exe` (NSIS, recommended): installs for your Windows user only, without an
-  administrator prompt, into `%LOCALAPPDATA%\xpass`; the installer asks for English or Vietnamese.
+  administrator prompt, into `%LOCALAPPDATA%\xpass`. The first install asks for English or Vietnamese; later
+  installs and updates reuse that choice.
 - `xpass_<version>_windows_x64.msi`: for managed installs (Intune, Group Policy).
 
 The WebView2 runtime is downloaded by the installer if Windows does not have it yet (it ships with Windows 11).
@@ -195,9 +196,12 @@ Windows does not know the publisher yet, not that the file is harmful. After che
 
 ### Uninstall
 
-Settings → Apps → Installed apps → xPass → Uninstall. Your data is **not** removed: the vault, its backups and
-settings stay in `%APPDATA%\com.bs135.xpass`, and the GitHub token stays in Windows Credential Manager
+Settings → Apps → Installed apps → xPass → Uninstall. By default your data is **not** removed: the vault, its
+backups and settings stay in `%APPDATA%\com.bs135.xpass`, and the GitHub token stays in Windows Credential Manager
 (`xpass/github-token`) unless you turn sync off before uninstalling.
+
+The uninstaller also offers a checkbox to delete the application data. Ticking it **deletes the vault and all local
+backups** in `%APPDATA%\com.bs135.xpass`; only do that if the vault is synced to GitHub or you no longer need it.
 
 ## Development
 

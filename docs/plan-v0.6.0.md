@@ -285,6 +285,11 @@ Differences from the decisions and task texts above, found while implementing:
   release's own assets (`gh release download`), so names and bytes match what users download; LF, no BOM, checked
   with `sha256sum -c`. README "Install" rewritten (assets, checksum, SmartScreen, uninstall keeps data). `spikes/`
   removed (sources stayed in git history; their write-ups remain in `docs/spikes/`).
+  Manual test: the language selector does not appear when `HKCU\Software\bs135\xpass` already holds
+  `Installer Language` (written by any earlier install; NSIS `MUI_LANGDLL_DISPLAY` skips the dialog then, and
+  Tauri's template has no "always show" option). Only a first install, or one after an uninstall with "delete
+  application data", asks. That uninstaller checkbox removes `%APPDATA%\com.bs135.xpass` (vault and backups);
+  README warns about it.
 
 ## Manual test checklist (v0.6.0)
 
