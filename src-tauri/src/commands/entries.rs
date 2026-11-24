@@ -6,7 +6,7 @@ use uuid::Uuid;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{
-    entries::{self, EntryDetail, EntryInput, EntrySummary, FieldRef},
+    entries::{self, EntryDetail, EntryInput, EntrySummary, FieldRef, HistoryView},
     error::{AppError, AppResult},
     shell,
     state::AppState,
@@ -26,6 +26,19 @@ pub fn get_entry(state: State<'_, AppState>, id: Uuid) -> AppResult<EntryDetail>
 #[tauri::command]
 pub fn save_entry(state: State<'_, AppState>, input: EntryInput) -> AppResult<Uuid> {
     state.edit(|p, ts| entries::save(p, &input, ts))
+}
+
+/// Password history of an entry, newest first, without passwords (reveal / copy
+/// go through `FieldRef::History`).
+#[tauri::command]
+pub fn list_history(state: State<'_, AppState>, id: Uuid) -> AppResult<Vec<HistoryView>> {
+    state.read(|p| entries::history(p, id))
+}
+
+/// Makes the history item's password the current one (an ordinary password change).
+#[tauri::command]
+pub fn use_history_password(state: State<'_, AppState>, id: Uuid, index: usize, at: i64) -> AppResult<()> {
+    state.edit(|p, ts| entries::use_history_password(p, id, index, at, ts))
 }
 
 #[tauri::command]

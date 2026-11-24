@@ -83,8 +83,34 @@ pub struct EntryInput {
 pub enum FieldRef {
     Username,
     Password,
-    Url { index: usize },
-    Field { index: usize },
+    Url {
+        index: usize,
+    },
+    Field {
+        index: usize,
+    },
+    /// Password of the history item at `index` (oldest first). `at` must match the
+    /// item's time, so a list changed under the UI (sync merge) gives `not_found`
+    /// instead of another password.
+    History {
+        index: usize,
+        at: i64,
+    },
+}
+
+/// One password history item for the entry view, without the password.
+#[derive(Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryView {
+    /// Position in the stored history (oldest first); with `at`, the [`FieldRef`].
+    pub index: usize,
+    /// Unix ms when this password was replaced.
+    pub at: i64,
+    /// Only when it differs from the entry's current username.
+    pub username: Option<String>,
+    /// `conflict`, `restore` or `import` (D1, S14, I5).
+    pub note: Option<String>,
+    pub has_password: bool,
 }
 
 /// Value to copy. Empty values are rejected so a copy never just clears the clipboard.
@@ -95,6 +121,7 @@ pub fn field_value(payload: &Payload, id: Uuid, field: FieldRef) -> AppResult<Ze
         FieldRef::Password => &e.password,
         FieldRef::Url { index } => e.urls.get(index).ok_or(AppError::NotFound)?,
         FieldRef::Field { index } => &e.fields.get(index).ok_or(AppError::NotFound)?.value,
+        FieldRef::History { index, at } => &history_item(e, index, at)?.password,
     };
     if value.is_empty() {
         return Err(AppError::InvalidInput { field: "field" });
@@ -116,8 +143,51 @@ pub fn secret_value(payload: &Payload, id: Uuid, field: FieldRef) -> AppResult<Z
                 Err(AppError::InvalidInput { field: "field" })
             }
         }
+        FieldRef::History { index, at } => Ok(Zeroizing::new(history_item(e, index, at)?.password.clone())),
         FieldRef::Username | FieldRef::Url { .. } => Err(AppError::InvalidInput { field: "field" }),
     }
+}
+
+fn history_item(e: &Entry, index: usize, at: i64) -> AppResult<&HistoryItem> {
+    e.history.get(index).filter(|h| h.at == at).ok_or(AppError::NotFound)
+}
+
+/// The entry's password history, newest first, without passwords (I11).
+pub fn history(payload: &Payload, id: Uuid) -> AppResult<Vec<HistoryView>> {
+    let e = find(payload, id)?;
+    Ok(e.history
+        .iter()
+        .enumerate()
+        .rev()
+        .map(|(index, h)| HistoryView {
+            index,
+            at: h.at,
+            username: h.username.clone().filter(|u| *u != e.username),
+            note: h.note.clone(),
+            has_password: !h.password.is_empty(),
+        })
+        .collect())
+}
+
+/// "Use this password": an ordinary password change to the history item's password
+/// (the current credentials move into the history), stamped with `ts`.
+pub fn use_history_password(payload: &mut Payload, id: Uuid, index: usize, at: i64, ts: i64) -> AppResult<()> {
+    let e = find_mut(payload, id)?;
+    let password = Zeroizing::new(history_item(e, index, at)?.password.clone());
+    if password.is_empty() {
+        return Err(AppError::InvalidInput { field: "password" });
+    }
+    if *password != e.password {
+        if !e.password.is_empty() {
+            let mut old = HistoryItem::credentials_of(e, None);
+            old.at = ts;
+            e.push_history(old);
+        }
+        e.password.clone_from(&password);
+    }
+    e.updated_at = ts;
+    e.normalize_history();
+    Ok(())
 }
 
 pub fn list(payload: &Payload) -> Vec<EntrySummary> {
@@ -271,7 +341,7 @@ fn clean_list(items: &[String], dedupe: bool) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use xpass_core::model::CustomField;
+    use xpass_core::model::{CustomField, HISTORY_NOTE_IMPORT};
 
     use super::*;
 
@@ -480,5 +550,103 @@ mod tests {
         );
         let parsed: FieldRef = serde_json::from_str(r#"{"kind":"url","index":1}"#).unwrap();
         assert_eq!(parsed, FieldRef::Url { index: 1 });
+    }
+
+    /// Entry with password "pw3" and history pw1 (at 10, other user), pw2 (at 20, import).
+    fn with_history() -> (Payload, Uuid) {
+        let mut p = Payload::default();
+        let id = save(&mut p, &input("Site", Some("pw3")), 30).unwrap();
+        let e = &mut p.entries[0];
+        e.history = vec![
+            HistoryItem {
+                at: 10,
+                password: "pw1".into(),
+                username: Some("old-user".into()),
+                note: None,
+            },
+            HistoryItem {
+                at: 20,
+                password: "pw2".into(),
+                username: Some("alice".into()),
+                note: Some(HISTORY_NOTE_IMPORT.into()),
+            },
+        ];
+        (p, id)
+    }
+
+    #[test]
+    fn history_is_newest_first_without_passwords() {
+        let (p, id) = with_history();
+        let h = history(&p, id).unwrap();
+        assert_eq!(
+            h,
+            vec![
+                HistoryView {
+                    index: 1,
+                    at: 20,
+                    username: None,
+                    note: Some("import".into()),
+                    has_password: true
+                },
+                HistoryView {
+                    index: 0,
+                    at: 10,
+                    username: Some("old-user".into()),
+                    note: None,
+                    has_password: true
+                },
+            ]
+        );
+        assert!(!serde_json::to_string(&h).unwrap().contains("pw1"));
+    }
+
+    #[test]
+    fn history_ref_checks_the_time() {
+        let (p, id) = with_history();
+        let r = FieldRef::History { index: 0, at: 10 };
+        assert_eq!(*secret_value(&p, id, r).unwrap(), "pw1");
+        assert_eq!(*field_value(&p, id, r).unwrap(), "pw1");
+        let stale = FieldRef::History { index: 0, at: 20 };
+        assert_eq!(secret_value(&p, id, stale).unwrap_err(), AppError::NotFound);
+        assert_eq!(field_value(&p, id, stale).unwrap_err(), AppError::NotFound);
+        let gone = FieldRef::History { index: 5, at: 10 };
+        assert_eq!(secret_value(&p, id, gone).unwrap_err(), AppError::NotFound);
+    }
+
+    #[test]
+    fn history_ref_parses_from_json() {
+        let r: FieldRef = serde_json::from_str(r#"{"kind":"history","index":2,"at":99}"#).unwrap();
+        assert_eq!(r, FieldRef::History { index: 2, at: 99 });
+    }
+
+    #[test]
+    fn use_history_password_swaps_and_stamps() {
+        let (mut p, id) = with_history();
+        use_history_password(&mut p, id, 1, 20, 40).unwrap();
+        let e = &p.entries[0];
+        assert_eq!(e.password, "pw2");
+        assert_eq!(e.updated_at, 40);
+        // pw2 + alice is now current, so its history copy is dropped; pw3 moved in.
+        let pws: Vec<_> = e.history.iter().map(|h| (h.password.as_str(), h.at)).collect();
+        assert_eq!(pws, vec![("pw1", 10), ("pw3", 40)]);
+
+        assert_eq!(
+            use_history_password(&mut p, id, 1, 20, 50).unwrap_err(),
+            AppError::NotFound,
+            "stale ref"
+        );
+    }
+
+    #[test]
+    fn secret_custom_field_is_never_in_details() {
+        let (mut p, id) = with_history();
+        p.entries[0].fields = vec![CustomField {
+            name: "TOTP".into(),
+            value: "fake-seed".into(),
+            secret: true,
+        }];
+        let json = serde_json::to_string(&detail(&p, id).unwrap()).unwrap();
+        assert!(!json.contains("fake-seed"));
+        assert!(!json.contains("pw1"));
     }
 }

@@ -90,6 +90,8 @@ pub fn run() {
             commands::entries::list_entries,
             commands::entries::get_entry,
             commands::entries::save_entry,
+            commands::entries::list_history,
+            commands::entries::use_history_password,
             commands::entries::delete_entry,
             commands::entries::set_favorite,
             commands::entries::open_url,

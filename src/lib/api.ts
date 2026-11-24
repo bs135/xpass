@@ -99,6 +99,19 @@ export type FieldRef =
     | {kind: 'password'}
     | {kind: 'url'; index: number}
     | {kind: 'field'; index: number}
+    /** Old password at `index` (oldest first); `at` must match or the call fails with not_found. */
+    | {kind: 'history'; index: number; at: number}
+
+/** Password history item without the password (`list_history`, newest first). */
+export interface HistoryItemView {
+    index: number
+    /** Unix ms when this password was replaced. */
+    at: number
+    /** Only when it differs from the current username. */
+    username: string | null
+    note: 'conflict' | 'restore' | 'import' | null
+    hasPassword: boolean
+}
 
 export type GeneratorOptions =
     | {
@@ -359,6 +372,10 @@ export const api = {
     getEntry: (id: string) => invoke<EntryDetail>('get_entry', {id}),
     /** Returns the entry id. */
     saveEntry: (input: EntryInput) => invoke<string>('save_entry', {input}),
+    listHistory: (id: string) => invoke<HistoryItemView[]>('list_history', {id}),
+    /** Makes an old password current; the current one moves into the history. */
+    useHistoryPassword: (id: string, index: number, at: number) =>
+        invoke<void>('use_history_password', {id, index, at}),
     deleteEntry: (id: string) => invoke<void>('delete_entry', {id}),
     setFavorite: (id: string, favorite: boolean) => invoke<void>('set_favorite', {id, favorite}),
     openUrl: (id: string, index: number) => invoke<void>('open_url', {id, index}),
