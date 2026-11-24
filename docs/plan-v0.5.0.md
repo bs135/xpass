@@ -90,7 +90,7 @@ written in Rust, and the WebView never receives an imported or exported file's p
   ciphers, `rust-argon2`, `quick-xml`, `flate2`, `chrono`, `secrecy` — is MIT / Apache-2.0; checked again with
   `cargo tree` + licences in the PR, no AGPL/GPL allowed). The user sets an **export password** (new-password form
   with strength meter and confirm; not defaulting to the master password). File: KDBX 4, ChaCha20 or AES-256,
-  Argon2id (64 MiB, iterations tuned to ~1 s, p = 2). Mapping: one group `xPass`; Title, UserName, Password
+  Argon2id (64 MiB, 25 iterations ≈ 1 s on a desktop CPU, p = 2). Mapping: one group `xPass`; Title, UserName, Password
   (protected), URL = first URL, more URLs as `KP2A_URL_1…` (KeePassXC convention), Notes, Tags (`;`),
   favorite → tag `favorite`, custom fields → string fields (`secret` → protected), history → KDBX entry history
   (one old version per item, `LastModificationTime = at`), creation / modification times kept. Verified by a

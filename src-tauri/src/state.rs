@@ -5,8 +5,8 @@
 //! directory. The Tauri commands in `commands::session` are thin wrappers.
 
 mod backups;
+mod export;
 mod import;
-#[allow(dead_code, reason = "used by the export command (T27)")]
 mod reauth;
 mod sync;
 
@@ -46,8 +46,8 @@ use crate::{
 };
 
 pub use backups::BackupInfo;
+pub use export::{suggested_file_name, ExportFormat, ExportResult};
 pub use import::ImportPreview;
-#[allow(unused_imports, reason = "used by the export command (T27)")]
 pub use reauth::Auth;
 pub use sync::{SyncPhase, SyncStatus};
 

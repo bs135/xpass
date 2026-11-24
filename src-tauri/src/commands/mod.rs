@@ -1,5 +1,6 @@
 pub mod backups;
 pub mod entries;
+pub mod export;
 pub mod hello;
 pub mod import;
 pub mod session;

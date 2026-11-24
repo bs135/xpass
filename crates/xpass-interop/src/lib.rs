@@ -26,6 +26,7 @@ pub mod csv_export;
 pub mod decode;
 pub mod dedup;
 pub mod error;
+pub mod kdbx_export;
 pub mod preset;
 pub mod text;
 pub mod time;

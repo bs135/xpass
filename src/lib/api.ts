@@ -249,6 +249,17 @@ export interface ImportSummary {
     skipped: number
 }
 
+export type ExportFormat = 'csv' | 'kdbx'
+
+/** How the user confirms an export (checked in Rust before the save dialog). */
+export type ExportAuth = {method: 'password'; password: string} | {method: 'hello'}
+
+export interface ExportResult {
+    /** File name only, no folder. */
+    fileName: string
+    count: number
+}
+
 export interface SyncTarget {
     repo: string
     branch: string
@@ -391,4 +402,7 @@ export const api = {
     importCancel: () => invoke<void>('import_cancel'),
     /** Deletes the CSV file that was imported (only that file). */
     importDeleteSource: () => invoke<void>('import_delete_source'),
+    /** Re-auth, then the save dialog, then the file is written in Rust. null: the dialog was canceled. */
+    exportVault: (format: ExportFormat, auth: ExportAuth, kdbxPassword: string | null) =>
+        invoke<ExportResult | null>('export_vault', {format, auth, kdbxPassword}),
 }

@@ -481,5 +481,33 @@
     "deleteMessage": "xPass deletes the file it imported. This is a normal delete: on SSDs the data cannot be wiped reliably. If the file was in the Recycle Bin or synced to a cloud folder, empty those too.",
     "deleteConfirm": "Delete file",
     "deleted": "CSV file deleted"
+  },
+  "export": {
+    "title": "Export",
+    "intro": "Save a copy of your entries to use in another password manager. Every export asks for your master password or Windows Hello.",
+    "kdbx": "Export as KeePass (KDBX)",
+    "csv": "Export as CSV",
+    "csvTitle": "Export as CSV",
+    "csvWarning": "A CSV file is not encrypted. Anyone who can read the file sees all your passwords.",
+    "csvRules": [
+      "Do not open it in Excel or another spreadsheet app: they can change values and keep copies.",
+      "Do not save it in a folder that syncs to the cloud.",
+      "Delete it as soon as you have imported it elsewhere."
+    ],
+    "understand": "I understand that this file is not protected",
+    "continue": "Continue",
+    "kdbxTitle": "Export as KeePass (KDBX)",
+    "kdbxExplain": "The KeePass file is encrypted with an export password. Choose a new one; do not reuse your master password. You need it to open the file in KeePass or KeePassXC.",
+    "kdbxPassword": "Export password",
+    "authTitle": "Confirm it is you",
+    "authExplain": "Enter your master password to export the vault. Next, choose where to save the file.",
+    "useHello": "Use Windows Hello",
+    "chooseFile": "Choose file…",
+    "canceled": "Export canceled. Nothing was saved.",
+    "doneTitle": "Export finished",
+    "done_one": "{{count}} entry saved to {{name}}.",
+    "done_other": "{{count}} entries saved to {{name}}.",
+    "csvAfter": "This file is not encrypted. Move it where you need it and delete it after use. Empty the Recycle Bin afterwards.",
+    "kdbxAfter": "Keep the export password somewhere safe: without it the file cannot be opened."
   }
 }
