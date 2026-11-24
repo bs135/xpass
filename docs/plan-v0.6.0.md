@@ -273,6 +273,12 @@ Differences from the decisions and task texts above, found while implementing:
   whether the tag `v<package.json version>` exists: a merge into `main` without a bump releases nothing. The tag is
   created through the API by `github-tag-action` with `custom_tag`. Dry run on the T34 branch: the script computed
   0.6.0 from the commits since `v0.5.0` and bumped exactly the four version lines.
+- **T35 (H9):** commands `check_update`, `update_status` (result of a check that ran before the UI listened) and
+  `open_release_page`; event `update://status` after a startup check. The result lives in a separate managed
+  `UpdateState`, not in `AppState`. Settings get `checkUpdatesOnStartup` (default `false`) and the app-owned
+  `lastUpdateCheckAt` (kept by `update_settings` like `lastKitAt`; any check, manual or startup, sets it). The
+  release page URL is re-validated before it is opened. The badge is a dot on the Settings button. An `#[ignore]`
+  test hits the real API (`cargo test -p xpass --lib update -- --ignored`).
 
 ## Manual test checklist (v0.6.0)
 

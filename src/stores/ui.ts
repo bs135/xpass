@@ -28,6 +28,8 @@ export const DEFAULT_SETTINGS: Settings = {
     closeToTray: true,
     lockOnMinimize: false,
     lastKitAt: null,
+    checkUpdatesOnStartup: false,
+    lastUpdateCheckAt: null,
 }
 
 function osLanguage(): Language {
