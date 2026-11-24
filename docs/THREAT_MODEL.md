@@ -101,7 +101,7 @@ Known gaps that v0.6 does **not** close. Each was weighed against its cost; revi
 | Metadata leaks to GitHub | Commit times, file size ≈ entry count, IP address | Accepted for personal use (IDEA §3.3). |
 | `Payload.extra` / `Entry.extra` (unknown fields from newer versions, D5) not zeroized | Only matters for fields written by a future version | `serde_json::Value` has no zeroize support. |
 | Plaintext CSV export | Anyone with the file reads everything | Warning + checkbox + re-auth; KDBX offered first; result screen says to delete it. |
-| Unsigned builds | A tampered installer cannot be told apart by signature; SmartScreen warns | Publish SHA-256 checksums (T36); code signing is a v0.7+ item. |
+| Unsigned builds | A tampered installer cannot be told apart by signature; SmartScreen warns | SHA-256 checksums on every release since v0.6.0 (they protect against a corrupted or swapped download, not against a compromised GitHub account); code signing is a v0.7+ item. |
 | Hello key name `xpass-<vault_id>` is in the per-user namespace | Another app of the same user can ask to sign with it — but each signature shows the Hello prompt | Spike finding (D9); A5 already wins in that case. |
 | Unlock throttle resets on restart | Online guessing at the UI is limited only by Argon2 cost after a restart | ~1 s per guess on the target laptop; the real defence against guessing is the password strength gate. |
 | Update check trusts GitHub's TLS and API | A compromised GitHub account could announce a fake version | Nothing is downloaded; the user installs from the release page (signed updater is v0.7+). |
@@ -139,7 +139,7 @@ Checklist from [IDEA.md §3](IDEA.md#3-design-issues) and the milestone plans, c
 | R23 | PAT never in logs / settings / errors / WebView | OK | `secrets.rs`, `github.rs` redaction test |
 | R24 | Logs carry no secrets | OK | `eprintln!` only for lock reasons, window messages, Hello focus and panic location (panic payload not printed); release builds have no console |
 | R25 | Update check from Rust, no WebView network (D10) | OK | T35: `update.rs` calls the GitHub Releases API (rustls, HTTPS only, 256 KB cap, no token), compares semver, opens only `https://github.com/bs135/xpass/releases/…`; startup check opt-in, at most daily; CSP and capabilities unchanged |
-| R26 | Release integrity for unsigned builds | v0.6 | SHA-256 checksums — **T36**; code signing later |
+| R26 | Release integrity for unsigned builds | OK | T36: each release publishes `SHA256SUMS.txt` computed from the uploaded installers; README explains `Get-FileHash` and SmartScreen. Code signing later |
 | R27 | Branch protection on `main` while releasing | v0.6 | Ruleset currently disabled; release workflow stops pushing to `main` — **T34**, user re-enables the ruleset |
 | R28 | Crash dumps while unlocked | later | WER exclusion v0.7+ |
 | R29 | Signed auto-update | later | v0.7+ |

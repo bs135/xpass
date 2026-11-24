@@ -65,8 +65,7 @@ xpass/
 │   └── xpass-interop/       # pure Rust: CSV import (presets, mapping, duplicates), CSV + KDBX export (v0.5)
 ├── src-tauri/               # Tauri app: commands, state, Hello, clipboard, keyring, GitHub store, auto-lock, tray
 ├── src/                     # React + TS frontend
-├── docs/                    # IDEA, PLAN, spikes, THREAT_MODEL, release notes
-├── spikes/                  # kept as reference until v0.4, then removed
+├── docs/                    # IDEA, PLAN, spike write-ups (docs/spikes), THREAT_MODEL, plans per milestone
 └── .github/workflows/       # ci.yml (lint + test), release.yml (Windows build, from xmark)
 ```
 

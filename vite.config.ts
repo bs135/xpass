@@ -10,7 +10,7 @@ export default defineConfig({
         // tauri.conf.json devUrl points at this port, so it must not drift.
         port: 5173,
         strictPort: true,
-        watch: {ignored: ['**/src-tauri/**', '**/crates/**', '**/spikes/**', '**/target/**']},
+        watch: {ignored: ['**/src-tauri/**', '**/crates/**', '**/target/**']},
     },
     build: {
         target: 'es2022',

@@ -1,4 +1,4 @@
-//! Windows Hello as a key source (port of `spikes/windows-hello`).
+//! Windows Hello as a key source (ported from the spike, `docs/spikes/windows-hello.md`).
 //!
 //! A TPM-backed Hello credential (`KeyCredentialManager`, RSA-2048, PKCS#1 v1.5)
 //! signs a challenge bound to the vault id and the Hello slot salt. Signatures are

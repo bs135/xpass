@@ -1,5 +1,5 @@
-//! Sync engine tests with the in-memory store (ported from spikes/github-sync, plus
-//! the v0.4 cases: key slots per device, edits during a sync, crash safety, ...).
+//! Sync engine tests with the in-memory store (ported from the GitHub sync spike,
+//! `docs/spikes/github-sync.md`, plus the v0.4 cases: key slots per device, edits during a sync, crash safety, ...).
 
 use std::{
     future::Future,
