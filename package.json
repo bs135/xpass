@@ -12,7 +12,8 @@
     "typecheck": "tsc -b",
     "lint": "oxlint",
     "test": "vitest run",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "release:prepare": "node scripts/release-prepare.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",

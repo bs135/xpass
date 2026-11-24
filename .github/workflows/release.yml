@@ -1,7 +1,13 @@
 name: Release
 # Adapted from xmark. Windows only.
-# Requires "Settings > Actions > General > Workflow permissions" = "Read and write
-# permissions" so the tag job can push the version-bump commit and tag to `main`.
+#
+# The version is bumped on `develop` in the release PR (`npm run release:prepare`,
+# checked by the `version` job in ci.yml), so this workflow never pushes to `main`
+# (v0.6 plan H10): on a push to `main` it reads the version from package.json and,
+# if the tag `v<version>` does not exist yet, creates it through the API and builds
+# the release. A merge without a version bump releases nothing.
+# Needs "Settings > Actions > General > Workflow permissions" = "Read and write
+# permissions" (tag and release creation).
 
 on:
   push:
@@ -15,97 +21,66 @@ concurrency:
 
 jobs:
   tag-release:
-    name: Determine version and create tag
+    name: Read version and create tag
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     outputs:
-      new_tag: ${{ steps.tag_version.outputs.new_tag }}
-      new_version: ${{ steps.tag_version.outputs.new_version }}
-      changelog: ${{ steps.tag_version.outputs.changelog }}
-      released: ${{ steps.tag_version.outputs.new_tag != '' }}
+      new_tag: ${{ steps.version.outputs.tag }}
+      notes: ${{ steps.notes.outputs.notes }}
+      released: ${{ steps.version.outputs.release }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Determine next version
-        id: tag_version
-        uses: mathieudutour/github-tag-action@v7
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          default_bump: false
-          release_branches: main
-          dry_run: true
-
       - name: Setup Node.js
-        if: steps.tag_version.outputs.new_tag != ''
         uses: actions/setup-node@v7
         with:
           node-version: 24
 
-      - name: Bump version in project files
-        if: steps.tag_version.outputs.new_tag != ''
-        env:
-          NEW_VERSION: ${{ steps.tag_version.outputs.new_version }}
+      - name: Read version
+        id: version
         run: |
           set -euo pipefail
-          npm version "$NEW_VERSION" --no-git-tag-version --allow-same-version
-          sed -i "0,/^version = \".*\"/s//version = \"${NEW_VERSION}\"/" src-tauri/Cargo.toml
-          # Refresh only the workspace members' entries in Cargo.lock (no dependency
-          # upgrades). Not `--offline`: a fresh runner has no registry cache, so that
-          # failed and `|| true` hid it — v0.5.0 shipped with `xpass 0.4.0` in the lock.
-          cargo update --workspace
-
-      - name: Verify version files agree
-        if: steps.tag_version.outputs.new_tag != ''
-        env:
-          NEW_VERSION: ${{ steps.tag_version.outputs.new_version }}
-        run: |
-          set -euo pipefail
-          # Fails if Cargo.lock still needs changes for the current manifests.
-          cargo metadata --format-version 1 --locked > /dev/null
-          toml_version=$(cargo metadata --format-version 1 --locked --no-deps \
-            | jq -r '.packages[] | select(.name == "xpass") | .version')
-          npm_version=$(jq -r .version package.json)
-          npm_lock_version=$(jq -r .version package-lock.json)
-          echo "expected=${NEW_VERSION} Cargo.toml=${toml_version} package.json=${npm_version} package-lock.json=${npm_lock_version}"
-          if [ "$toml_version" != "$NEW_VERSION" ] || [ "$npm_version" != "$NEW_VERSION" ] || [ "$npm_lock_version" != "$NEW_VERSION" ]; then
-            echo "::error::Version files disagree; not tagging."
-            exit 1
-          fi
-          lock_entry=$(grep -A1 '^name = "xpass"$' Cargo.lock | sed -n 's/^version = "\(.*\)"$/\1/p')
-          if [ "$lock_entry" != "$NEW_VERSION" ]; then
-            echo "::error::Cargo.lock has xpass ${lock_entry}, expected ${NEW_VERSION}."
-            exit 1
-          fi
-
-      - name: Commit version bump and push tag
-        if: steps.tag_version.outputs.new_tag != ''
-        env:
-          NEW_TAG: ${{ steps.tag_version.outputs.new_tag }}
-          NEW_VERSION: ${{ steps.tag_version.outputs.new_version }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json src-tauri/Cargo.toml Cargo.lock
-
-          if git diff --cached --quiet; then
-            echo "Version files already at ${NEW_VERSION}; skipping bump commit."
+          version=$(node -p "require('./package.json').version")
+          tag="v${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/${tag}" > /dev/null; then
+            echo "Tag ${tag} already exists: nothing to release (no version bump in this merge)."
+            echo "release=false" >> "$GITHUB_OUTPUT"
           else
-            git commit -m "chore(release): ${NEW_VERSION} [skip ci]"
-            git push origin HEAD:main
+            echo "release=true" >> "$GITHUB_OUTPUT"
           fi
 
-          if git ls-remote --exit-code --tags origin "refs/tags/${NEW_TAG}" > /dev/null; then
-            echo "Tag ${NEW_TAG} already exists on origin; skipping tag creation."
-          else
-            git tag -a "$NEW_TAG" -m "$NEW_TAG"
-            git push origin "$NEW_TAG"
-          fi
+      # package.json, package-lock.json, src-tauri/Cargo.toml and Cargo.lock must agree.
+      - name: Verify version files
+        if: steps.version.outputs.release == 'true'
+        run: node scripts/release-prepare.mjs --check --newer-than-tag
+
+      - name: Create tag
+        if: steps.version.outputs.release == 'true'
+        uses: mathieudutour/github-tag-action@v7
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          custom_tag: ${{ steps.version.outputs.version }}
+          tag_prefix: v
+
+      - name: Release notes from CHANGELOG.md
+        id: notes
+        if: steps.version.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          {
+            echo "notes<<XPASS_NOTES_EOF"
+            node scripts/release-prepare.mjs --notes "$VERSION"
+            echo "XPASS_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
 
   build-and-release:
     name: Build (Windows x64)
@@ -143,7 +118,7 @@ jobs:
         with:
           tagName: ${{ needs.tag-release.outputs.new_tag }}
           releaseName: ${{ needs.tag-release.outputs.new_tag }}
-          releaseBody: ${{ needs.tag-release.outputs.changelog }}
+          releaseBody: ${{ needs.tag-release.outputs.notes }}
           releaseDraft: false
           prerelease: false
           assetNamePattern: "[name]_[version]_[platform]_[arch][setup][ext]"
