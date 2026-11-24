@@ -1,0 +1,54 @@
+# cargo-deny configuration (v0.6 plan H2): advisories, licences, bans, sources.
+# Run locally with `cargo deny check`; CI runs it in the `audit` job.
+
+[graph]
+# The only shipped target. Linux / macOS-only crates (gtk, webkit2gtk, …) are out of the graph.
+targets = ["x86_64-pc-windows-msvc"]
+all-features = false
+
+[advisories]
+version = 2
+# Vulnerabilities and unsound crates always fail. Unmaintained crates fail too, so
+# each one gets a decision. Every ignore needs a reason and a review date.
+unmaintained = "all"
+yanked = "deny"
+ignore = [
+    # chrono: only via `keepass` (KDBX export, v0.5 I9), which formats entry times. No known
+    # vulnerability and no maintained alternative inside `keepass`. Review by 2027-05-31 or
+    # when `keepass` drops chrono.
+    { id = "RUSTSEC-2026-0543", reason = "chrono via keepass (KDBX export times); no safe upgrade" },
+]
+
+[licenses]
+version = 2
+# Permissive licences only: no AGPL / GPL / LGPL / SSPL, nothing unknown.
+# Exactly the licences in the graph today (cargo-deny warns about unused entries).
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "Unlicense",
+    "CC0-1.0",
+    "BSL-1.0",
+    "MPL-2.0",
+]
+confidence-threshold = 0.9
+
+[licenses.private]
+# Our own crates (publish = false) are MIT; no need to check them here.
+ignore = true
+
+[bans]
+# Tauri and the windows crates pull several versions of the same crate; not fixable here.
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
