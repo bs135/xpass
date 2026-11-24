@@ -5,6 +5,12 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
 > Status: **v0.5 — import / export and password history**. Hardening towards 1.0 (v0.6) is next. See
 > [docs/PLAN.md](docs/PLAN.md).
 
+![xPass: entry list and an entry with its password history](docs/screenshots/main.png)
+
+<p align="center">
+  <img src="docs/screenshots/unlock.png" alt="xPass unlock screen with Windows Hello and the master password" width="500">
+</p>
+
 ## Features (v0.5)
 
 - **Encrypted local vault** — one file, `%APPDATA%\com.bs135.xpass\vault.xpv`, with the last 10 versions kept in
