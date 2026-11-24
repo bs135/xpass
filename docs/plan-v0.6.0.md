@@ -260,6 +260,13 @@ Differences from the decisions and task texts above, found while implementing:
   exact-capacity `Zeroizing<Vec<u8>>`; debug builds assert the capacity never changed. `xpass-interop`'s CSV
   export pre-sizes its buffer from an estimate, so it can still grow — left as is: the plaintext CSV file it
   writes is the bigger exposure.
+- **T33 (H5):** the entry points live in `xpass_core::fuzzing` (compiled only for tests and with the new
+  `fuzzing` feature), so the `cargo-fuzz` targets and the stable replay test run the same code. The seed vault is
+  built deterministically (fixed `StdRng` seed, smallest KDF, a Hello slot signed with a fixed 256-byte
+  "signature"), so `unlock_hello` can also `open_sibling` mutated copies of it. Seeds are checked in under
+  `fuzz/seeds/<target>/` (written by the `fuzz_seeds` example), crash inputs go to `fuzz/regressions/<target>/`;
+  `fuzz/corpus/` stays local. Local fuzzing on Windows needs the Visual Studio ASan runtime on `PATH`
+  (`--sanitizer none` fails to link on MSVC). `fuzz.yml` runs on `ubuntu-latest` with ASan.
 
 ## Manual test checklist (v0.6.0)
 

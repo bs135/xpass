@@ -19,6 +19,9 @@ pub mod clock;
 pub mod crypto;
 pub mod error;
 pub mod format;
+#[cfg(any(test, feature = "fuzzing"))]
+#[doc(hidden)]
+pub mod fuzzing;
 pub mod maintenance;
 pub mod merge;
 pub mod model;

@@ -206,6 +206,25 @@ cargo deny --workspace check
 npm audit --audit-level=high
 ```
 
+Fuzzing (on demand, not part of CI): `crates/xpass-core/fuzz` has `cargo-fuzz` targets for the vault file parser
+(`parse`), Hello unlock and sibling open (`unlock_hello`) and recovery-key input (`recovery_decode`). Every CI run
+replays the checked-in seeds and regressions on stable (`cargo test`); longer runs use the **Fuzz** workflow
+(Actions → Fuzz → Run workflow) or nightly locally:
+
+```bash
+rustup toolchain install nightly --profile minimal
+cargo install --locked cargo-fuzz
+cd crates/xpass-core
+cargo +nightly fuzz run parse fuzz/corpus/parse fuzz/seeds/parse fuzz/regressions/parse -- -max_total_time=600
+```
+
+On Windows the AddressSanitizer runtime comes with Visual Studio: put the folder holding
+`clang_rt.asan_dynamic-x86_64.dll` (`VC\Tools\MSVC\<version>\bin\Hostx64\x64`) on `PATH` first, otherwise the
+target exits with `STATUS_DLL_NOT_FOUND`. A crash input lands in `fuzz/artifacts/<target>/`; after the fix, copy
+it to `fuzz/regressions/<target>/` so the
+replay test keeps it covered. Seeds are regenerated with
+`cargo run -p xpass-core --example fuzz_seeds --features fuzzing`.
+
 Release build: `npm run tauri build` (NSIS and MSI installers in `target/release/bundle/`).
 
 Layout:
