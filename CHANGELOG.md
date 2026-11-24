@@ -3,6 +3,39 @@
 All notable changes to xPass. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/).
 
+## [0.6.0]
+
+Hardening: a written threat model, dependency and fuzz checks, tighter memory handling, an update check and a
+release process that keeps `main` protected.
+
+### Added
+
+- Settings → About → **Check for updates**: xPass asks GitHub for the latest release and, when there is a newer one,
+  offers to open its release page. Nothing is downloaded or installed. Optionally check when xPass starts (off by
+  default, at most once a day); a dot on the Settings button shows that a new version is available.
+- Each release has a `SHA256SUMS.txt` to check the downloaded installer (builds are still not code-signed).
+- The NSIS installer can be used in English or Vietnamese (asked on the first install).
+
+### Changed
+
+- README "Install" explains which installer to pick, how to check the hash, the SmartScreen warning, and that
+  uninstalling keeps the vault unless "delete application data" is ticked.
+
+### Security
+
+- [Threat model](docs/THREAT_MODEL.md): what xPass protects, against whom, the accepted limits, and a security
+  self-review of the code.
+- The vault key is kept in a memory page of its own that Windows keeps out of the pagefile (`VirtualLock`).
+- The decrypted vault is serialized into an exact-size buffer when saving, and generated passwords are built the
+  same way, so no partial copies are left in freed memory; debug output of entry input and generated passwords no
+  longer contains the password.
+- CI checks Rust dependencies (`cargo deny`: known vulnerabilities, unmaintained crates, permissive licences only)
+  and npm dependencies (`npm audit`) on every change and weekly; `url` and `cookie` were updated for two advisories.
+- The vault file parser, Windows Hello unlock and recovery-key input are fuzzed (`cargo-fuzz`); the seed inputs run
+  in every CI build.
+- The release workflow no longer pushes to `main`; the version is bumped in the release pull request, so the branch
+  can stay protected.
+
 ## [0.5.0]
 
 Import / export and password history.
