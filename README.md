@@ -11,7 +11,7 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   <img src="docs/screenshots/unlock.png" alt="xPass unlock screen with Windows Hello and the master password" width="500">
 </p>
 
-## Features (v0.5)
+## Features (v0.6)
 
 - **Encrypted local vault** — one file, `%APPDATA%\com.bs135.xpass\vault.xpv`, with the last 10 versions kept in
   `backups\`.
@@ -37,6 +37,8 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   version of an entry edited on two PCs is kept in its history. See [Sync with GitHub](#sync-with-github).
 - **Restore a previous version** — put the entries back as they were in one of the last 10 local versions; with
   sync on, the restore reaches your other PCs too.
+- **Update check** — Settings → About checks GitHub for a newer release and opens its page; optional check at
+  startup (off by default). Nothing is downloaded automatically.
 - English and Vietnamese UI, light/dark theme, self-drawn title bar that follows the theme.
 
 ## Security model (summary)
@@ -51,8 +53,9 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   password only when you reveal it or open the edit form.
 - Strict Content Security Policy (no remote content, no `eval`), minimal Tauri capabilities, no file-system or shell
   plugins.
-- Secrets in memory are zeroized when the vault locks or the app exits (best effort; see the threat model in
-  [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)).
+- Secrets in memory are zeroized when the vault locks or the app exits, and the vault key sits in a memory page
+  kept out of the pagefile (best effort; see the threat model in [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)).
+- Dependencies are checked in CI (`cargo deny`, `npm audit`) and the vault file parser is fuzzed.
 - **GitHub sync** uploads only the encrypted vault file. The token is kept in Windows Credential Manager and used
   only by the Rust side for requests to `api.github.com`; the WebView has no network access at all.
 - **Import and export** run in Rust: files are picked in the native Windows dialog, read, parsed and written in

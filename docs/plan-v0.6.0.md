@@ -1,6 +1,6 @@
 # v0.6.0 Plan: Hardening
 
-Status: **approved** (2026-11-24). Parent: [PLAN.md §4 v0.6 → v1.0](PLAN.md#v06--v10--hardening--release-size-m-2-weeks).
+Status: **done** (2026-11-24). Parent: [PLAN.md §4 v0.6](PLAN.md#v06--hardening-size-m-2-weeks).
 
 ## Goal
 
@@ -290,6 +290,9 @@ Differences from the decisions and task texts above, found while implementing:
   Tauri's template has no "always show" option). Only a first install, or one after an uninstall with "delete
   application data", asks. That uninstaller checkbox removes `%APPDATA%\com.bs135.xpass` (vault and backups);
   README warns about it.
+- **T37:** `CHANGELOG.md` written under `## [Unreleased]`, then `npm run release:prepare` computed 0.6.0, bumped
+  the version files and turned the heading into `## [0.6.0]`; the release PR carries that commit. PLAN.md splits
+  the old "v0.6 → v1.0" section into "v0.6 — Hardening" (done) and a "v0.7 → v1.0" outline from H1.
 
 ## Manual test checklist (v0.6.0)
 
