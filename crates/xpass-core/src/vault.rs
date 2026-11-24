@@ -29,7 +29,7 @@ pub enum Unlock<'a> {
     Password(&'a [u8]),
     /// Printed recovery key, as typed by the user.
     Recovery(&'a str),
-    /// Windows Hello signature over [`hello_challenge`] (see spikes/windows-hello).
+    /// Windows Hello signature over [`hello_challenge`] (see docs/spikes/windows-hello.md).
     Hello {
         signature: &'a [u8],
     },

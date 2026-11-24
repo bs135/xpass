@@ -123,6 +123,31 @@ jobs:
           prerelease: false
           assetNamePattern: "[name]_[version]_[platform]_[arch][setup][ext]"
 
+      # Builds are not code-signed yet: publish SHA-256 checksums of the installers as
+      # they were uploaded (names and bytes from the release itself), so a download can
+      # be checked with `Get-FileHash` (v0.6 plan H11).
+      - name: Publish SHA256SUMS.txt
+        if: github.event_name == 'push'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.tag-release.outputs.new_tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:RUNNER_TEMP 'release-assets'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --dir $dir --pattern '*.exe' --pattern '*.msi'
+          if ($LASTEXITCODE -ne 0) { throw 'gh release download failed' }
+          $files = Get-ChildItem $dir -File | Sort-Object Name
+          if ($files.Count -eq 0) { throw 'no installers found in the release' }
+          $lines = $files | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" }
+          $sums = Join-Path $env:RUNNER_TEMP 'SHA256SUMS.txt'
+          # LF line endings, no BOM: the format `sha256sum -c` reads.
+          [IO.File]::WriteAllText($sums, (($lines -join "`n") + "`n"))
+          Get-Content $sums
+          gh release upload $env:TAG $sums --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'gh release upload failed' }
+
       - name: Build app bundles
         if: github.event_name == 'workflow_dispatch'
         uses: tauri-apps/tauri-action@v0

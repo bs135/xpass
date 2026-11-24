@@ -279,6 +279,12 @@ Differences from the decisions and task texts above, found while implementing:
   `lastUpdateCheckAt` (kept by `update_settings` like `lastKitAt`; any check, manual or startup, sets it). The
   release page URL is re-validated before it is opened. The badge is a dot on the Settings button. An `#[ignore]`
   test hits the real API (`cargo test -p xpass --lib update -- --ignored`).
+- **T36 (H11):** `installMode: "currentUser"` was already Tauri's NSIS default (v0.5.0 installed per user too); it is
+  now explicit, with `languages: ["English", "Vietnamese"]`, the language selector and an explicit
+  `webviewInstallMode: downloadBootstrapper`. `SHA256SUMS.txt` is computed after `tauri-action` uploads, from the
+  release's own assets (`gh release download`), so names and bytes match what users download; LF, no BOM, checked
+  with `sha256sum -c`. README "Install" rewritten (assets, checksum, SmartScreen, uninstall keeps data). `spikes/`
+  removed (sources stayed in git history; their write-ups remain in `docs/spikes/`).
 
 ## Manual test checklist (v0.6.0)
 

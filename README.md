@@ -169,8 +169,35 @@ not exported, and neither is password history in the CSV.
 
 ## Install
 
-Download the installer (`.exe` or `.msi`) from [Releases](https://github.com/bs135/xpass/releases). Builds are not
-code-signed yet, so Windows SmartScreen may warn on first start ("More info" → "Run anyway").
+Download one installer from [Releases](https://github.com/bs135/xpass/releases):
+
+- `xpass_<version>_windows_x64-setup.exe` (NSIS, recommended): installs for your Windows user only, without an
+  administrator prompt, into `%LOCALAPPDATA%\xpass`; the installer asks for English or Vietnamese.
+- `xpass_<version>_windows_x64.msi`: for managed installs (Intune, Group Policy).
+
+The WebView2 runtime is downloaded by the installer if Windows does not have it yet (it ships with Windows 11).
+Installing a newer version over an older one keeps your vault and settings.
+
+### Check the download
+
+Builds are **not code-signed** yet. Each release (from v0.6.0) also has `SHA256SUMS.txt`; compare the installer's
+hash with the line for its file name before running it:
+
+```powershell
+(Get-FileHash .\xpass_0.6.0_windows_x64-setup.exe -Algorithm SHA256).Hash.ToLower()
+```
+
+### Windows SmartScreen
+
+Because the installer is not signed, SmartScreen may show "Windows protected your PC" on the first run. It means
+Windows does not know the publisher yet, not that the file is harmful. After checking the hash, choose
+**More info** → **Run anyway**. Download xPass only from the Releases page above.
+
+### Uninstall
+
+Settings → Apps → Installed apps → xPass → Uninstall. Your data is **not** removed: the vault, its backups and
+settings stay in `%APPDATA%\com.bs135.xpass`, and the GitHub token stays in Windows Credential Manager
+(`xpass/github-token`) unless you turn sync off before uninstalling.
 
 ## Development
 
@@ -234,7 +261,6 @@ crates/xpass-core/   vault format, crypto, model, merge (no UI / OS code)
 crates/xpass-interop/ CSV import / export and KDBX export (no UI / OS code)
 src-tauri/           Tauri app: commands and Windows integration
 src/                 React + TypeScript frontend
-spikes/              feasibility spikes (reference only)
 ```
 
 ## Documentation
