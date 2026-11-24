@@ -40,10 +40,10 @@ export function Modal({
                 role="dialog"
                 aria-modal="true"
                 aria-label={title}
-                className={`flex max-h-full w-full flex-col overflow-auto ${wide ? 'max-w-3xl' : 'max-w-md'} rounded-xl border border-neutral-200 bg-white p-5 shadow-lg dark:border-neutral-700 dark:bg-neutral-900`}
+                className={`flex max-h-full w-full flex-col ${wide ? 'max-w-3xl' : 'max-w-md'} rounded-xl border border-neutral-200 bg-white py-5 shadow-lg dark:border-neutral-700 dark:bg-neutral-900`}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="mb-4 flex items-center justify-between">
+                <div className="mb-4 flex shrink-0 items-center justify-between px-5">
                     <h2 className="text-lg font-semibold">{title}</h2>
                     <button
                         type="button"
@@ -54,7 +54,10 @@ export function Modal({
                         <X className="size-4" aria-hidden/>
                     </button>
                 </div>
-                {children}
+                {/* The body scrolls when the dialog is taller than the window (the title
+                    stays); `overscroll-contain` keeps the wheel from scrolling the page
+                    behind. Its children are plain blocks, so they keep their height. */}
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5">{children}</div>
             </div>
         </div>,
         document.body,
