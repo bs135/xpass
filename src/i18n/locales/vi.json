@@ -153,7 +153,8 @@
     "secret": "Đã sao chép. Sẽ tự xoá khỏi clipboard sau {{seconds}} giây.",
     "username": "Sao chép tên đăng nhập (Ctrl+B)",
     "password": "Sao chép mật khẩu (Ctrl+C)",
-    "url": "Sao chép địa chỉ web"
+    "url": "Sao chép địa chỉ web",
+    "field": "Sao chép giá trị"
   },
   "generator": {
     "title": "Tạo mật khẩu",
@@ -200,7 +201,8 @@
     "passwordKeep": "Để trống để giữ mật khẩu hiện tại",
     "deleteTitle": "Xoá mục này?",
     "deleteMessage": "“{{title}}” sẽ bị xoá.",
-    "shortcutsCopy": "Ctrl+B sao chép tên đăng nhập · Ctrl+C sao chép mật khẩu"
+    "shortcutsCopy": "Ctrl+B sao chép tên đăng nhập · Ctrl+C sao chép mật khẩu",
+    "customField": "Trường tùy chỉnh"
   },
   "errors": {
     "generic": "Đã xảy ra lỗi. Vui lòng thử lại.",
@@ -499,5 +501,17 @@
     "done_other": "Đã lưu {{count}} mục vào {{name}}.",
     "csvAfter": "Tệp này không được mã hóa. Hãy chuyển nó đến nơi cần dùng và xóa sau khi dùng xong, rồi dọn cả Thùng rác.",
     "kdbxAfter": "Hãy cất mật khẩu xuất ở nơi an toàn: không có nó thì không mở được tệp."
+  },
+  "history": {
+    "title_other": "Lịch sử mật khẩu ({{count}})",
+    "username": "Tên đăng nhập khi đó: {{username}}",
+    "note": {
+      "conflict": "Từ xung đột đồng bộ",
+      "restore": "Trước khi khôi phục",
+      "import": "Trước khi nhập"
+    },
+    "use": "Dùng mật khẩu này",
+    "useTitle": "Dùng mật khẩu này?",
+    "useMessage": "Mật khẩu này sẽ thành mật khẩu hiện tại. Mật khẩu hiện tại được giữ trong lịch sử."
   }
 }

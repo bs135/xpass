@@ -153,7 +153,8 @@
     "secret": "Copied. Clears from the clipboard in {{seconds}} s.",
     "username": "Copy username (Ctrl+B)",
     "password": "Copy password (Ctrl+C)",
-    "url": "Copy website"
+    "url": "Copy website",
+    "field": "Copy value"
   },
   "generator": {
     "title": "Password generator",
@@ -200,7 +201,8 @@
     "passwordKeep": "Leave empty to keep the current password",
     "deleteTitle": "Delete entry?",
     "deleteMessage": "“{{title}}” will be deleted.",
-    "shortcutsCopy": "Ctrl+B copy username · Ctrl+C copy password"
+    "shortcutsCopy": "Ctrl+B copy username · Ctrl+C copy password",
+    "customField": "Custom field"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
@@ -509,5 +511,18 @@
     "done_other": "{{count}} entries saved to {{name}}.",
     "csvAfter": "This file is not encrypted. Move it where you need it and delete it after use. Empty the Recycle Bin afterwards.",
     "kdbxAfter": "Keep the export password somewhere safe: without it the file cannot be opened."
+  },
+  "history": {
+    "title_one": "Password history ({{count}})",
+    "title_other": "Password history ({{count}})",
+    "username": "Username then: {{username}}",
+    "note": {
+      "conflict": "From a sync conflict",
+      "restore": "Before a restore",
+      "import": "Before an import"
+    },
+    "use": "Use this password",
+    "useTitle": "Use this password?",
+    "useMessage": "It becomes the current password. The current password is kept in the history."
   }
 }

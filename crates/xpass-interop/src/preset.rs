@@ -160,6 +160,9 @@ pub fn guess_mapping(headers: &[String]) -> Mapping {
         "address",
         "link",
         "hostname",
+        // Last: `Site` next to a `Name` column is the address. Without another title
+        // column the title falls back to the URL host, which is what `Site` held.
+        "site",
     ]);
     let title = pick(&["title", "name", "site", "sitename", "service", "entry", "label"]);
     let notes = pick(&["notes", "note", "comment", "comments", "description", "extra"]);
@@ -232,6 +235,12 @@ mod tests {
         );
         // `Extra` was taken by nothing else, so it is the notes column when `Comment` is absent.
         assert_eq!(guess_mapping(&h("user,extra")).notes, Some(1));
+        // `Site` is the address when another column names the entry.
+        let m = guess_mapping(&h("Name,User,Pass,Site"));
+        assert_eq!((m.title, m.url), (Some(0), Some(3)));
+        // A URL column wins over `Site`, which is then the title.
+        let m = guess_mapping(&h("Site,URL"));
+        assert_eq!((m.title, m.url), (Some(0), Some(1)));
     }
 
     #[test]
