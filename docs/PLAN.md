@@ -4,6 +4,7 @@ Status: **approved** (2026-11-16). Inputs: [IDEA.md](IDEA.md) (decisions) and th
 [windows-hello](spikes/windows-hello.md), [vault-format](spikes/vault-format.md), [github-sync](spikes/github-sync.md).
 
 Each milestone is a runnable, releasable app. MVP = **v0.1 → v0.4**, complete with v0.4.0 (2026-11-18).
+v0.5 (import / export, password history) done 2026-11-24.
 
 ---
 
@@ -22,9 +23,11 @@ Each milestone is a runnable, releasable app. MVP = **v0.1 → v0.4**, complete 
 
 ### After MVP
 
-- v0.5: CSV import (Bitwarden, Chrome, KeePassXC), CSV + KDBX export, password history UI.
+- v0.5 (done): CSV import (Bitwarden, Chrome, KeePassXC, generic), CSV + KDBX export, password history UI,
+  read-only custom fields.
 - v0.6 → 1.0: hardening, security review, signed auto-update.
-- Later: auto-type (global hotkey), TOTP, password health (weak/reused), custom fields UI, Touch ID (macOS).
+- Later: auto-type (global hotkey), TOTP codes, password health (weak/reused), editing custom fields, Touch ID
+  (macOS).
 
 ### Out of scope
 
@@ -58,7 +61,8 @@ Items the spikes left open. **All accepted on 2026-11-16.**
 ```text
 xpass/
 ├── crates/
-│   └── xpass-core/          # pure Rust, no Tauri: format, crypto, model, merge, sync engine, RemoteStore trait
+│   ├── xpass-core/          # pure Rust, no Tauri: format, crypto, model, merge, sync engine, RemoteStore trait
+│   └── xpass-interop/       # pure Rust: CSV import (presets, mapping, duplicates), CSV + KDBX export (v0.5)
 ├── src-tauri/               # Tauri app: commands, state, Hello, clipboard, keyring, GitHub store, auto-lock, tray
 ├── src/                     # React + TS frontend
 ├── docs/                    # IDEA, PLAN, spikes, THREAT_MODEL, release notes
@@ -109,7 +113,7 @@ Payload { schema, revision, entries: [Entry], extra }
 Entry {
   id, created_at, updated_at, deleted,
   title, username, password, urls: [String], notes, tags: [String], favorite,
-  fields: [CustomField { name, value, secret }],      // stored now, UI later
+  fields: [CustomField { name, value, secret }],      // shown read-only since v0.5; editing later
   history: [HistoryItem { at, password, username?, note? }],   // last 20
   extra                                                // unknown fields preserved (D5)
 }
@@ -122,8 +126,10 @@ Frontend never holds the VaultKey; it receives passwords only for an explicit re
 | Group | Commands |
 |---|---|
 | Session | `vault_status`, `create_vault`, `unlock_password`, `unlock_recovery`, `unlock_hello`, `lock` |
-| Entries | `list_entries` (metadata), `get_entry` (no secrets), `save_entry`, `delete_entry`, `set_favorite`, `open_url` |
-| Secrets | `copy_field(id, field)`, `reveal_secret(id, field)` (auto-hide in UI after 15 s) |
+| Entries | `list_entries` (metadata), `get_entry` (no secrets), `save_entry`, `delete_entry`, `set_favorite`, `open_url`, `list_history` (no passwords), `use_history_password(id, index, at)` |
+| Secrets | `copy_field(id, field)`, `reveal_secret(id, field)` (auto-hide in UI after 15 s); `field` = username, password, url, field or history `{ index, at }` |
+| Import | `import_open(preset?)` (native open dialog → preview without secrets, or `null`), `import_set_mapping`, `import_commit`, `import_cancel`, `import_delete_source` |
+| Export | `export_vault(format, auth, kdbxPassword?)` (re-auth → native save dialog → `{ fileName, count }` or `null`) |
 | Tools | `generate_password(opts)`, `password_strength(pw)` |
 | Security | `change_password`, `rotate_vault_key`, `show_recovery_kit`, `hello_status`, `hello_enable`, `hello_disable` |
 | Sync setup | `sync_get_config`, `sync_configure`, `sync_set_token`, `sync_disconnect`, `sync_test_connection`, `sync_open_token_page` |
@@ -209,6 +215,10 @@ appears in logs/settings; app fully usable offline.
 CSV import with column mapping presets (Bitwarden, Chrome, KeePassXC, generic), duplicate detection; CSV export
 (plaintext warning + confirm); KDBX4 export via `keepass` crate; password history UI per entry.
 
+Done in T24–T29; decisions I1–I11, as-built notes and the manual checklist: [plan-v0.5.0.md](plan-v0.5.0.md).
+Files are chosen in the native Windows dialog from Rust (no `dialog` / `fs` plugin), parsed in the new pure crate
+`xpass-interop`, and the WebView only sees previews and file names. Every export re-authenticates.
+
 ### v0.6 → v1.0 — Hardening & release (size: M, ~2 weeks)
 
 - `docs/THREAT_MODEL.md`; security self-review against IDEA.md §3; `cargo audit`, `cargo deny`, `npm audit`
@@ -245,6 +255,9 @@ CSV import with column mapping presets (Bitwarden, Chrome, KeePassXC, generic), 
 | VaultKey rotated while another PC has unsynced edits | Edits encrypted with a discarded key | Rotation only online with sync on (S6); the other PC merges after the password prompt (S7). |
 | Restored backup loses to newer copies on other PCs | Restore undone by the next sync | Restore is a new edit with fresh timestamps (S14). |
 | Clock skew | Wrong LWW winner | D2 + history copy (D1). |
+| Plaintext CSV export left on disk or synced to a cloud folder | All passwords readable | Warning + "I understand" checkbox, re-auth, written only to the chosen path (temp + rename, never `%TEMP%`); KDBX export offered first (v0.5). |
+| Hostile or malformed CSV during import | Crash, memory blow-up, data from the file in errors | 10 MB / 10 000-row limits checked before parsing, UTF-8 only, parser in pure Rust, errors without file content; nothing is written before the user confirms the preview (v0.5). |
+| Parsed rows kept in memory | Plaintext from an import lingers | Pending import zeroized and dropped on cancel, commit, lock and after 10 min; the `csv` crate's own buffers are not zeroized (noted for the v0.6 threat model). |
 
 ---
 

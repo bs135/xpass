@@ -99,6 +99,19 @@ export type FieldRef =
     | {kind: 'password'}
     | {kind: 'url'; index: number}
     | {kind: 'field'; index: number}
+    /** Old password at `index` (oldest first); `at` must match or the call fails with not_found. */
+    | {kind: 'history'; index: number; at: number}
+
+/** Password history item without the password (`list_history`, newest first). */
+export interface HistoryItemView {
+    index: number
+    /** Unix ms when this password was replaced. */
+    at: number
+    /** Only when it differs from the current username. */
+    username: string | null
+    note: 'conflict' | 'restore' | 'import' | null
+    hasPassword: boolean
+}
 
 export type GeneratorOptions =
     | {
@@ -194,6 +207,72 @@ export interface BackupInfo {
     entries: number | null
 }
 
+/** CSV import presets (`xpass-interop`, plan I4). */
+export type ImportPreset = 'bitwarden' | 'chrome' | 'keepassxc' | 'xpass' | 'generic'
+export const IMPORT_PRESETS: ImportPreset[] = ['bitwarden', 'chrome', 'keepassxc', 'xpass', 'generic']
+
+/** Generic preset: column index (0-based) for each entry field, or null. */
+export interface ImportMapping {
+    title: number | null
+    username: number | null
+    password: number | null
+    url: number | null
+    notes: number | null
+    tags: number | null
+    favorite: number | null
+    /** What happens to the columns not mapped above. */
+    unmapped: 'ignore' | 'notes' | 'fields'
+}
+
+export type ImportRowWarning = 'titleFromUrl' | 'titleFromUsername' | 'invalidDate' | 'invalidFields'
+export type ImportDuplicate = 'none' | 'exact' | 'possible'
+
+/** One row of the import preview: no password, notes or custom-field values. */
+export interface ImportPreviewRow {
+    index: number
+    line: number
+    title: string
+    username: string
+    urlHost: string | null
+    hasPassword: boolean
+    duplicate: ImportDuplicate
+    warnings: ImportRowWarning[]
+}
+
+export interface ImportPreview {
+    /** File name only, no folder. */
+    fileName: string
+    detected: ImportPreset
+    preset: ImportPreset
+    /** Column names; generic preset only (empty otherwise). */
+    headers: string[]
+    /** Set for the generic preset only. */
+    mapping: ImportMapping | null
+    rows: ImportPreviewRow[]
+    skipped: {line: number; reason: 'empty' | 'unsupportedType'}[]
+    counts: {new: number; exact: number; possible: number}
+}
+
+/** What to do with possible duplicates (same site and username, other password). */
+export type DuplicateChoice = 'skip' | 'new' | 'update'
+
+export interface ImportSummary {
+    added: number
+    updated: number
+    skipped: number
+}
+
+export type ExportFormat = 'csv' | 'kdbx'
+
+/** How the user confirms an export (checked in Rust before the save dialog). */
+export type ExportAuth = {method: 'password'; password: string} | {method: 'hello'}
+
+export interface ExportResult {
+    /** File name only, no folder. */
+    fileName: string
+    count: number
+}
+
 export interface SyncTarget {
     repo: string
     branch: string
@@ -238,6 +317,12 @@ export type AppError =
     | {code: 'sync_failed'}
     | {code: 'sync_remote_missing'}
     | {code: 'sync_required'}
+    | {code: 'import_too_large'; maxMb: number; maxRows: number}
+    | {code: 'import_invalid_csv'; line: number | null}
+    | {code: 'import_encoding'}
+    | {code: 'import_empty'}
+    | {code: 'import_expired'}
+    | {code: 'dialog_failed'}
     | {code: 'io'; kind: string}
     | {code: 'internal'}
 
@@ -287,6 +372,10 @@ export const api = {
     getEntry: (id: string) => invoke<EntryDetail>('get_entry', {id}),
     /** Returns the entry id. */
     saveEntry: (input: EntryInput) => invoke<string>('save_entry', {input}),
+    listHistory: (id: string) => invoke<HistoryItemView[]>('list_history', {id}),
+    /** Makes an old password current; the current one moves into the history. */
+    useHistoryPassword: (id: string, index: number, at: number) =>
+        invoke<void>('use_history_password', {id, index, at}),
     deleteEntry: (id: string) => invoke<void>('delete_entry', {id}),
     setFavorite: (id: string, favorite: boolean) => invoke<void>('set_favorite', {id, favorite}),
     openUrl: (id: string, index: number) => invoke<void>('open_url', {id, index}),
@@ -320,4 +409,17 @@ export const api = {
     listBackups: () => invoke<BackupInfo[]>('list_backups'),
     /** Restores a backup as a new change. `password` only for a backup from before a key change. */
     restoreBackup: (name: string, password: string | null) => invoke<void>('restore_backup', {name, password}),
+    /** Open dialog, then parse the file in Rust. null: the dialog was canceled. */
+    importOpen: (preset: ImportPreset | null) => invoke<ImportPreview | null>('import_open', {preset}),
+    /** Re-reads the pending file with another preset / generic mapping (null guesses it). */
+    importSetMapping: (preset: ImportPreset, mapping: ImportMapping | null) =>
+        invoke<ImportPreview>('import_set_mapping', {preset, mapping}),
+    importCommit: (duplicates: DuplicateChoice, excluded: number[]) =>
+        invoke<ImportSummary>('import_commit', {options: {duplicates, excluded}}),
+    importCancel: () => invoke<void>('import_cancel'),
+    /** Deletes the CSV file that was imported (only that file). */
+    importDeleteSource: () => invoke<void>('import_delete_source'),
+    /** Re-auth, then the save dialog, then the file is written in Rust. null: the dialog was canceled. */
+    exportVault: (format: ExportFormat, auth: ExportAuth, kdbxPassword: string | null) =>
+        invoke<ExportResult | null>('export_vault', {format, auth, kdbxPassword}),
 }

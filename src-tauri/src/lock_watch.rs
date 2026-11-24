@@ -87,6 +87,8 @@ pub fn start(app: AppHandle) {
         let Some(state) = app.try_state::<AppState>() else {
             continue;
         };
+        // A pending CSV import does not outlive its timeout (v0.5 I3).
+        state.expire_import(std::time::Instant::now());
         if state.status() != VaultStatus::Unlocked {
             continue;
         }

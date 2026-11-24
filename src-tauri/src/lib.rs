@@ -2,6 +2,7 @@ mod clipboard;
 mod commands;
 mod entries;
 mod error;
+mod file_dialog;
 mod generator;
 mod github;
 mod hello;
@@ -77,12 +78,20 @@ pub fn run() {
             commands::sync::sync_replace_local,
             commands::backups::list_backups,
             commands::backups::restore_backup,
+            commands::import::import_open,
+            commands::import::import_set_mapping,
+            commands::import::import_commit,
+            commands::import::import_cancel,
+            commands::import::import_delete_source,
+            commands::export::export_vault,
             commands::settings::update_settings,
             commands::session::password_strength,
             commands::session::lock,
             commands::entries::list_entries,
             commands::entries::get_entry,
             commands::entries::save_entry,
+            commands::entries::list_history,
+            commands::entries::use_history_password,
             commands::entries::delete_entry,
             commands::entries::set_favorite,
             commands::entries::open_url,

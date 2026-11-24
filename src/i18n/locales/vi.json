@@ -153,7 +153,8 @@
     "secret": "Đã sao chép. Sẽ tự xoá khỏi clipboard sau {{seconds}} giây.",
     "username": "Sao chép tên đăng nhập (Ctrl+B)",
     "password": "Sao chép mật khẩu (Ctrl+C)",
-    "url": "Sao chép địa chỉ web"
+    "url": "Sao chép địa chỉ web",
+    "field": "Sao chép giá trị"
   },
   "generator": {
     "title": "Tạo mật khẩu",
@@ -200,7 +201,8 @@
     "passwordKeep": "Để trống để giữ mật khẩu hiện tại",
     "deleteTitle": "Xoá mục này?",
     "deleteMessage": "“{{title}}” sẽ bị xoá.",
-    "shortcutsCopy": "Ctrl+B sao chép tên đăng nhập · Ctrl+C sao chép mật khẩu"
+    "shortcutsCopy": "Ctrl+B sao chép tên đăng nhập · Ctrl+C sao chép mật khẩu",
+    "customField": "Trường tùy chỉnh"
   },
   "errors": {
     "generic": "Đã xảy ra lỗi. Vui lòng thử lại.",
@@ -236,7 +238,14 @@
     "sync_repo_not_found": "Không tìm thấy repository, hoặc token không truy cập được. Kiểm tra tên repository và quyền của token.",
     "sync_failed": "Đồng bộ với GitHub thất bại. Hãy thử lại.",
     "sync_remote_missing": "Không có vault ở đường dẫn này trên GitHub.",
-    "sync_required": "Cần đồng bộ thành công với GitHub trước. Kiểm tra kết nối và trạng thái đồng bộ rồi thử lại. Chưa có gì bị thay đổi."
+    "sync_required": "Cần đồng bộ thành công với GitHub trước. Kiểm tra kết nối và trạng thái đồng bộ rồi thử lại. Chưa có gì bị thay đổi.",
+    "import_too_large": "Tệp quá lớn để nhập (tối đa {{mb}} MB và {{rows}} dòng).",
+    "import_invalid_csv": "Tệp này không phải là tệp CSV hợp lệ.",
+    "import_invalid_csv_line": "Tệp này không phải là tệp CSV hợp lệ (lỗi gần dòng {{line}}).",
+    "import_encoding": "Tệp này không phải văn bản UTF-8. Hãy xuất lại dưới dạng CSV UTF-8 rồi thử lại.",
+    "import_empty": "Tệp này không có mục nào để nhập.",
+    "import_expired": "Lần nhập đã bị hủy vì vault bị khóa hoặc đã quá 10 phút. Hãy mở lại tệp.",
+    "dialog_failed": "Không mở được hộp thoại chọn tệp. Vui lòng thử lại."
   },
   "about": {
     "version": "Phiên bản {{version}} · định dạng vault v{{format}}"
@@ -392,5 +401,117 @@
     "oldPassword": "Mật khẩu chính lúc đó",
     "olderKeyExplain": "Phiên bản này được lưu trước khi đổi khoá vault. Nhập mật khẩu chính lúc lưu bản đó. Mật khẩu và khoá hiện tại không thay đổi.",
     "done": "Đã khôi phục phiên bản trước."
+  },
+  "import": {
+    "section": "Nhập & xuất",
+    "title": "Nhập từ CSV",
+    "intro": "Đưa mật khẩu đã xuất từ Bitwarden, Chrome hoặc Edge, KeePassXC, xPass hay bất kỳ tệp CSV nào vào vault. Bạn được xem trước khi có gì được lưu.",
+    "open": "Chọn tệp CSV…",
+    "readFailed": "Không đọc được tệp ({{kind}}).",
+    "wizardTitle": "Nhập từ CSV",
+    "file": "Tệp: {{name}}",
+    "preset": "Định dạng",
+    "detected": "(tự nhận diện)",
+    "presets": {
+      "bitwarden": "Bitwarden",
+      "chrome": "Chrome / Edge",
+      "keepassxc": "KeePassXC",
+      "xpass": "xPass",
+      "generic": "CSV khác (tự chọn cột)"
+    },
+    "mappingIntro": "Chọn cột chứa từng trường. Bản xem trước cập nhật khi bạn đổi cột.",
+    "column": "Cột {{n}}",
+    "notMapped": "— không dùng —",
+    "fields": {
+      "title": "Tiêu đề",
+      "username": "Tên đăng nhập",
+      "password": "Mật khẩu",
+      "url": "Trang web",
+      "notes": "Ghi chú",
+      "tags": "Thẻ",
+      "favorite": "Yêu thích"
+    },
+    "unmapped": "Các cột khác",
+    "unmappedChoice": {
+      "ignore": "Bỏ qua",
+      "notes": "Thêm vào ghi chú",
+      "fields": "Giữ làm trường tùy chỉnh"
+    },
+    "countNew_other": "{{count}} mục mới",
+    "countExact_other": "{{count}} mục đã có trong vault",
+    "countPossible_other": "{{count}} mục có thể trùng",
+    "countSkipped_other": "bỏ {{count}} dòng trống hoặc không hỗ trợ",
+    "possibleQuestion_other": "{{count}} mục có cùng trang web và tên đăng nhập với mục đã có, nhưng khác mật khẩu:",
+    "duplicates": {
+      "skip": "Bỏ qua",
+      "new": "Nhập thành mục mới",
+      "update": "Cập nhật mục đã có (mật khẩu cũ được giữ trong lịch sử)"
+    },
+    "include": "Nhập dòng này",
+    "site": "Trang web",
+    "status": "Trạng thái",
+    "badge": {
+      "exact": "Đã có trong vault",
+      "possible": "Có thể trùng"
+    },
+    "noPassword": "không có mật khẩu",
+    "warnings": {
+      "titleFromUrl": "Tệp không có tiêu đề; dùng trang web làm tiêu đề.",
+      "titleFromUsername": "Tệp không có tiêu đề và trang web; dùng tên đăng nhập làm tiêu đề.",
+      "invalidDate": "Không đọc được ngày tạo; dùng ngày hôm nay.",
+      "invalidFields": "Không đọc được các trường tùy chỉnh nên đã bỏ qua."
+    },
+    "showAll": "Hiện tất cả {{count}} dòng",
+    "commit_other": "Nhập {{count}} mục",
+    "doneTitle": "Đã nhập xong",
+    "added_other": "thêm {{count}}",
+    "updated_other": "cập nhật {{count}}",
+    "skipped_other": "bỏ qua {{count}}",
+    "undoHint": "Để hoàn tác lần nhập này, vào Cài đặt → Khôi phục phiên bản trước và chọn phiên bản được lưu ngay trước đó.",
+    "deleteHint": "Tệp CSV không được mã hóa: ai đọc được tệp sẽ thấy mật khẩu của bạn. Hãy xóa tệp khi không cần nữa.",
+    "deleteSource": "Xóa tệp CSV nguồn",
+    "deleteTitle": "Xóa tệp CSV?",
+    "deleteMessage": "xPass sẽ xóa đúng tệp vừa nhập. Đây là thao tác xóa thông thường: trên ổ SSD dữ liệu không thể bị xóa sạch hoàn toàn. Nếu tệp nằm trong Thùng rác hoặc thư mục đồng bộ đám mây, hãy dọn cả ở đó.",
+    "deleteConfirm": "Xóa tệp",
+    "deleted": "Đã xóa tệp CSV"
+  },
+  "export": {
+    "title": "Xuất",
+    "intro": "Lưu một bản sao các mục để dùng trong trình quản lý mật khẩu khác. Mỗi lần xuất đều hỏi mật khẩu chính hoặc Windows Hello.",
+    "kdbx": "Xuất dạng KeePass (KDBX)",
+    "csv": "Xuất dạng CSV",
+    "csvTitle": "Xuất dạng CSV",
+    "csvWarning": "Tệp CSV không được mã hóa. Ai đọc được tệp sẽ thấy toàn bộ mật khẩu của bạn.",
+    "csvRules": [
+      "Đừng mở tệp bằng Excel hay ứng dụng bảng tính khác: chúng có thể đổi giá trị và giữ bản sao.",
+      "Đừng lưu tệp vào thư mục đồng bộ lên đám mây.",
+      "Xóa tệp ngay sau khi đã nhập vào nơi khác."
+    ],
+    "understand": "Tôi hiểu tệp này không được bảo vệ",
+    "continue": "Tiếp tục",
+    "kdbxTitle": "Xuất dạng KeePass (KDBX)",
+    "kdbxExplain": "Tệp KeePass được mã hóa bằng mật khẩu xuất. Hãy chọn mật khẩu mới, đừng dùng lại mật khẩu chính. Bạn cần nó để mở tệp trong KeePass hoặc KeePassXC.",
+    "kdbxPassword": "Mật khẩu xuất",
+    "authTitle": "Xác nhận đó là bạn",
+    "authExplain": "Nhập mật khẩu chính để xuất vault. Sau đó chọn nơi lưu tệp.",
+    "useHello": "Dùng Windows Hello",
+    "chooseFile": "Chọn tệp…",
+    "canceled": "Đã hủy xuất. Không có gì được lưu.",
+    "doneTitle": "Đã xuất xong",
+    "done_other": "Đã lưu {{count}} mục vào {{name}}.",
+    "csvAfter": "Tệp này không được mã hóa. Hãy chuyển nó đến nơi cần dùng và xóa sau khi dùng xong, rồi dọn cả Thùng rác.",
+    "kdbxAfter": "Hãy cất mật khẩu xuất ở nơi an toàn: không có nó thì không mở được tệp."
+  },
+  "history": {
+    "title_other": "Lịch sử mật khẩu ({{count}})",
+    "username": "Tên đăng nhập khi đó: {{username}}",
+    "note": {
+      "conflict": "Từ xung đột đồng bộ",
+      "restore": "Trước khi khôi phục",
+      "import": "Trước khi nhập"
+    },
+    "use": "Dùng mật khẩu này",
+    "useTitle": "Dùng mật khẩu này?",
+    "useMessage": "Mật khẩu này sẽ thành mật khẩu hiện tại. Mật khẩu hiện tại được giữ trong lịch sử."
   }
 }

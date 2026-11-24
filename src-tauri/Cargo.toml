@@ -24,6 +24,7 @@ keyring = { version = "3.6", features = ["windows-native"] }
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2", "system-proxy"] }
 tokio = { version = "1", features = ["macros", "sync", "time"] }
 xpass-core = { path = "../crates/xpass-core" }
+xpass-interop = { path = "../crates/xpass-interop" }
 serde = { version = "1", features = ["derive"] }
 rand = "0.8"
 serde_json = "1"
@@ -36,9 +37,14 @@ zxcvbn = "3.1.1"
 tauri-plugin-single-instance = "2"
 
 [target.'cfg(windows)'.dependencies]
-# WinRT: Windows Hello (KeyCredentialManager).
+# WinRT: Windows Hello (KeyCredentialManager); COM: file dialogs.
 windows = { version = "0.62", features = [
     "Foundation",
+    # Native open / save dialogs (IFileOpenDialog / IFileSaveDialog).
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
     "Security_Credentials",
     "Security_Cryptography",
     "Storage_Streams",
@@ -52,10 +58,12 @@ windows-sys = { version = "0.61", features = [
     "Win32_System_Power",
     "Win32_System_RemoteDesktop",
     "Win32_System_SystemInformation",
+    "Win32_System_Threading",
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
 
 [dev-dependencies]
+keepass = "0.17"
 tempfile = "3"

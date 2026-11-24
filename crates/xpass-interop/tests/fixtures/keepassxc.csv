@@ -1,0 +1,4 @@
+"Group","Title","Username","Password","URL","Notes","TOTP","Icon","Last Modified","Created"
+"Root","Example Bank","dave","Sample-Pass-05","https://bank.example.net","","","0","2024-03-01T10:00:00Z","2024-01-15T08:30:00Z"
+"Root/Email","Example Mail","dave@example.net","Sample-Pass-06","https://mail.example.net","Synthetic note","otpauth://totp/Example:dave?secret=SAMPLESECRETBASE","0","2024-03-02T10:00:00Z","2024-02-01T09:00:00Z"
+"Root/Dev","Example Git","dave","Sample-Pass-07","git.example.net","","","0","bad","not-a-date"

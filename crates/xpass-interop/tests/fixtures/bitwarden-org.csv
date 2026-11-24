@@ -1,0 +1,2 @@
+collections,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp
+"Team A,Team B",login,Example Wiki,,,0,https://wiki.example.org,frank,Sample-Pass-09,
