@@ -1,8 +1,9 @@
 [workspace]
 resolver = "2"
 members = ["crates/xpass-core", "crates/xpass-interop", "src-tauri"]
-# Spikes are standalone crates kept for reference until v0.3.
-exclude = ["spikes"]
+# Spikes are standalone crates kept for reference until v0.3. The fuzz crate needs
+# nightly and is built only by `cargo fuzz` (v0.6 plan H5).
+exclude = ["spikes", "crates/xpass-core/fuzz"]
 
 [workspace.package]
 edition = "2021"

@@ -9,6 +9,10 @@ repository.workspace = true
 rust-version.workspace = true
 publish = false
 
+[features]
+# Fuzz entry points (`xpass_core::fuzzing`) for the cargo-fuzz crate in `fuzz/`.
+fuzzing = []
+
 [dependencies]
 argon2 = { version = "0.5", features = ["zeroize"] }
 chacha20poly1305 = "0.10"
@@ -26,3 +30,7 @@ zeroize = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 rand_chacha = "0.3"
+
+[[example]]
+name = "fuzz_seeds"
+required-features = ["fuzzing"]

@@ -71,7 +71,7 @@ remote party is the user's own private GitHub repository, which receives the enc
 | Payload confidentiality + integrity | XChaCha20-Poly1305, random 24-byte nonce per save, AAD = whole header (`xpass-core/src/vault.rs`) | `tests/vault.rs`: `any_single_byte_flip_is_detected`, `every_saved_file_uses_a_fresh_nonce` |
 | Key hierarchy (IDEA §3.2) | VaultKey wrapped per slot; slot AAD = magic, version, vault id, slot kind + params (`format.rs` `slot_aad`) | `change_password_keeps_vault_key`, `rotate_replaces_vault_key_and_all_slots`, `hello_slot_unlocks_with_signature` |
 | No KDF downgrade from a file | `KdfParams::validate` on read; password slot re-wrapped on unlock when weaker than the default (D6) | `kdf_downgrade_is_rejected` |
-| Parser never panics | Bounds-checked `Reader`, slot count 1..=8, unique kinds, fixed wrapped length | `parser_never_panics_on_garbage`; fuzz targets (T33) |
+| Parser never panics | Bounds-checked `Reader`, slot count 1..=8, unique kinds, fixed wrapped length | `parser_never_panics_on_garbage`; `cargo-fuzz` targets in `crates/xpass-core/fuzz` (T33) |
 | Recovery key typos caught before KDF | Checksum in `recovery::decode` | `recovery_key_typo_is_caught_by_checksum` |
 | Online guessing slowed | `throttle.rs`: 0, 0, 1, 2 … 30 s, shared by unlock and re-auth; in memory (restart resets it — offline guessing is bounded by Argon2, not by this) | `throttle.rs` tests |
 | Strong master password | zxcvbn score ≥ 3 (`strength.rs`), also for the KDBX export password | `strength.rs` tests |
@@ -130,7 +130,7 @@ Checklist from [IDEA.md §3](IDEA.md#3-design-issues) and the milestone plans, c
 | R14 | Clipboard excluded from history / cloud / monitoring; clear only if unchanged (§3.7) | OK | `clipboard.rs` + tests |
 | R15 | Auto-lock: idle, Windows lock, sleep, exit (§4) | OK | `lock_watch.rs`; also display off (Modern Standby) |
 | R16 | Strength check for the master password (§4) | OK | zxcvbn ≥ 3 |
-| R17 | Header parser fuzzed (§6 testing) | v0.6 | Random-input unit test today → **T33** `cargo-fuzz` |
+| R17 | Header parser fuzzed (§6 testing) | OK | T33: `cargo-fuzz` targets `parse` (header must re-encode to the same AAD bytes), `unlock_hello`, `recovery_decode`; on demand (Fuzz workflow / local nightly), seeds and regressions replayed by `cargo test` on every CI run |
 | R18 | Wrong-password throttling | OK | `throttle.rs`; shared with re-auth |
 | R19 | Re-auth before export, password change, rotation, new kit, Hello enable (a recovery-key session is not asked again) | OK | `authorize` / `reauthorize` in `state.rs`, `state/reauth.rs` |
 | R20 | Import: limits before parsing, no file content in errors or preview, pending rows zeroized and expired | OK | `xpass-interop` tests, `state/import.rs` (`IMPORT_TTL`) |
