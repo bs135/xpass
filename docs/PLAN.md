@@ -264,7 +264,13 @@ Files are chosen in the native Windows dialog from Rust (no `dialog` / `fs` plug
 ## 7. Workflow
 
 - Branches: `main` (releases) ← `develop` ← feature branches, PRs as in xmark/logledge.
-- Conventional Commits; release workflow bumps version and tags from commit types (as in xmark): `feat` → minor,
-  `fix`/`perf` → patch. A milestone with a `feat` is therefore a minor release (`v0.X.0`); milestones are numbered
-  to match.
+- Conventional Commits; the version follows the commit types: `feat` → minor, `fix`/`perf` → patch (a breaking
+  change is a minor bump before 1.0). A milestone with a `feat` is therefore a minor release (`v0.X.0`); milestones
+  are numbered to match.
+- Release (since v0.6, plan H10): on `develop`, `npm run release:prepare` computes the version from the commits since
+  the last tag, bumps `package.json`, `package-lock.json`, `src-tauri/Cargo.toml` and `Cargo.lock`, and turns
+  `CHANGELOG.md`'s "Unreleased" heading into the version; commit it as `chore(release): x.y.z`. The release PR
+  `develop` → `main` must pass the `version` check. After the merge, `release.yml` only creates the tag `vx.y.z`
+  and builds the release (notes from the CHANGELOG section); it never pushes to `main`, so the branch stays
+  protected.
 - One `docs/plan-vX.Y.Z.md` per milestone with the detailed task list, written when the milestone starts.

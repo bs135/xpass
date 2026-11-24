@@ -267,6 +267,12 @@ Differences from the decisions and task texts above, found while implementing:
   `fuzz/seeds/<target>/` (written by the `fuzz_seeds` example), crash inputs go to `fuzz/regressions/<target>/`;
   `fuzz/corpus/` stays local. Local fuzzing on Windows needs the Visual Studio ASan runtime on `PATH`
   (`--sanitizer none` fails to link on MSVC). `fuzz.yml` runs on `ubuntu-latest` with ASan.
+- **T34 (H10):** one script, three modes: `npm run release:prepare [x.y.z]` (bump), `--check [--newer-than-tag]`
+  (used by the `version` job in `ci.yml` on PRs into `main` and by `release.yml` before tagging), `--notes x.y.z`
+  (the CHANGELOG section becomes the GitHub release body instead of the commit list). `release.yml` decides by
+  whether the tag `v<package.json version>` exists: a merge into `main` without a bump releases nothing. The tag is
+  created through the API by `github-tag-action` with `custom_tag`. Dry run on the T34 branch: the script computed
+  0.6.0 from the commits since `v0.5.0` and bumped exactly the four version lines.
 
 ## Manual test checklist (v0.6.0)
 
