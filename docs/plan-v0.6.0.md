@@ -237,6 +237,30 @@ shows the language selector, upgrades an installed v0.5.0 in place, uninstall ke
 - `CHANGELOG.md` 0.6.0; this plan → **done** with an "As built" section; `npm run release:prepare` → commit
   `chore(release): 0.6.0`.
 
+## As built
+
+Differences from the decisions and task texts above, found while implementing:
+
+- **T31 (H2):** `[bans] multiple-versions = "allow"` instead of `"warn"` (Tauri / windows duplicates are not
+  fixable and only add noise). The licence allow-list is exactly what the graph uses today (no
+  `Apache-2.0 WITH LLVM-exception`, no `CDLA-Permissive-2.0`; cargo-deny warns about unused entries). First run:
+  `url` 2.5.9 and `cookie` 0.18.3 for two advisories; `chrono` (unmaintained, only via `keepass`) ignored with a
+  review date. Separate fix PR: `release.yml` refreshes `Cargo.lock` with `cargo update --workspace` and checks
+  that all version files agree before tagging (v0.5.0 had shipped with `xpass 0.4.0` in the lock).
+- **T32 (H6):** `LockedKey` keeps the key in a page-aligned 4 KiB heap allocation of its own, so unlocking one key
+  never unlocks a page shared with another clone; with any other page size it does not lock. `region` 4 (MIT,
+  same `windows-sys` 0.61 as the app). `UnlockedVault::key_locked()`; `VaultSession::new` logs once when locking
+  failed.
+- **T32 (H7):** no signature change was needed. Every command already moves secret arguments into `Zeroizing`
+  on entry (the move wipes the very buffer serde produced), and `Auth` / `EntryInput` are `ZeroizeOnDrop`; the gap
+  listed under "What already exists" was wrong. What T32 fixed instead: `Debug` of `EntryInput` and `Generated`
+  printed the password (never logged, now redacted), and the password generator built passwords in growing
+  `String`s (reallocation copies) — now sized up front.
+- **T32 (H8):** `serialize_payload` counts the JSON size with a byte-counting writer, then serializes into an
+  exact-capacity `Zeroizing<Vec<u8>>`; debug builds assert the capacity never changed. `xpass-interop`'s CSV
+  export pre-sizes its buffer from an estimate, so it can still grow — left as is: the plaintext CSV file it
+  writes is the bigger exposure.
+
 ## Manual test checklist (v0.6.0)
 
 Use a test vault (`$env:XPASS_DATA_DIR = "$env:TEMP\xpass-v06"`) with synthetic entries.
