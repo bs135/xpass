@@ -68,7 +68,10 @@ jobs:
           set -euo pipefail
           mkdir -p "fuzz/corpus/$TARGET"
           # First directory is the working corpus; seeds and regressions are read-only inputs.
-          cargo +nightly fuzz run "$TARGET" "fuzz/corpus/$TARGET" "fuzz/seeds/$TARGET" "fuzz/regressions/$TARGET" \
+          # Explicit target: the prebuilt cargo-fuzz is a static musl binary and would
+          # otherwise build for x86_64-unknown-linux-musl, where ASan cannot link.
+          cargo +nightly fuzz run --target x86_64-unknown-linux-gnu \
+            "$TARGET" "fuzz/corpus/$TARGET" "fuzz/seeds/$TARGET" "fuzz/regressions/$TARGET" \
             -- -max_total_time=$((MINUTES * 60)) -max_len=65536
 
       - name: Upload crash inputs
