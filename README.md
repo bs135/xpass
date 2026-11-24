@@ -52,7 +52,7 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
 - Strict Content Security Policy (no remote content, no `eval`), minimal Tauri capabilities, no file-system or shell
   plugins.
 - Secrets in memory are zeroized when the vault locks or the app exits (best effort; see the threat model in
-  [docs/IDEA.md](docs/IDEA.md)).
+  [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)).
 - **GitHub sync** uploads only the encrypted vault file. The token is kept in Windows Credential Manager and used
   only by the Rust side for requests to `api.github.com`; the WebView has no network access at all.
 - **Import and export** run in Rust: files are picked in the native Windows dialog, read, parsed and written in
@@ -60,7 +60,8 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   export asks for the master password or Windows Hello first. A plaintext CSV export is as sensitive as the vault
   itself: see [Import and export](#import-and-export).
 - **Not protected against:** malware running as your Windows user, or a stolen backup file plus a weak master
-  password. Older backups keep opening with the credentials that were valid when they were written.
+  password. Older backups keep opening with the credentials that were valid when they were written. Full list of
+  what is and is not covered: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
 ## Sync with GitHub
 
@@ -211,11 +212,13 @@ spikes/              feasibility spikes (reference only)
 
 - [docs/IDEA.md](docs/IDEA.md) — concept review and design decisions
 - [docs/PLAN.md](docs/PLAN.md) — implementation plan and milestones
+- [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) — assets, attackers, accepted limits and the security self-review
 - [docs/plan-v0.1.0.md](docs/plan-v0.1.0.md) — v0.1 tasks and manual test checklist
 - [docs/plan-v0.2.0.md](docs/plan-v0.2.0.md) — v0.2 tasks (custom title bar) and manual test checklist
 - [docs/plan-v0.3.0.md](docs/plan-v0.3.0.md) — v0.3 tasks (Windows Hello unlock) and manual test checklist
 - [docs/plan-v0.4.0.md](docs/plan-v0.4.0.md) — v0.4 tasks (GitHub sync, restore) and the two-device test checklist
 - [docs/plan-v0.5.0.md](docs/plan-v0.5.0.md) — v0.5 tasks (import / export, password history) and test checklist
+- [docs/plan-v0.6.0.md](docs/plan-v0.6.0.md) — v0.6 tasks (hardening, update check, release process) and test checklist
 - [docs/spikes/](docs/spikes) — feasibility spikes (Windows Hello, vault format, GitHub sync)
 - [CHANGELOG.md](CHANGELOG.md)
 
