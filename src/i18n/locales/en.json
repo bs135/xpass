@@ -130,7 +130,8 @@
     "sessionLocked": "Locked because Windows was locked.",
     "displayOff": "Locked because the screen turned off (sleep or display timeout).",
     "suspend": "Locked because the computer went to sleep.",
-    "minimized": "Locked because xPass was minimized or hidden."
+    "minimized": "Locked because xPass was minimized or hidden.",
+    "update": "Locked to install an update."
   },
   "recovery": {
     "title": "Unlock with recovery key",
@@ -246,7 +247,8 @@
     "import_empty": "This file has no entries to import.",
     "import_expired": "The import was cancelled because the vault locked or 10 minutes passed. Open the file again.",
     "dialog_failed": "The file dialog could not be opened. Please try again.",
-    "update_failed": "Could not check for updates. Check the connection and try again."
+    "update_failed": "Could not check for or download the update. Check the connection and try again.",
+    "update_signature": "The update was refused: its signature, version or download address did not match. Nothing was installed. Get the new version from the release page instead."
   },
   "about": {
     "version": "Version {{version}} · vault format v{{format}}"
@@ -531,10 +533,18 @@
     "checking": "Checking…",
     "upToDate": "xPass is up to date.",
     "available": "Version {{version}} is available.",
+    "published": "Published {{date}}",
+    "notes": "What's new",
     "openRelease": "Open release page",
+    "install": "Install and restart",
+    "downloading": "Downloading… {{percent}}%",
+    "downloadingBytes": "Downloading… {{mb}} MB",
+    "installing": "Starting the installer…",
+    "confirmTitle": "Install version {{version}}?",
+    "confirmMessage": "xPass downloads the update and checks its signature. It then locks the vault, sends unsynced changes to GitHub and closes; the installer replaces the app and starts it again. You unlock with your password or Windows Hello as usual.",
     "lastChecked": "Last checked: {{date}}",
     "onStartup": "Check for updates when xPass starts (at most once a day)",
-    "hint": "xPass only asks GitHub for the latest version number. Nothing is downloaded or installed: get the new version from the release page.",
+    "hint": "The check only reads the latest version and its signed release data from GitHub. Nothing is downloaded or installed until you choose Install and restart.",
     "badge": "Settings (update available)"
   }
 }

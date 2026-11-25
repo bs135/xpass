@@ -150,13 +150,27 @@ export interface Settings {
     lastUpdateCheckAt: number | null
 }
 
-/** Result of an update check (Rust asks the GitHub Releases API; nothing is downloaded). */
+/**
+ * Result of an update check. Rust reads the signed release manifest; nothing is
+ * downloaded until the user installs ({@link api.installUpdate}).
+ */
 export interface UpdateInfo {
     current: string
+    /** The newer version, or the running one when up to date. */
     latest: string
     newer: boolean
     url: string
+    /** Release notes as plain text (at most 4000 characters). */
+    notes: string | null
+    /** Publication date of the newer release (Unix ms). */
+    date: number | null
     checkedAt: number
+}
+
+/** Download progress while an update is installed (payload of `update://progress`). */
+export interface UpdateProgress {
+    downloaded: number
+    total: number | null
 }
 
 /** Sync setup (`settings.json` + whether a token is stored). The token itself never comes back. */
@@ -336,6 +350,8 @@ export type AppError =
     | {code: 'import_empty'}
     | {code: 'import_expired'}
     | {code: 'dialog_failed'}
+    | {code: 'update_failed'}
+    | {code: 'update_signature'}
     | {code: 'io'; kind: string}
     | {code: 'internal'}
 
@@ -347,6 +363,8 @@ export function isAppError(e: unknown): e is AppError {
 export const EVENT_SYNC_STATUS = 'sync://status'
 /** Result of the optional startup update check ({@link UpdateInfo}). */
 export const EVENT_UPDATE_STATUS = 'update://status'
+/** Download progress of {@link api.installUpdate} ({@link UpdateProgress}). */
+export const EVENT_UPDATE_PROGRESS = 'update://progress'
 /** A sync brought changes from another device: reload the entry list. */
 export const EVENT_VAULT_CHANGED = 'vault://changed'
 
@@ -354,13 +372,27 @@ export const EVENT_VAULT_CHANGED = 'vault://changed'
 export const EVENT_LOCKED = 'vault://locked'
 
 /** Why the vault locked (payload of `vault://locked`). */
-export type LockReason = 'manual' | 'idle' | 'sessionLocked' | 'displayOff' | 'suspend' | 'minimized' | 'exit'
+export type LockReason =
+    | 'manual'
+    | 'idle'
+    | 'sessionLocked'
+    | 'displayOff'
+    | 'suspend'
+    | 'minimized'
+    | 'exit'
+    | 'update'
 
 export const api = {
     appInfo: () => invoke<AppInfo>('app_info'),
     openProjectPage: () => invoke<void>('open_project_page'),
     checkUpdate: () => invoke<UpdateInfo>('check_update'),
     updateStatus: () => invoke<UpdateInfo | null>('update_status'),
+    /**
+     * Downloads and verifies the update of the last check, locks the vault, pushes
+     * unsynced changes and starts the installer; the app then closes and restarts.
+     * Ask the user first.
+     */
+    installUpdate: () => invoke<void>('install_update'),
     openReleasePage: () => invoke<void>('open_release_page'),
     /** Status, why the vault was locked (while locked) and the Windows Hello state. */
     vaultStatus: () => invoke<SessionInfo>('vault_status'),

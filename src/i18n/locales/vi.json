@@ -130,7 +130,8 @@
     "sessionLocked": "Đã tự khoá vì Windows bị khoá.",
     "displayOff": "Đã tự khoá vì màn hình tắt (máy ngủ hoặc hết thời gian chờ màn hình).",
     "suspend": "Đã tự khoá vì máy chuyển sang chế độ ngủ.",
-    "minimized": "Đã tự khoá vì xPass bị thu nhỏ hoặc ẩn."
+    "minimized": "Đã tự khoá vì xPass bị thu nhỏ hoặc ẩn.",
+    "update": "Đã khoá để cài bản cập nhật."
   },
   "recovery": {
     "title": "Mở khoá bằng mã khôi phục",
@@ -246,7 +247,8 @@
     "import_empty": "Tệp này không có mục nào để nhập.",
     "import_expired": "Lần nhập đã bị hủy vì vault bị khóa hoặc đã quá 10 phút. Hãy mở lại tệp.",
     "dialog_failed": "Không mở được hộp thoại chọn tệp. Vui lòng thử lại.",
-    "update_failed": "Không kiểm tra được bản cập nhật. Hãy kiểm tra kết nối rồi thử lại."
+    "update_failed": "Không kiểm tra hoặc tải được bản cập nhật. Hãy kiểm tra kết nối rồi thử lại.",
+    "update_signature": "Bản cập nhật bị từ chối: chữ ký, phiên bản hoặc địa chỉ tải không khớp. Chưa có gì được cài. Hãy lấy bản mới từ trang phát hành."
   },
   "about": {
     "version": "Phiên bản {{version}} · định dạng vault v{{format}}"
@@ -518,12 +520,20 @@
   "update": {
     "check": "Kiểm tra cập nhật",
     "checking": "Đang kiểm tra…",
-    "upToDate": "xPass đang ở phiên bản mới nhất.",
+    "upToDate": "xPass đang là bản mới nhất.",
     "available": "Đã có phiên bản {{version}}.",
+    "published": "Phát hành {{date}}",
+    "notes": "Có gì mới",
     "openRelease": "Mở trang phát hành",
-    "lastChecked": "Kiểm tra lần cuối: {{date}}",
+    "install": "Cài đặt và khởi động lại",
+    "downloading": "Đang tải… {{percent}}%",
+    "downloadingBytes": "Đang tải… {{mb}} MB",
+    "installing": "Đang mở trình cài đặt…",
+    "confirmTitle": "Cài phiên bản {{version}}?",
+    "confirmMessage": "xPass tải bản cập nhật và kiểm tra chữ ký. Sau đó xPass khoá vault, gửi các thay đổi chưa đồng bộ lên GitHub rồi đóng lại; trình cài đặt thay ứng dụng và mở lại. Bạn mở khoá bằng mật khẩu hoặc Windows Hello như thường lệ.",
+    "lastChecked": "Lần kiểm tra cuối: {{date}}",
     "onStartup": "Kiểm tra cập nhật khi mở xPass (tối đa mỗi ngày một lần)",
-    "hint": "xPass chỉ hỏi GitHub số phiên bản mới nhất. Không tải hay cài đặt gì: hãy lấy bản mới từ trang phát hành.",
+    "hint": "Việc kiểm tra chỉ đọc phiên bản mới nhất và dữ liệu phát hành đã ký từ GitHub. Không tải hay cài gì cho đến khi bạn chọn Cài đặt và khởi động lại.",
     "badge": "Cài đặt (có bản cập nhật)"
   }
 }
