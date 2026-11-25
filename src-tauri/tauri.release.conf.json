@@ -1,6 +1,12 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "bundle": {
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "certificateThumbprint": "4D3E068AED69DE2C88578FC2CA46439E78E73D7D",
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com",
+      "tsp": true
+    }
   }
 }

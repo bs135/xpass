@@ -11,7 +11,10 @@ name: Release
 # The build job runs in the `release` environment, which holds the update signing
 # key (TAURI_SIGNING_PRIVATE_KEY / _PASSWORD, created and kept by the owner, v0.7
 # plan U4); `verify-updater` checks the published `.sig` files and latest.json
-# against the public key in src-tauri/tauri.conf.json.
+# against the public key in src-tauri/tauri.conf.json. The same environment holds the
+# self-signed Authenticode certificate (WINDOWS_CERTIFICATE = base64 PFX,
+# WINDOWS_CERTIFICATE_PASSWORD; plan U8). The release is created as a draft and only
+# published by `publish` once the Authenticode and updater checks have passed.
 
 on:
   push:
@@ -83,6 +86,10 @@ jobs:
           {
             echo "notes<<XPASS_NOTES_EOF"
             node scripts/release-prepare.mjs --notes "$VERSION"
+            thumbprint=$(node -p "require('./src-tauri/tauri.release.conf.json').bundle.windows.certificateThumbprint")
+            echo
+            echo "Installers are signed with the self-signed xPass certificate, thumbprint \`${thumbprint}\`"
+            echo "(see the README, \"Check the download\")."
             echo "XPASS_NOTES_EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -124,10 +131,39 @@ jobs:
         env:
           KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          CERT: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:KEY) -or [string]::IsNullOrWhiteSpace($env:KEY_PASSWORD)) {
             throw "TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD must be set in the 'release' environment"
           }
+          if ([string]::IsNullOrWhiteSpace($env:CERT) -or [string]::IsNullOrWhiteSpace($env:CERT_PASSWORD)) {
+            throw "WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD must be set in the 'release' environment"
+          }
+
+      # Authenticode (v0.7 plan U8): the PFX goes into the runner's CurrentUser\My store
+      # only for the build; tauri signs xpass.exe, the NSIS installer and uninstaller and
+      # the MSI with it (signtool, by thumbprint) before computing the updater `.sig`s.
+      - name: Import code-signing certificate
+        shell: pwsh
+        env:
+          CERT: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $expected = node -p "require('./src-tauri/tauri.release.conf.json').bundle.windows.certificateThumbprint"
+          $pfx = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
+          try {
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT))
+            $password = ConvertTo-SecureString $env:CERT_PASSWORD -AsPlainText -Force
+            $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          } finally {
+            Remove-Item $pfx -Force -ErrorAction SilentlyContinue
+          }
+          if ($cert.Thumbprint -ne $expected) {
+            throw "WINDOWS_CERTIFICATE has thumbprint $($cert.Thumbprint), tauri.release.conf.json expects $expected"
+          }
+          "Imported certificate $($cert.Thumbprint)"
 
       # tauri.release.conf.json turns on createUpdaterArtifacts: each installer gets a
       # minisign `.sig`, and tauri-action uploads them with `latest.json`, the manifest
@@ -142,7 +178,8 @@ jobs:
           tagName: ${{ needs.tag-release.outputs.new_tag }}
           releaseName: ${{ needs.tag-release.outputs.new_tag }}
           releaseBody: ${{ needs.tag-release.outputs.notes }}
-          releaseDraft: false
+          # Published by the `publish` job after the checks.
+          releaseDraft: true
           prerelease: false
           args: --config src-tauri/tauri.release.conf.json
           includeUpdaterJson: true
@@ -150,9 +187,33 @@ jobs:
           updaterJsonPreferNsis: true
           assetNamePattern: "[name]_[version]_[platform]_[arch][setup][ext]"
 
-      # Builds are not code-signed yet: publish SHA-256 checksums of the installers as
-      # they were uploaded (names and bytes from the release itself), so a download can
-      # be checked with `Get-FileHash` (v0.6 plan H11).
+      - name: Remove code-signing certificate
+        if: always()
+        shell: pwsh
+        run: |
+          $thumbprint = node -p "require('./src-tauri/tauri.release.conf.json').bundle.windows.certificateThumbprint"
+          Get-ChildItem Cert:\CurrentUser\My | Where-Object Thumbprint -eq $thumbprint | Remove-Item -DeleteKey -ErrorAction SilentlyContinue
+          if (Get-ChildItem Cert:\CurrentUser\My | Where-Object Thumbprint -eq $thumbprint) { throw 'certificate still in the store' }
+
+      # Checks the uploaded installers (and the exe files inside the NSIS one) carry the
+      # expected Authenticode signature and a timestamp (scripts/verify-authenticode.ps1).
+      - name: Verify Authenticode signatures
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.tag-release.outputs.new_tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:RUNNER_TEMP 'signed-assets'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --dir $dir --pattern '*.exe' --pattern '*.msi'
+          if ($LASTEXITCODE -ne 0) { throw 'gh release download failed' }
+          $thumbprint = node -p "require('./src-tauri/tauri.release.conf.json').bundle.windows.certificateThumbprint"
+          ./scripts/verify-authenticode.ps1 -Thumbprint $thumbprint -Path $dir
+
+      # SHA-256 checksums of the installers as they were uploaded (names and bytes from
+      # the release itself), so a download can be checked with `Get-FileHash` (v0.6 plan
+      # H11); the self-signed signature is only checked by thumbprint.
       - name: Publish SHA256SUMS.txt
         shell: pwsh
         env:
@@ -197,6 +258,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.tag-release.outputs.new_tag }}
         run: bash scripts/verify-updater-artifacts.sh "$TAG" src-tauri/tauri.conf.json
+
+  # The draft release becomes public (and `latest`, which the in-app updater reads)
+  # only after the Authenticode and updater checks passed.
+  publish:
+    name: Publish release
+    needs: [tag-release, build-and-release, verify-updater]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.tag-release.outputs.new_tag }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
 
   # Manual build without publishing: no environment, no signing key, unsigned bundles.
   build-artifacts:
