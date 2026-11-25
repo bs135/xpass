@@ -157,27 +157,37 @@ mod tests {
 
     #[test]
     fn hooks_see_every_page_created_and_dropped() {
-        use std::sync::Mutex;
+        use std::sync::{Mutex, MutexGuard, PoisonError};
         static EVENTS: Mutex<Vec<(bool, usize, usize)>> = Mutex::new(Vec::new());
+        // Never panic inside a hook: every other test in this binary goes through it.
+        fn events() -> MutexGuard<'static, Vec<(bool, usize, usize)>> {
+            EVENTS.lock().unwrap_or_else(PoisonError::into_inner)
+        }
         fn on_create(p: *const u8, len: usize) {
-            EVENTS.lock().unwrap().push((true, p as usize, len));
+            events().push((true, p as usize, len));
         }
         fn on_drop(p: *const u8) {
-            EVENTS.lock().unwrap().push((false, p as usize, 0));
+            events().push((false, p as usize, 0));
         }
-        // Other tests in this binary may create keys too: only look at our pages.
         assert!(set_page_hooks(PageHooks { on_create, on_drop }));
         assert!(!set_page_hooks(PageHooks { on_create, on_drop }), "set once");
         let a = LockedKey::new(&[5; KEY_LEN]);
         let b = a.clone();
+        let created = events().len();
         let (pa, pb) = (a.page.0.as_ptr() as usize, b.page.0.as_ptr() as usize);
         drop(a);
         drop(b);
-        let events = EVENTS.lock().unwrap();
-        // Per page: created, then dropped (a freed address may be reused later).
+        let events = events();
+        // Other tests create and drop keys concurrently, and a freed page address is
+        // reused: our create is the last one for that address before `created`, and
+        // the next event for it must be our drop.
         for page in [pa, pb] {
-            let seen: Vec<_> = events.iter().filter(|e| e.1 == page).take(2).copied().collect();
-            assert_eq!(seen, vec![(true, page, PAGE_SIZE), (false, page, 0)]);
+            let ours = events[..created]
+                .iter()
+                .rposition(|e| *e == (true, page, PAGE_SIZE))
+                .expect("create event recorded");
+            let next = events[ours + 1..].iter().find(|e| e.1 == page).copied();
+            assert_eq!(next, Some((false, page, 0)));
         }
     }
 
