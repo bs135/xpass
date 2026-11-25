@@ -191,13 +191,18 @@ jobs:
           updaterJsonPreferNsis: true
           assetNamePattern: "[name]_[version]_[platform]_[arch][setup][ext]"
 
+      # Windows PowerShell: `-DeleteKey` is a dynamic parameter of the certificate
+      # provider, which pwsh 7 does not bind (v0.7.0 release run 45625785415). The
+      # path form deletes the certificate and its private key.
       - name: Remove code-signing certificate
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           $thumbprint = node -p "require('./src-tauri/tauri.release.conf.json').bundle.windows.certificateThumbprint"
-          Get-ChildItem Cert:\CurrentUser\My | Where-Object Thumbprint -eq $thumbprint | Remove-Item -DeleteKey -ErrorAction SilentlyContinue
-          if (Get-ChildItem Cert:\CurrentUser\My | Where-Object Thumbprint -eq $thumbprint) { throw 'certificate still in the store' }
+          $path = "Cert:\CurrentUser\My\$thumbprint"
+          if (Test-Path $path) { Remove-Item -Path $path -DeleteKey -ErrorAction Stop }
+          if (Test-Path $path) { throw 'certificate still in the store' }
+          'Code-signing certificate removed'
 
       # Checks the uploaded installers (and the exe files inside the NSIS one) carry the
       # expected Authenticode signature and a timestamp (scripts/verify-authenticode.ps1).
