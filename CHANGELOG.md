@@ -3,7 +3,7 @@
 All notable changes to xPass. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.7.0]
 
 Trusted updates: xPass installs signed updates itself, every build is signed, crash reports leave the vault out,
 and old versions can be removed from the sync repository.
