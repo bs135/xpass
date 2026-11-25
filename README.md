@@ -205,6 +205,18 @@ The same works later on the installed app (`%LOCALAPPDATA%\xpass\xpass.exe`). Do
 into "Trusted Root Certification Authorities" or "Trusted Publishers": that would make Windows trust anything signed
 with its key, not just xPass. If the thumbprint ever changes, the release notes and this README say so first.
 
+From v0.7.0 each installer also has a **build provenance attestation**: a statement signed through GitHub that the
+file was built by this repository's Release workflow from a specific commit. With the
+[GitHub CLI](https://cli.github.com/):
+
+```powershell
+gh attestation verify .\xpass_0.7.0_windows_x64-setup.exe --repo bs135/xpass
+```
+
+The release also lists what is inside as CycloneDX SBOMs (`…_sbom-rust.cdx.json` for the Rust crates,
+`…_sbom-npm.cdx.json` for the bundled npm packages), attested for the same installers and covered by
+`SHA256SUMS.txt`.
+
 ### Windows SmartScreen
 
 Because the certificate is self-signed, SmartScreen may show "Windows protected your PC" (Unknown publisher) on the
@@ -255,10 +267,11 @@ cargo deny --workspace check
 npm audit --audit-level=high
 ```
 
-Fuzzing (on demand, not part of CI): `crates/xpass-core/fuzz` has `cargo-fuzz` targets for the vault file parser
+Fuzzing (every Sunday and on demand, not part of the PR checks): `crates/xpass-core/fuzz` has `cargo-fuzz` targets for the vault file parser
 (`parse`), Hello unlock and sibling open (`unlock_hello`) and recovery-key input (`recovery_decode`). Every CI run
-replays the checked-in seeds and regressions on stable (`cargo test`); longer runs use the **Fuzz** workflow
-(Actions → Fuzz → Run workflow) or nightly locally:
+replays the checked-in seeds and regressions on stable (`cargo test`). The **Fuzz** workflow runs each target for
+15 minutes every Sunday, keeping its corpus between runs in the Actions cache (a crash makes the run red and uploads
+the input); longer runs: Actions → Fuzz → Run workflow, or nightly locally:
 
 ```bash
 rustup toolchain install nightly --profile minimal
