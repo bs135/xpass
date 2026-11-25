@@ -2,8 +2,8 @@
 
 Zero-knowledge personal password manager for Windows, built with Tauri (Rust + React).
 
-> Status: **v0.5 — import / export and password history**. Hardening towards 1.0 (v0.6) is next. See
-> [docs/PLAN.md](docs/PLAN.md).
+> Status: **v0.7 — trusted updates**: signed in-app update, signed builds, no crash dumps with secrets, removable
+> sync history. A third-party review before 1.0 is next. See [docs/PLAN.md](docs/PLAN.md).
 
 ![xPass: entry list and an entry with its password history](docs/screenshots/main.png)
 
@@ -11,7 +11,7 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   <img src="docs/screenshots/unlock.png" alt="xPass unlock screen with Windows Hello and the master password" width="500">
 </p>
 
-## Features (v0.6)
+## Features (v0.7)
 
 - **Encrypted local vault** — one file, `%APPDATA%\com.bs135.xpass\vault.xpv`, with the last 10 versions kept in
   `backups\`.
@@ -37,8 +37,11 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   version of an entry edited on two PCs is kept in its history. See [Sync with GitHub](#sync-with-github).
 - **Restore a previous version** — put the entries back as they were in one of the last 10 local versions; with
   sync on, the restore reaches your other PCs too.
-- **Update check** — Settings → About checks GitHub for a newer release and opens its page; optional check at
-  startup (off by default). Nothing is downloaded automatically.
+- **Signed in-app update** — Settings → About finds a newer release, shows its notes and installs it after you
+  confirm; xPass checks the update's signature first. Optional check at startup (off by default) only shows a
+  badge; nothing is downloaded without a click. See [Update](#update).
+- **Remove old versions from GitHub** — after rotating the vault key, replace the sync branch with a single commit,
+  so the old encrypted copies are no longer in its history. See [Remove old versions](#remove-old-versions).
 - English and Vietnamese UI, light/dark theme, self-drawn title bar that follows the theme.
 
 ## Security model (summary)
@@ -55,7 +58,10 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   plugins.
 - Secrets in memory are zeroized when the vault locks or the app exits, and the vault key sits in a memory page
   kept out of the pagefile (best effort; see the threat model in [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)).
-- Dependencies are checked in CI (`cargo deny`, `npm audit`) and the vault file parser is fuzzed.
+- Dependencies are checked in CI (`cargo deny`, `npm audit`) and the vault file parser is fuzzed every week.
+- Windows Error Reporting is told to leave xPass out: no crash report or dump with the unlocked vault in it.
+- Updates and installers are signed (update key, self-signed Authenticode certificate); each release has checksums,
+  SBOMs and build provenance attestations. See [Check the download](#check-the-download).
 - **GitHub sync** uploads only the encrypted vault file. The token is kept in Windows Credential Manager and used
   only by the Rust side for requests to `api.github.com`; the WebView has no network access at all.
 - **Import and export** run in Rust: files are picked in the native Windows dialog, read, parsed and written in
@@ -123,6 +129,20 @@ its history, but not your entries: the file is encrypted with your vault key. Ol
 so a leaked old file can be attacked with the master password that was valid then; use a strong master password
 and keep the repository private.
 
+### Remove old versions
+
+After you rotate the vault key (Settings → Security), the older versions in the repository history still open with
+the old master password or recovery key. Settings → Sync → **Remove old versions** (also offered right after a
+rotation) replaces the sync branch with a single commit holding the current files:
+
+- this PC must be in sync with GitHub, with no changes waiting; you confirm with the master password or Windows Hello;
+- your other PCs keep syncing; if one of them pushed at that very moment, its change comes back with its next sync;
+- other files in the same branch stay, but lose their history too (the dialog lists them);
+- if branch protection or a ruleset blocks force pushes on that branch, GitHub refuses and nothing changes.
+
+What it cannot do: GitHub may still serve an old version to someone who knows its commit ID for a while, and forks,
+clones and caches keep their copies. Removing every trace needs GitHub Support.
+
 ### Turn sync off or remove the token
 
 Settings → Sync → **Turn off sync** deletes the token from Credential Manager and the sync settings; the vault on
@@ -169,6 +189,18 @@ without BOM), comma, semicolon or tab separated, at most 10 MB and 10 000 rows.
 
 Every export asks for the master password (or Windows Hello) and then where to save the file. Deleted entries are
 not exported, and neither is password history in the CSV.
+
+## Update
+
+From v0.7.0, Settings → About → **Check for updates** shows a newer version with its notes. **Install and restart**
+downloads the installer, checks its signature against the update key built into xPass (and that it comes from this
+repository's release for that version), then locks the vault, uploads unsynced changes and runs the installer,
+which restarts xPass. A file that fails a check is never run. Your vault and settings stay as they are.
+
+- **From v0.6.x:** those versions cannot install updates; install v0.7.0 by hand once (see [Install](#install)).
+  Later versions arrive in the app.
+- **If the update key ever changes** (lost or leaked), xPass cannot accept updates signed with the new key: the
+  release notes and this README will say so, and that version must be installed by hand once.
 
 ## Install
 
@@ -341,6 +373,7 @@ src/                 React + TypeScript frontend
 - [docs/plan-v0.4.0.md](docs/plan-v0.4.0.md) — v0.4 tasks (GitHub sync, restore) and the two-device test checklist
 - [docs/plan-v0.5.0.md](docs/plan-v0.5.0.md) — v0.5 tasks (import / export, password history) and test checklist
 - [docs/plan-v0.6.0.md](docs/plan-v0.6.0.md) — v0.6 tasks (hardening, update check, release process) and test checklist
+- [docs/plan-v0.7.0.md](docs/plan-v0.7.0.md) — v0.7 tasks (signed updates, code signing, crash dumps, history rewrite, SBOM) and test checklist
 - [docs/spikes/](docs/spikes) — feasibility spikes (Windows Hello, vault format, GitHub sync)
 - [CHANGELOG.md](CHANGELOG.md)
 

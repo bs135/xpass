@@ -3,6 +3,49 @@
 All notable changes to xPass. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Trusted updates: xPass installs signed updates itself, every build is signed, crash reports leave the vault out,
+and old versions can be removed from the sync repository.
+
+**Coming from 0.6.x:** install this version by hand once (0.6.x cannot install updates). Later versions install
+from Settings → About.
+
+### Added
+
+- Settings → About → **Install and restart**: when a newer version is found, xPass shows its notes, downloads it
+  with a progress bar and installs it after you confirm. Before the installer runs, xPass checks the update's
+  signature against the key built into the app, that it comes from this repository's release for that version and
+  that the version is newer; then it locks the vault and uploads unsynced changes. A file that fails a check is
+  never run. The optional check at startup still only shows a badge.
+- Settings → Sync → **Remove old versions from GitHub**: replaces the sync branch with a single commit holding the
+  current files, so vault copies encrypted with a rotated-away key leave the branch history. Asks for the master
+  password or Windows Hello, needs this PC to be in sync, lists other files in the branch whose history goes too,
+  and changes nothing when branch protection refuses it. Offered right after a vault key rotation with sync on.
+- Installers, `xpass.exe` and the uninstaller carry an Authenticode signature from a **self-signed** xPass
+  certificate, thumbprint `4D3E068AED69DE2C88578FC2CA46439E78E73D7D` (README "Check the download"). Windows does
+  not trust it and SmartScreen still warns; check the thumbprint instead.
+- Each release has CycloneDX SBOMs (Rust crates, bundled npm packages) and build provenance attestations
+  (`gh attestation verify <file> --repo bs135/xpass`).
+
+### Changed
+
+- The update check reads the signed release manifest (`latest.json`) instead of the GitHub API.
+- A release is published only after its signatures and update files are checked (it stays a draft until then).
+- The fuzz targets run every week, keeping their corpus between runs.
+
+### Fixed
+
+- Sync: a PC without local changes adopted a remote copy that was older than its own (a rolled-back file, or a
+  history rewrite racing its push) and lost its last change. It now merges and uploads its change again.
+
+### Security
+
+- Windows Error Reporting leaves xPass out: no crash report or dump of the process, no heap in a report, and the
+  pages holding the vault key are excluded. The NSIS uninstaller removes that setting again.
+- [Threat model](docs/THREAT_MODEL.md) updated for v0.7: fake or tampered updates (A10), the update signing key
+  (A11) and the code-signing certificate (A12), and the new accepted limits.
+
 ## [0.6.1]
 
 Fix for the on-demand fuzzing workflow; the app is unchanged from 0.6.0.
