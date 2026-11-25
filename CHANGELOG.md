@@ -3,6 +3,16 @@
 All notable changes to xPass. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/).
 
+## [0.6.1]
+
+Fix for the on-demand fuzzing workflow; the app is unchanged from 0.6.0.
+
+### Fixed
+
+- The **Fuzz** GitHub Actions workflow builds its targets for `x86_64-unknown-linux-gnu`. The prebuilt
+  `cargo-fuzz` defaulted to the musl target, where AddressSanitizer cannot link, so the first run failed before
+  fuzzing.
+
 ## [0.6.0]
 
 Hardening: a written threat model, dependency and fuzz checks, tighter memory handling, an update check and a
