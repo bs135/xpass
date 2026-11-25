@@ -261,6 +261,29 @@ replay test keeps it covered. Seeds are regenerated with
 
 Release build: `npm run tauri build` (NSIS and MSI installers in `target/release/bundle/`).
 
+### Releasing
+
+The version is bumped in the release PR (`npm run release:prepare`, see [PLAN.md §7](docs/PLAN.md#7-workflow));
+merging it into `main` runs the **Release** workflow, which tags, builds and publishes.
+
+Update signing (v0.7): the in-app updater only installs files signed with the project's update key. The key pair
+belongs to the repository owner and never enters the repository:
+
+- Private key and its password: GitHub environment **`release`** (Settings → Environments) as
+  `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, plus an offline backup kept by the owner.
+  Only the release build job uses that environment; pull requests never see it.
+- Public key: `plugins.updater.pubkey` in `src-tauri/tauri.conf.json` (base64 of the minisign `.pub` file).
+
+`src-tauri/tauri.release.conf.json` turns on `createUpdaterArtifacts` for the release build only, so local builds
+and the manual workflow run need no key. A release gets a `.sig` per installer and `latest.json` (the manifest the
+app reads); the `verify-updater` job then checks them against the committed public key with
+`scripts/verify-updater-artifacts.sh`. To sign a local build with the real key, set the two variables in your own
+shell (never in a file in the repository) and run
+`npm run tauri build -- --config src-tauri/tauri.release.conf.json`.
+
+If the private key is ever lost or leaked, the public key in the app cannot be changed by an update signed with
+another key: publish a release with a new key pair and tell users to install it by hand once.
+
 Layout:
 
 ```text

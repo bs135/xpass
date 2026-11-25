@@ -43,6 +43,15 @@
       "freezePrototype": true
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIwODdFRjZEMzIyRTMwNkIKUldSck1DNHliZStISUdBY0wxckV3SkNSdGFzaFU0V0JFc1BIUG1SM1NoMXZ5azBOSktYU05vTWcK",
+      "endpoints": ["https://github.com/bs135/xpass/releases/latest/download/latest.json"],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["nsis", "msi"],

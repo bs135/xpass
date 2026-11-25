@@ -8,6 +8,10 @@ name: Release
 # the release. A merge without a version bump releases nothing.
 # Needs "Settings > Actions > General > Workflow permissions" = "Read and write
 # permissions" (tag and release creation).
+# The build job runs in the `release` environment, which holds the update signing
+# key (TAURI_SIGNING_PRIVATE_KEY / _PASSWORD, created and kept by the owner, v0.7
+# plan U4); `verify-updater` checks the published `.sig` files and latest.json
+# against the public key in src-tauri/tauri.conf.json.
 
 on:
   push:
@@ -83,9 +87,12 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   build-and-release:
-    name: Build (Windows x64)
+    name: Build, sign and release (Windows x64)
     needs: tag-release
-    if: always() && !cancelled() && ((github.event_name == 'push' && needs.tag-release.result == 'success' && needs.tag-release.outputs.released == 'true') || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'push' && needs.tag-release.outputs.released == 'true'
+    # Holds the update signing key (v0.7 plan U4). Only this job uses the environment;
+    # secrets are never exposed to pull requests.
+    environment: release
     permissions:
       contents: write
     runs-on: windows-latest
@@ -93,7 +100,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'push' && needs.tag-release.outputs.new_tag || github.ref }}
+          ref: ${{ needs.tag-release.outputs.new_tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -110,24 +117,43 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # A release without the key would ship installers the in-app updater cannot
+      # verify (v0.7 plan U5): fail early and say why.
+      - name: Check signing secrets
+        shell: pwsh
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:KEY) -or [string]::IsNullOrWhiteSpace($env:KEY_PASSWORD)) {
+            throw "TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD must be set in the 'release' environment"
+          }
+
+      # tauri.release.conf.json turns on createUpdaterArtifacts: each installer gets a
+      # minisign `.sig`, and tauri-action uploads them with `latest.json`, the manifest
+      # the in-app updater reads from .../releases/latest/download/latest.json.
       - name: Build and release
-        if: github.event_name == 'push'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ needs.tag-release.outputs.new_tag }}
           releaseName: ${{ needs.tag-release.outputs.new_tag }}
           releaseBody: ${{ needs.tag-release.outputs.notes }}
           releaseDraft: false
           prerelease: false
+          args: --config src-tauri/tauri.release.conf.json
+          includeUpdaterJson: true
+          # Per-user NSIS updates need no administrator prompt (v0.7 plan U3).
+          updaterJsonPreferNsis: true
           assetNamePattern: "[name]_[version]_[platform]_[arch][setup][ext]"
 
       # Builds are not code-signed yet: publish SHA-256 checksums of the installers as
       # they were uploaded (names and bytes from the release itself), so a download can
       # be checked with `Get-FileHash` (v0.6 plan H11).
       - name: Publish SHA256SUMS.txt
-        if: github.event_name == 'push'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -148,14 +174,60 @@ jobs:
           gh release upload $env:TAG $sums --repo $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { throw 'gh release upload failed' }
 
-      - name: Build app bundles
-        if: github.event_name == 'workflow_dispatch'
-        uses: tauri-apps/tauri-action@v0
+  # Checks the published updater artifacts against the public key committed in
+  # tauri.conf.json (v0.7 plan U5): a secret that does not match the committed key,
+  # a missing `.sig` or a manifest pointing anywhere else turns the run red.
+  verify-updater:
+    name: Verify updater artifacts
+    needs: [tag-release, build-and-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.tag-release.outputs.new_tag }}
+
+      - name: Install minisign
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq minisign
+
+      - name: Check latest.json and signatures
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.tag-release.outputs.new_tag }}
+        run: bash scripts/verify-updater-artifacts.sh "$TAG" src-tauri/tauri.conf.json
+
+  # Manual build without publishing: no environment, no signing key, unsigned bundles.
+  build-artifacts:
+    name: Build (Windows x64, no release)
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build app bundles
+        uses: tauri-apps/tauri-action@v0
 
       - name: Upload artifacts
-        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
           name: xpass-windows-x64
