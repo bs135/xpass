@@ -89,6 +89,8 @@ pub enum AppError {
     DialogFailed,
     #[error("the update check failed")]
     UpdateFailed,
+    #[error("the update did not pass the signature, version or source check")]
+    UpdateSignature,
     #[error("file system error: {kind}")]
     Io { kind: String },
     #[error("internal error")]

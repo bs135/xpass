@@ -35,6 +35,9 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             tray::show_main(app)
         }))
+        // Signed in-app update (v0.7 plan U2): driven from `update.rs`; no capability
+        // grants the WebView any of the plugin's own commands.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let paths = data_dir_override().map_or_else(|| Paths::from_app(app.handle()), |dir| Ok(Paths::new(dir)))?;
             let overridden = data_dir_override().is_some();
@@ -59,6 +62,7 @@ pub fn run() {
             commands::open_project_page,
             update::check_update,
             update::update_status,
+            update::install_update,
             update::open_release_page,
             commands::session::vault_status,
             commands::session::create_vault,

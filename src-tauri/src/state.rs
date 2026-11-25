@@ -677,13 +677,13 @@ impl AppState {
     }
 
     /// Locks and remembers why, if the vault was unlocked. Returns whether it was.
-    /// Except on app exit (which pushes on its own, S8), the sync worker is told
-    /// so it can push the local file without the key.
+    /// Except on app exit and before an update install (both push on their own,
+    /// S8), the sync worker is told so it can push the local file without the key.
     pub fn lock_with(&self, reason: LockReason) -> bool {
         let was_unlocked = self.lock();
         if was_unlocked {
             *lock(&self.0.last_lock_reason) = Some(reason);
-            if reason != LockReason::Exit {
+            if !matches!(reason, LockReason::Exit | LockReason::Update) {
                 self.notify(Trigger::Locked);
             }
         }
