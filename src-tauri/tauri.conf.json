@@ -61,7 +61,8 @@
       "nsis": {
         "installMode": "currentUser",
         "languages": ["English", "Vietnamese"],
-        "displayLanguageSelector": true
+        "displayLanguageSelector": true,
+        "installerHooks": "nsis-hooks.nsh"
       }
     }
   }

@@ -1,5 +1,6 @@
 mod clipboard;
 mod commands;
+mod crash_dump;
 mod entries;
 mod error;
 mod file_dialog;
@@ -28,6 +29,7 @@ use crate::{clipboard::SecureClipboard, lock_watch::LockReason, paths::Paths, st
 
 pub fn run() {
     install_panic_hook();
+    crash_dump::install();
     tauri::Builder::default()
         // Must be the first plugin: a second launch focuses the running app instead.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -48,6 +50,7 @@ pub fn run() {
             tray::setup(app)?;
             sync_worker::start(app.handle().clone());
             update::start(app.handle().clone());
+            crash_dump::start_crash_test(app.handle().clone());
             Ok(())
         })
         .on_window_event(tray::on_window_event)
