@@ -1,6 +1,6 @@
 # v0.7.0 Plan: Trusted updates
 
-Status: **approved** (2026-11-25). Parent: [PLAN.md §4 v0.7 → v1.0](PLAN.md#v07--v10--release-outline).
+Status: **done** (2026-11-25). Parent: [PLAN.md §4 v0.7](PLAN.md#v07--trusted-updates-size-m-2-weeks).
 
 ## Goal
 
@@ -213,7 +213,7 @@ The baseline stays: **no capability change, CSP unchanged** (`connect-src` stays
 | Group | Commands |
 |---|---|
 | App | `check_update()` → `{ current, latest, newer, url, notes, date, checkedAt }` (from `latest.json`); `install_update()` (download → verify → lock → push → install; event `update://progress` `{ downloaded, total }`); `update_status`, `open_release_page` unchanged |
-| Sync | `sync_rewrite_history(auth)` → `{ otherFiles: bool }` (re-auth like export) |
+| Sync | `sync_rewrite_history(auth)` → `{ otherFiles: bool }` (re-auth like export); as built: `sync_history_preview` added, result `{ rewritten, otherFiles }` (see As built) |
 
 New lock reason `update`. New error codes: `update_signature` (signature or URL / version check failed),
 `update_failed` (network / HTTP / parse, as today), `history_rewrite_refused` (branch protected / ruleset),
@@ -317,6 +317,46 @@ local build once with the certificate from their own store (`--config src-tauri/
   update key ever changes); `PLAN.md` (v0.7 status, §3.5 IPC, §5, §6 risks: update key, history rewrite); v0.8 / v1.0 outline
   from U1 / U8 / U14.
 - `CHANGELOG.md` 0.7.0; this plan → **done** with "As built"; `npm run release:prepare` → `chore(release): 0.7.0`.
+
+## As built
+
+Differences from the decisions and task texts above, found while implementing:
+
+- **T38 (U5):** the post-upload check is its own job, `verify-updater` (Ubuntu, `minisign`), running
+  `scripts/verify-updater-artifacts.sh` against the committed public key; `workflow_dispatch` builds go through a
+  separate `build-artifacts` job without the environment.
+- **T39 (U3, U6):** `requireSignedVersion: true` was added: the signature's trusted comment must name the version
+  offered in `latest.json`, so an old validly signed installer cannot be replayed as a newer version. A custom
+  `version_comparator` refuses pre-releases. Timeouts: 15 s for the manifest, connect 10 s, 30 s without data
+  during the download. Signature, format and signed-version errors of the plugin all map to `update_signature`.
+  The plugin's `install` ends the process (`std::process::exit`), so the lock and the push run before it, not on
+  `RunEvent::Exit`. The plugin reads `latest.json` without a size cap (accepted, THREAT_MODEL §5). Settings →
+  About shows `CARGO_PKG_VERSION` while the check compares `package_info().version`; both come from the same
+  version files, which `release:prepare` and the CI `version` check keep equal.
+- **T40 (U9):** `xpass-core` exposes `secret::set_page_hooks` (`on_create(addr, len)` / `on_drop(addr)`, set once)
+  instead of addresses, so it stays free of WER code; the app registers the `LockedKey` pages with WER through
+  them. WebView2's own crash reports have no documented off switch: accepted limit. The MSI uninstaller does not
+  remove the per-user WER exclusion value (harmless, THREAT_MODEL §5); the NSIS one does, except during an update.
+- **T41 (U10):** the steps gained a check before the forced update: the vault blob in the branch tree must be the
+  one this device synced last, and the head is read again after the new commit is created (moved → nothing
+  changed, `sync_required`). A truncated tree listing is refused. A read-back that does not match gives
+  `history_rewrite_failed` and starts a sync. **The "remote moved back" test found a real gap:** a device without
+  local changes adopted an older remote and lost its last push. `xpass_core::merge::covers` now decides: a clean
+  device adopts the remote only when it holds every local entry at the same or a winning version (tombstones past
+  the TTL ignored); otherwise it merges and pushes (`Merged`). Trade-off: a device that did not sync for longer
+  than the tombstone TTL (180 days) can bring back an entry deleted elsewhere, as a device with local changes
+  already could (D3). IPC: `sync_history_preview` (branch, single commit, other files) was added for the dialog;
+  `sync_rewrite_history` returns `{ rewritten, otherFiles }`. The offer after a rotation is an alert with the button
+  under **Rotate vault key** (the Emergency Kit screen is shared by other flows). The two-device manual check below
+  is still open.
+- **T42 (U11, U12):** `cargo cyclonedx` 0.5.10 with `--target x86_64-pc-windows-msvc --no-build-deps
+  --spec-version 1.5`; it also writes files for the workspace crates, which the step deletes. Corpus cache verified
+  on the branch: the first run saved 69 inputs, the second restored them and grew to 84. Attestations are first
+  checked on v0.7.0.
+- **T43 (U8):** the release is created as a **draft** and a `publish` job makes it public and "latest" only after
+  the Authenticode check and `verify-updater` pass, so a failed check never exposes a release to the updater.
+  `scripts/verify-authenticode.ps1` extracts `xpass.exe` and `uninstall.exe` from the NSIS installer with 7-Zip.
+  Timestamp server: `http://timestamp.digicert.com`. Every release body states the thumbprint.
 
 ## Manual test checklist (v0.7.0)
 
