@@ -300,6 +300,23 @@ export interface ExportResult {
     count: number
 }
 
+/** "Remove old versions from GitHub": what the dialog shows first. */
+export interface HistoryPreview {
+    branch: string
+    /** The branch has one commit already: nothing to remove. */
+    singleCommit: boolean
+    /** Files in the branch besides the vault; their history goes too. */
+    otherFiles: number
+    /** Up to 20 of their paths. */
+    otherPaths: string[]
+}
+
+export interface RewriteReport {
+    /** false: the branch had one commit already, nothing changed. */
+    rewritten: boolean
+    otherFiles: number
+}
+
 export interface SyncTarget {
     repo: string
     branch: string
@@ -344,6 +361,8 @@ export type AppError =
     | {code: 'sync_failed'}
     | {code: 'sync_remote_missing'}
     | {code: 'sync_required'}
+    | {code: 'history_rewrite_refused'}
+    | {code: 'history_rewrite_failed'}
     | {code: 'import_too_large'; maxMb: number; maxRows: number}
     | {code: 'import_invalid_csv'; line: number | null}
     | {code: 'import_encoding'}
@@ -455,6 +474,10 @@ export const api = {
     syncResolveKeyChange: (password: string) => invoke<SyncStatus>('sync_resolve_key_change', {password}),
     /** Replaces this PC's vault with the one on GitHub (kept as a backup); `password` opens the GitHub vault. */
     syncReplaceLocal: (password: string) => invoke<void>('sync_replace_local', {password}),
+    /** Checks the preconditions and reads the branch for the "Remove old versions" dialog. */
+    syncHistoryPreview: () => invoke<HistoryPreview>('sync_history_preview'),
+    /** Replaces the sync branch with one commit (after re-authentication). */
+    syncRewriteHistory: (auth: ExportAuth) => invoke<RewriteReport>('sync_rewrite_history', {auth}),
     /** Local backups, newest first (needs the vault unlocked). */
     listBackups: () => invoke<BackupInfo[]>('list_backups'),
     /** Restores a backup as a new change. `password` only for a backup from before a key change. */

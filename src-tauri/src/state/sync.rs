@@ -14,7 +14,12 @@ use xpass_core::sync::{
 };
 
 use super::*;
-use crate::{github::GitHubStore, sync_state::StoredSyncState, sync_worker::Trigger};
+use crate::{
+    github::GitHubStore,
+    history::{self, GitData, HistoryPreview, RewriteReport},
+    sync_state::StoredSyncState,
+    sync_worker::Trigger,
+};
 
 /// What the UI shows about sync (`sync_status`, event `sync://status`).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
@@ -411,6 +416,56 @@ impl AppState {
             recovery_key,
             hello_dropped,
         })
+    }
+
+    // ---- removing old versions from GitHub (T41, U10) ----
+
+    /// "Remove old versions" needs sync on, the vault unlocked, the last sync done and
+    /// no local changes: the branch must hold exactly what this device has. Returns the
+    /// vault blob SHA this device synced last.
+    pub fn check_history_rewrite(&self) -> AppResult<String> {
+        if !self.sync_enabled() {
+            return Err(AppError::SyncNotConfigured);
+        }
+        if self.status() != VaultStatus::Unlocked {
+            return Err(AppError::Locked);
+        }
+        let status = self.sync_status();
+        match status.phase {
+            SyncPhase::Idle => {}
+            SyncPhase::Off | SyncPhase::NoToken => return Err(AppError::SyncNotConfigured),
+            SyncPhase::Offline => return Err(AppError::SyncOffline),
+            _ => return Err(AppError::SyncRequired),
+        }
+        if status.dirty {
+            return Err(AppError::SyncRequired);
+        }
+        sync_state::load(&self.0.sync_state_path)
+            .for_remote(&self.remote_id())
+            .base_sha
+            .ok_or(AppError::SyncRequired)
+    }
+
+    /// What the confirmation dialog shows (branch, other files).
+    pub async fn preview_history<G: GitData>(&self, api: &G) -> AppResult<HistoryPreview> {
+        if !self.sync_enabled() {
+            return Err(AppError::SyncNotConfigured);
+        }
+        Ok(history::preview(api).await?)
+    }
+
+    /// Replaces the branch with one commit (`history::rewrite`). The caller has
+    /// re-authenticated the user. Holds the sync lock, so this device does not push
+    /// meanwhile; the preconditions are checked again under it.
+    pub async fn rewrite_history<G: GitData>(&self, api: &G) -> AppResult<RewriteReport> {
+        let _running = self.0.sync_running.lock().await;
+        let base_sha = self.check_history_rewrite()?;
+        let result = history::rewrite(api, &base_sha).await;
+        if matches!(result, Ok(_) | Err(history::RewriteError::Unverified)) {
+            // Confirms the branch from this device's side right away.
+            self.notify(Trigger::Manual);
+        }
+        Ok(result?)
     }
 
     /// Opens a downloaded vault with its master password, throttled like unlock,
@@ -1024,5 +1079,83 @@ mod tests {
         a.take_triggers();
         a.state.disconnect_sync().unwrap();
         assert_eq!(a.take_triggers(), [Trigger::ConfigChanged]);
+    }
+
+    #[test]
+    fn history_rewrite_runs_only_when_github_has_exactly_this_vault() {
+        use crate::history::fake::FakeGit;
+
+        let store = MemoryStore::new();
+        let a = Device::create();
+        assert_eq!(
+            a.state.check_history_rewrite().unwrap_err(),
+            AppError::SyncRequired,
+            "never synced"
+        );
+        a.sync(&store).unwrap();
+        let base = a.state.check_history_rewrite().unwrap();
+        assert_eq!(base, store.current().unwrap().sha);
+
+        let git = FakeGit::new(&base, 2, &["README.md"]);
+        let preview = block_on(a.state.preview_history(&git)).unwrap();
+        assert_eq!(preview.other_paths, ["README.md"]);
+        a.take_triggers();
+        let report = block_on(a.state.rewrite_history(&git)).unwrap();
+        assert!(report.rewritten);
+        assert_eq!(report.other_files, 1);
+        assert_eq!(a.take_triggers(), [Trigger::Manual], "syncs again right after");
+
+        // Local changes not pushed yet.
+        let git = FakeGit::new(&base, 2, &[]);
+        a.add("Mail");
+        assert_eq!(
+            block_on(a.state.rewrite_history(&git)).unwrap_err(),
+            AppError::SyncRequired
+        );
+        assert!(git.calls().is_empty(), "nothing sent to GitHub");
+
+        // Offline.
+        store.set_offline(true);
+        assert!(a.sync(&store).is_err());
+        assert_eq!(a.state.check_history_rewrite().unwrap_err(), AppError::SyncOffline);
+        store.set_offline(false);
+        a.sync(&store).unwrap();
+        a.state.check_history_rewrite().unwrap();
+
+        // Locked.
+        a.state.lock();
+        assert_eq!(block_on(a.state.rewrite_history(&git)).unwrap_err(), AppError::Locked);
+        a.state.unlock_password(PW).unwrap();
+
+        // Sync off.
+        a.state.disconnect_sync().unwrap();
+        assert_eq!(
+            block_on(a.state.rewrite_history(&git)).unwrap_err(),
+            AppError::SyncNotConfigured
+        );
+        assert_eq!(
+            block_on(a.state.preview_history(&git)).unwrap_err(),
+            AppError::SyncNotConfigured
+        );
+        assert!(git.calls().is_empty());
+    }
+
+    #[test]
+    fn a_refused_rewrite_is_reported_and_does_not_sync() {
+        use crate::history::{fake::FakeGit, RewriteError};
+
+        let store = MemoryStore::new();
+        let a = Device::create();
+        a.sync(&store).unwrap();
+        let base = a.state.check_history_rewrite().unwrap();
+        let git = FakeGit::new(&base, 2, &[]);
+        git.state().force_result = Err(RewriteError::Refused);
+        a.take_triggers();
+        assert_eq!(
+            block_on(a.state.rewrite_history(&git)).unwrap_err(),
+            AppError::HistoryRewriteRefused
+        );
+        assert!(a.take_triggers().is_empty());
+        assert_eq!(a.state.sync_status().phase, SyncPhase::Idle);
     }
 }

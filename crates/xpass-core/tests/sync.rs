@@ -739,3 +739,78 @@ fn keyless_push_does_nothing_when_the_remote_moved() {
     assert_eq!(a.sync(&store).unwrap(), SyncOutcome::Merged);
     assert_eq!(a.titles(), ["GitHub", "Mail", "Cloud"]);
 }
+
+// ---------------------------------------------------------------------------
+// A remote that goes back to an older copy (v0.7 U10: history rewrite racing a push)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn remote_moved_back_after_a_concurrent_push_loses_no_edit() {
+    let store = MemoryStore::new();
+    let (a, b) = two_devices(&store);
+    // The history rewrite reads the branch while it holds this copy ...
+    let before = store.current().unwrap();
+    // ... B pushes an edit ...
+    b.edit(|p| p.entries.push(entry(2, "Bank", 20)));
+    assert_eq!(b.sync(&store).unwrap(), SyncOutcome::Pushed);
+    assert!(!b.dirty());
+    // ... and the forced ref update puts the older copy back.
+    store.force(&before.bytes);
+
+    assert_eq!(a.sync(&store).unwrap(), SyncOutcome::UpToDate);
+    assert_eq!(
+        b.sync(&store).unwrap(),
+        SyncOutcome::Merged,
+        "a clean device does not adopt a remote that lacks its edits"
+    );
+    assert_eq!(a.sync(&store).unwrap(), SyncOutcome::Pulled);
+    assert_eq!(a.titles(), ["GitHub", "Bank"]);
+    assert_eq!(b.titles(), ["GitHub", "Bank"]);
+    assert_eq!(b.sync(&store).unwrap(), SyncOutcome::UpToDate);
+}
+
+#[test]
+fn remote_moved_back_after_an_edit_and_a_delete_keeps_both() {
+    let store = MemoryStore::new();
+    let (a, b) = two_devices(&store);
+    let before = store.current().unwrap();
+    b.edit(|p| {
+        p.entries[0].title = "GitHub (work)".into();
+        p.entries[0].updated_at = NOW - 2_000;
+        p.entries.push(entry(2, "Old mail", 20));
+    });
+    b.sync(&store).unwrap();
+    b.edit(|p| p.entries[1].delete(NOW - 1_000));
+    b.sync(&store).unwrap();
+    store.force(&before.bytes);
+
+    assert_eq!(b.sync(&store).unwrap(), SyncOutcome::Merged);
+    assert_eq!(a.sync(&store).unwrap(), SyncOutcome::Pulled);
+    assert_eq!(a.titles(), ["GitHub (work)", "~2"]);
+    assert_eq!(a.titles(), b.titles());
+}
+
+#[test]
+fn an_expired_tombstone_missing_on_the_remote_is_not_pushed_back() {
+    let store = MemoryStore::new();
+    let (a, b) = two_devices(&store);
+    a.edit(|p| p.entries[0].delete(NOW - 1_000));
+    a.sync(&store).unwrap();
+    assert_eq!(b.sync(&store).unwrap(), SyncOutcome::Pulled);
+    assert_eq!(b.titles(), ["~1"]);
+
+    // Half a year later A pushes again; the push drops the expired tombstone.
+    let later = NOW + TOMBSTONE_TTL_MS;
+    a.edit(|p| p.entries.push(entry(2, "Mail", later)));
+    assert_eq!(
+        block_on(sync_once(&store, &mut a.clone(), later)).unwrap(),
+        SyncOutcome::Pushed
+    );
+    assert_eq!(a.titles(), ["Mail"]);
+    // B still has the tombstone: it adopts the remote instead of pushing it back.
+    assert_eq!(
+        block_on(sync_once(&store, &mut b.clone(), later)).unwrap(),
+        SyncOutcome::Pulled
+    );
+    assert_eq!(b.titles(), ["Mail"]);
+}
