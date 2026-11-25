@@ -358,41 +358,55 @@ Differences from the decisions and task texts above, found while implementing:
   `scripts/verify-authenticode.ps1` extracts `xpass.exe` and `uninstall.exe` from the NSIS installer with 7-Zip.
   Timestamp server: `http://timestamp.digicert.com`. Every release body states the thumbprint.
 
+- **Release run (v0.7.0):** the first run (45625785415) failed after the signed build: pwsh 7 does not bind the
+  certificate provider's `-DeleteKey` from the pipeline (#56: the step runs in Windows PowerShell and removes the
+  certificate by path). The draft and the tag were deleted and the release was built again (#57). The second run
+  (45633685778) passed every build, signing and attestation step, but `verify-updater` could not see the draft
+  with `contents: read` (#58: `contents: write`). That run's draft was checked by hand (the same script with
+  minisign, `sha256sum -c`, `gh attestation verify`) and published with `gh release edit --draft=false --latest`.
+  The next release is the first to run `verify-updater` and `publish` unattended.
+
 ## Manual test checklist (v0.7.0)
 
 Use a test vault (`$env:XPASS_DATA_DIR = "$env:TEMP\xpass-v07"`) with synthetic entries and a private test repo.
 
 Update (local, before the release — U7)
-- [ ] Debug build at 0.6.99 + throwaway key: check finds 0.7.0, notes shown as plain text, install after confirm,
+- [x] Debug build at 0.6.99 + throwaway key: check finds 0.7.0, notes shown as plain text, install after confirm,
       vault locked and pending edit pushed before the installer, app restarts at 0.7.0 with the vault intact.
-- [ ] Tampered installer / wrong key / URL outside `bs135/xpass/releases/download/` / older version → refused,
-      nothing installed.
+      (T39: done with a 0.6.9 test build as the target.)
+- [x] Tampered installer / wrong key / URL outside `bs135/xpass/releases/download/` / older version → refused,
+      nothing installed. (Tampered installer, other key and signed-version mismatch by hand; URL and version by
+      the `update.rs` tests.)
 - [ ] Offline → `update_failed`, app unaffected. Startup check off (default) → no request at start.
-- [ ] WebView cannot call `plugin:updater|*`.
+- [x] WebView cannot call `plugin:updater|*`.
 
 Update (real, after the release)
-- [ ] v0.7.0 release has both installers, their `.sig`, `latest.json`, SBOMs, `SHA256SUMS.txt`;
+- [x] v0.7.0 release has both installers, their `.sig`, `latest.json`, SBOMs, `SHA256SUMS.txt`;
       `gh attestation verify` passes for both installers.
-- [ ] v0.6.1 → v0.7.0 by hand over an existing install keeps vault and settings.
+- [x] v0.6.1 → v0.7.0 by hand over an existing install keeps vault and settings.
+- [x] The 0.6.9 test build (real public key) updated in-app to the released v0.7.0.
 - [ ] **Next release** (v0.7.1 / v0.8.0): v0.7.0 NSIS install and v0.7.0 MSI install each update in-app.
 
 Crash dumps
-- [ ] Debug crash trigger while unlocked → no dump / report with heap; uninstall removes the WER exclusion value.
+- [x] Debug crash trigger while unlocked → no dump / report with heap (T40: no dump, report or event).
+- [ ] Uninstall removes the WER exclusion value (NSIS hook is in the installer; not uninstalled by hand yet).
 
 Code signing
-- [ ] v0.7.0 installers, the installed `xpass.exe` and the uninstaller: `Get-AuthenticodeSignature` shows the
-      published thumbprint and a timestamp; status "not trusted" as documented.
+- [x] v0.7.0 installers, the installed `xpass.exe` and the uninstaller: `Get-AuthenticodeSignature` shows the
+      published thumbprint and a timestamp; status "not trusted" as documented. (Release workflow check on the
+      installers and the exe files inside the NSIS installer.)
 - [ ] SmartScreen behaviour matches the README (still warns).
 - [ ] The in-app update to the next release installs a signed build (thumbprint checked after the update).
 
 History rewrite
-- [ ] Rotate, then remove old versions: one commit left, both PCs keep syncing, no edit lost (concurrent edit on
+- [x] Rotate, then remove old versions: one commit left, both PCs keep syncing, no edit lost (concurrent edit on
       the second PC during the rewrite included).
-- [ ] Force push blocked by a ruleset → refusal, nothing changed.
+- [x] Force push blocked by a ruleset → refusal, nothing changed.
 
 Baseline
-- [ ] Release build: capabilities file and CSP unchanged, only `tauri-plugin-updater` added, devtools off.
-- [ ] Scheduled `fuzz.yml` run green; `audit` job green with the new crates.
+- [x] Release build: capabilities file and CSP unchanged, only `tauri-plugin-updater` added, devtools off.
+- [x] `audit` job green with the new crates.
+- [ ] Scheduled `fuzz.yml` run green (first scheduled run on a Sunday after the release).
 
 ## Out of scope
 
