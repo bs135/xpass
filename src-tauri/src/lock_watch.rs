@@ -36,6 +36,8 @@ pub enum LockReason {
     Suspend,
     Minimized,
     Exit,
+    /// An update is about to be installed (the app then ends).
+    Update,
 }
 
 #[derive(Clone, Serialize)]

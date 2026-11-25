@@ -216,7 +216,7 @@ async fn sync(app: &AppHandle, state: &AppState, schedule: &mut Schedule) {
 }
 
 /// S8 on lock. Errors are ignored: the changes stay local and the next unlock syncs.
-async fn push_locked(state: &AppState) {
+pub(crate) async fn push_locked(state: &AppState) {
     if let Ok(Some(store)) = state.sync_store() {
         let _ = tokio::time::timeout(LOCK_PUSH_TIMEOUT, state.push_locked(&store)).await;
     }

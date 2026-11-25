@@ -46,7 +46,7 @@
     "license": "Giấy phép",
     "projectPage": "Trang dự án trên GitHub",
     "rotateExplainHello": "Windows Hello sẽ bị tắt. Bạn có thể thiết lập lại ngay sau đó.",
-    "rotateExplainSync": "Đồng bộ đang bật: vault mới được tải lên GitHub trước, nên cần có kết nối. Các máy khác sẽ hỏi mật khẩu chính một lần."
+    "rotateExplainSync": "Đồng bộ đang bật: vault mới được tải lên GitHub trước, nên cần có kết nối. Các máy khác sẽ hỏi mật khẩu chính một lần. Các phiên bản cũ vẫn còn trong lịch sử repository cho tới khi bạn xoá chúng."
   },
   "theme": {
     "system": "Theo hệ thống",
@@ -130,7 +130,8 @@
     "sessionLocked": "Đã tự khoá vì Windows bị khoá.",
     "displayOff": "Đã tự khoá vì màn hình tắt (máy ngủ hoặc hết thời gian chờ màn hình).",
     "suspend": "Đã tự khoá vì máy chuyển sang chế độ ngủ.",
-    "minimized": "Đã tự khoá vì xPass bị thu nhỏ hoặc ẩn."
+    "minimized": "Đã tự khoá vì xPass bị thu nhỏ hoặc ẩn.",
+    "update": "Đã khoá để cài bản cập nhật."
   },
   "recovery": {
     "title": "Mở khoá bằng mã khôi phục",
@@ -239,6 +240,8 @@
     "sync_failed": "Đồng bộ với GitHub thất bại. Hãy thử lại.",
     "sync_remote_missing": "Không có vault ở đường dẫn này trên GitHub.",
     "sync_required": "Cần đồng bộ thành công với GitHub trước. Kiểm tra kết nối và trạng thái đồng bộ rồi thử lại. Chưa có gì bị thay đổi.",
+    "history_rewrite_refused": "GitHub từ chối thay branch: branch protection hoặc ruleset đang chặn force push. Chưa có gì bị thay đổi. Hãy cho phép force push trên branch này, hoặc tự xoá các phiên bản cũ trên GitHub.",
+    "history_rewrite_failed": "Branch đã được thay, nhưng không xác nhận được vault trên GitHub. Đồng bộ sẽ chạy lại ngay; hãy kiểm tra trạng thái đồng bộ.",
     "import_too_large": "Tệp quá lớn để nhập (tối đa {{mb}} MB và {{rows}} dòng).",
     "import_invalid_csv": "Tệp này không phải là tệp CSV hợp lệ.",
     "import_invalid_csv_line": "Tệp này không phải là tệp CSV hợp lệ (lỗi gần dòng {{line}}).",
@@ -246,7 +249,8 @@
     "import_empty": "Tệp này không có mục nào để nhập.",
     "import_expired": "Lần nhập đã bị hủy vì vault bị khóa hoặc đã quá 10 phút. Hãy mở lại tệp.",
     "dialog_failed": "Không mở được hộp thoại chọn tệp. Vui lòng thử lại.",
-    "update_failed": "Không kiểm tra được bản cập nhật. Hãy kiểm tra kết nối rồi thử lại."
+    "update_failed": "Không kiểm tra hoặc tải được bản cập nhật. Hãy kiểm tra kết nối rồi thử lại.",
+    "update_signature": "Bản cập nhật bị từ chối: chữ ký, phiên bản hoặc địa chỉ tải không khớp. Chưa có gì được cài. Hãy lấy bản mới từ trang phát hành."
   },
   "about": {
     "version": "Phiên bản {{version}} · định dạng vault v{{format}}"
@@ -340,6 +344,26 @@
       "needsPassword": "Đồng bộ đã dừng: khoá vault đã được đổi trên máy khác. Cần nhập mật khẩu chính.",
       "differentVault": "Đồng bộ đã dừng: GitHub đang chứa một vault khác ở đường dẫn này.",
       "error": "Đồng bộ thất bại; sẽ thử lại."
+    },
+    "history": {
+      "title": "Xoá các phiên bản cũ trên GitHub",
+      "intro": "Mỗi lần đồng bộ thêm một phiên bản của vault (đã mã hoá) vào lịch sử repository. Sau khi đổi khoá vault, các phiên bản cũ vẫn mở được bằng mật khẩu chính hoặc khoá khôi phục cũ. Chức năng này xoá chúng khỏi branch.",
+      "button": "Xoá các phiên bản cũ",
+      "explain": [
+        "Branch {{branch}} được thay bằng một commit duy nhất chứa các file hiện tại. Mọi phiên bản cũ của vault bị xoá khỏi branch.",
+        "Vault của bạn và các máy khác không bị ảnh hưởng: chúng vẫn đồng bộ như trước.",
+        "Máy này phải đang đồng bộ với GitHub và không có thay đổi nào đang chờ tải lên."
+      ],
+      "limits": "Những gì chức năng này không làm được: trong một thời gian, GitHub vẫn có thể trả về phiên bản cũ cho người biết commit ID của nó; các fork, bản clone và cache vẫn giữ bản của họ. Muốn xoá hết dấu vết phải nhờ GitHub Support.",
+      "otherFiles_one": "Branch có {{count}} file khác. File vẫn giữ nguyên, nhưng lịch sử của nó cũng bị xoá:",
+      "otherFiles_other": "Branch có {{count}} file khác. Các file vẫn giữ nguyên, nhưng lịch sử của chúng cũng bị xoá:",
+      "more_one": "và {{count}} file nữa",
+      "more_other": "và {{count}} file nữa",
+      "useHello": "Dùng Windows Hello",
+      "confirm": "Xoá các phiên bản cũ",
+      "done": "Xong. Branch {{branch}} giờ chỉ còn một commit chứa vault hiện tại.",
+      "single": "Branch {{branch}} đã chỉ có một commit. Không có gì để xoá.",
+      "afterRotate": "Đồng bộ đang bật: các phiên bản mã hoá bằng khoá cũ vẫn còn trong lịch sử repository trên GitHub. Hãy xoá chúng ngay."
     }
   },
   "join": {
@@ -518,12 +542,20 @@
   "update": {
     "check": "Kiểm tra cập nhật",
     "checking": "Đang kiểm tra…",
-    "upToDate": "xPass đang ở phiên bản mới nhất.",
+    "upToDate": "xPass đang là bản mới nhất.",
     "available": "Đã có phiên bản {{version}}.",
+    "published": "Phát hành {{date}}",
+    "notes": "Có gì mới",
     "openRelease": "Mở trang phát hành",
-    "lastChecked": "Kiểm tra lần cuối: {{date}}",
+    "install": "Cài đặt và khởi động lại",
+    "downloading": "Đang tải… {{percent}}%",
+    "downloadingBytes": "Đang tải… {{mb}} MB",
+    "installing": "Đang mở trình cài đặt…",
+    "confirmTitle": "Cài phiên bản {{version}}?",
+    "confirmMessage": "xPass tải bản cập nhật và kiểm tra chữ ký. Sau đó xPass khoá vault, gửi các thay đổi chưa đồng bộ lên GitHub rồi đóng lại; trình cài đặt thay ứng dụng và mở lại. Bạn mở khoá bằng mật khẩu hoặc Windows Hello như thường lệ.",
+    "lastChecked": "Lần kiểm tra cuối: {{date}}",
     "onStartup": "Kiểm tra cập nhật khi mở xPass (tối đa mỗi ngày một lần)",
-    "hint": "xPass chỉ hỏi GitHub số phiên bản mới nhất. Không tải hay cài đặt gì: hãy lấy bản mới từ trang phát hành.",
+    "hint": "Việc kiểm tra chỉ đọc phiên bản mới nhất và dữ liệu phát hành đã ký từ GitHub. Không tải hay cài gì cho đến khi bạn chọn Cài đặt và khởi động lại.",
     "badge": "Cài đặt (có bản cập nhật)"
   }
 }

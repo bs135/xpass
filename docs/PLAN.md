@@ -5,6 +5,7 @@ Status: **approved** (2026-11-16). Inputs: [IDEA.md](IDEA.md) (decisions) and th
 
 Each milestone is a runnable, releasable app. MVP = **v0.1 → v0.4**, complete with v0.4.0 (2026-11-18).
 v0.5 (import / export, password history) done 2026-11-24. v0.6 (hardening, update check) done 2026-11-24.
+v0.7 (signed updates, code signing, crash dumps, history rewrite, SBOM) done 2026-11-25.
 
 ---
 
@@ -27,7 +28,10 @@ v0.5 (import / export, password history) done 2026-11-24. v0.6 (hardening, updat
   read-only custom fields.
 - v0.6 (done): threat model and self-review, dependency audit in CI, fuzzing, page-locked vault key, update
   check, release process with a protected `main`, installer notes.
-- v0.7 → 1.0: signed auto-update, code signing, crash-dump exclusion, history rewrite, third-party review.
+- v0.7 (done): signed in-app update, self-signed Authenticode, WER exclusion, sync history rewrite, SBOM and
+  build provenance, weekly fuzzing.
+- v0.8 → 1.0: third-party review and what it needs (frozen format spec, `SECURITY.md`); optionally a publicly
+  trusted code-signing certificate.
 - Later: auto-type (global hotkey), TOTP codes, password health (weak/reused), editing custom fields, Touch ID
   (macOS).
 
@@ -134,9 +138,9 @@ Frontend never holds the VaultKey; it receives passwords only for an explicit re
 | Tools | `generate_password(opts)`, `password_strength(pw)` |
 | Security | `change_password`, `rotate_vault_key`, `show_recovery_kit`, `hello_status`, `hello_enable`, `hello_disable` |
 | Sync setup | `sync_get_config`, `sync_configure`, `sync_set_token`, `sync_disconnect`, `sync_test_connection`, `sync_open_token_page` |
-| Sync | `sync_status`, `sync_now`, `sync_dismiss_password_changed`, `sync_join`, `sync_resolve_key_change`, `sync_replace_local`; events `sync://status`, `vault://changed` |
+| Sync | `sync_status`, `sync_now`, `sync_dismiss_password_changed`, `sync_join`, `sync_resolve_key_change`, `sync_replace_local`, `sync_history_preview` (branch, other files), `sync_rewrite_history(auth)` → `{ rewritten, otherFiles }`; events `sync://status`, `vault://changed` |
 | Backups | `list_backups`, `restore_backup` |
-| App | `get_settings`, `update_settings`, `app_info`, `open_project_page`, `check_update`, `update_status`, `open_release_page`; event `update://status` |
+| App | `get_settings`, `update_settings`, `app_info`, `open_project_page`, `check_update` (from the signed `latest.json`), `update_status`, `install_update` (download → verify → lock → push → install), `open_release_page`; events `update://status`, `update://progress` |
 
 ---
 
@@ -233,15 +237,29 @@ Done in T30–T37; decisions H1–H12, as-built notes and the manual checklist: 
 - Release: version bumped in the release PR (`npm run release:prepare`), the workflow only tags, so `main` can be
   protected; `SHA256SUMS.txt` per release; NSIS installer per user in English / Vietnamese; `spikes/` removed.
 
-### v0.7 → v1.0 — Release (outline)
+### v0.7 — Trusted updates (size: M, ~2 weeks)
 
-Planned in its own `plan-v0.7.0.md` when it starts (v0.6 plan H1):
+Done in T38–T44; decisions U1–U14, as-built notes and the manual checklist: [plan-v0.7.0.md](plan-v0.7.0.md).
 
-- Signed auto-update (`tauri-plugin-updater` and an update signing key) replacing the notify-only check.
-- Authenticode code signing of the installers.
-- Exclude the process from Windows Error Reporting dumps while unlocked.
-- Optional git-history rewrite after a suspected compromise (IDEA §3.3).
-- Scheduled fuzzing, SBOM, a third-party security review before 1.0.
+- Signed in-app update: `tauri-plugin-updater` from Rust only (no capability), minisign key owned by the
+  repository owner, `latest.json` + `.sig` per release, URL / version checks, install only after a click, vault
+  locked and pushed first. v0.6.x users install v0.7.0 by hand once.
+- Self-signed Authenticode on every binary (published thumbprint, timestamp); releases are drafts until the
+  signature and updater checks pass.
+- WER exclusion: no heap in reports, process excluded per user, `LockedKey` pages excluded.
+- Settings → Sync → **Remove old versions from GitHub** (parentless commit, forced ref update, re-auth); the sync
+  engine now merges instead of adopting a remote that lacks local entries.
+- Per release: CycloneDX SBOMs and build provenance attestations; weekly fuzzing with a cached corpus.
+
+### v0.8 → v1.0 — Release (outline)
+
+Planned in its own plan when it starts (v0.7 plan U1, U8, U14):
+
+- Before 1.0: a frozen format v1 spec (`docs/FORMAT.md` from `spikes/vault-format.md`), `SECURITY.md` with
+  supported versions, private vulnerability reporting, the threat model up to date, and a third-party review
+  (scope: xpass-core crypto, format and sync, the IPC boundary, the update chain; reviewer to be chosen).
+- Optional: a publicly trusted code-signing certificate if SmartScreen matters (options in v0.7 plan U8).
+- The first in-app update (v0.7.0 → next release) is the real test of the update path for NSIS and MSI installs.
 
 ---
 
@@ -249,7 +267,7 @@ Planned in its own `plan-v0.7.0.md` when it starts (v0.6 plan H1):
 
 | Layer | How |
 |---|---|
-| `xpass-core` | Unit tests ported from spikes (format, tamper, rotation, merge algebra, races, offline); golden vector freezes format v1; `cargo-fuzz` targets `parse`, `unlock_hello`, `recovery_decode` (on demand), seeds and regressions replayed by `cargo test`. |
+| `xpass-core` | Unit tests ported from spikes (format, tamper, rotation, merge algebra, races, offline, remote moved back); golden vector freezes format v1; `cargo-fuzz` targets `parse`, `unlock_hello`, `recovery_decode` (weekly and on demand, corpus kept between runs), seeds and regressions replayed by `cargo test`. |
 | Sync | Engine tests with `MemoryStore`; manual two-device checklist against a private test repo each release touching sync. |
 | Tauri commands | Rust tests on command handlers with a temp app dir. |
 | Windows-specific | Manual checklist per release: Hello enroll/unlock/reset, clipboard history exclusion, lock triggers, tray. |
@@ -271,8 +289,11 @@ Planned in its own `plan-v0.7.0.md` when it starts (v0.6 plan H1):
 | VaultKey rotated while another PC has unsynced edits | Edits encrypted with a discarded key | Rotation only online with sync on (S6); the other PC merges after the password prompt (S7). |
 | Restored backup loses to newer copies on other PCs | Restore undone by the next sync | Restore is a new edit with fresh timestamps (S14). |
 | Clock skew | Wrong LWW winner | D2 + history copy (D1). |
-| Fake "update available" (GitHub account or API compromised) | User tricked into a bad download | The check only shows a version and opens a fixed `github.com/bs135/xpass/releases/` page; nothing is downloaded or installed; `SHA256SUMS.txt` per release (v0.6). Signed updater later. |
-| Unsigned installer | SmartScreen warning; a swapped download is not detected by signature | Checksums per release and README steps (v0.6); code signing in v0.7+. |
+| Fake or tampered update | A bad installer runs with the user's rights | Minisign signature against the key in the app, signed version, URL and version checks, install only after a click (v0.7). |
+| Update signing key lost or leaked | No more in-app updates, or a signed malicious update (THREAT_MODEL A11) | Key with a password, offline backup, environment secret used only by the release job on protected `main`; a new key means one manual reinstall, announced in README and release notes (v0.7). |
+| Self-signed installer | SmartScreen still warns; the signature means something only to someone who checks the thumbprint | Thumbprint published in README, `docs/codesign/` and each release; checksums, SBOMs and attestations per release (v0.7). |
+| History rewrite drops a concurrent push | An edit from another PC disappears from GitHub | Head re-checked before the forced update; the other PC merges its edit back on its next sync, also when it had no local changes left (v0.7). |
+| History rewrite on a branch with other files | Their history is removed too | The dialog lists the other files before the user confirms (v0.7). |
 | Uninstaller "delete application data" ticked | Local vault and backups deleted | Off by default; README warns; GitHub copy survives when sync is on (v0.6). |
 | Plaintext CSV export left on disk or synced to a cloud folder | All passwords readable | Warning + "I understand" checkbox, re-auth, written only to the chosen path (temp + rename, never `%TEMP%`); KDBX export offered first (v0.5). |
 | Hostile or malformed CSV during import | Crash, memory blow-up, data from the file in errors | 10 MB / 10 000-row limits checked before parsing, UTF-8 only, parser in pure Rust, errors without file content; nothing is written before the user confirms the preview (v0.5). |

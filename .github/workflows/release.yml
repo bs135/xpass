@@ -8,6 +8,13 @@ name: Release
 # the release. A merge without a version bump releases nothing.
 # Needs "Settings > Actions > General > Workflow permissions" = "Read and write
 # permissions" (tag and release creation).
+# The build job runs in the `release` environment, which holds the update signing
+# key (TAURI_SIGNING_PRIVATE_KEY / _PASSWORD, created and kept by the owner, v0.7
+# plan U4); `verify-updater` checks the published `.sig` files and latest.json
+# against the public key in src-tauri/tauri.conf.json. The same environment holds the
+# self-signed Authenticode certificate (WINDOWS_CERTIFICATE = base64 PFX,
+# WINDOWS_CERTIFICATE_PASSWORD; plan U8). The release is created as a draft and only
+# published by `publish` once the Authenticode and updater checks have passed.
 
 on:
   push:
@@ -28,6 +35,7 @@ jobs:
       contents: write
     outputs:
       new_tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
       notes: ${{ steps.notes.outputs.notes }}
       released: ${{ steps.version.outputs.release }}
     steps:
@@ -79,21 +87,31 @@ jobs:
           {
             echo "notes<<XPASS_NOTES_EOF"
             node scripts/release-prepare.mjs --notes "$VERSION"
+            thumbprint=$(node -p "require('./src-tauri/tauri.release.conf.json').bundle.windows.certificateThumbprint")
+            echo
+            echo "Installers are signed with the self-signed xPass certificate, thumbprint \`${thumbprint}\`"
+            echo "(see the README, \"Check the download\")."
             echo "XPASS_NOTES_EOF"
           } >> "$GITHUB_OUTPUT"
 
   build-and-release:
-    name: Build (Windows x64)
+    name: Build, sign and release (Windows x64)
     needs: tag-release
-    if: always() && !cancelled() && ((github.event_name == 'push' && needs.tag-release.result == 'success' && needs.tag-release.outputs.released == 'true') || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'push' && needs.tag-release.outputs.released == 'true'
+    # Holds the update signing key (v0.7 plan U4). Only this job uses the environment;
+    # secrets are never exposed to pull requests.
+    environment: release
     permissions:
       contents: write
+      # Build provenance and SBOM attestations (v0.7 plan U12).
+      id-token: write
+      attestations: write
     runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event_name == 'push' && needs.tag-release.outputs.new_tag || github.ref }}
+          ref: ${{ needs.tag-release.outputs.new_tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
@@ -110,24 +128,133 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # A release without the key would ship installers the in-app updater cannot
+      # verify (v0.7 plan U5): fail early and say why.
+      - name: Check signing secrets
+        shell: pwsh
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          CERT: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:KEY) -or [string]::IsNullOrWhiteSpace($env:KEY_PASSWORD)) {
+            throw "TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD must be set in the 'release' environment"
+          }
+          if ([string]::IsNullOrWhiteSpace($env:CERT) -or [string]::IsNullOrWhiteSpace($env:CERT_PASSWORD)) {
+            throw "WINDOWS_CERTIFICATE and WINDOWS_CERTIFICATE_PASSWORD must be set in the 'release' environment"
+          }
+
+      # Authenticode (v0.7 plan U8): the PFX goes into the runner's CurrentUser\My store
+      # only for the build; tauri signs xpass.exe, the NSIS installer and uninstaller and
+      # the MSI with it (signtool, by thumbprint) before computing the updater `.sig`s.
+      - name: Import code-signing certificate
+        shell: pwsh
+        env:
+          CERT: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $expected = node -p "require('./src-tauri/tauri.release.conf.json').bundle.windows.certificateThumbprint"
+          $pfx = Join-Path $env:RUNNER_TEMP 'codesign.pfx'
+          try {
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT))
+            $password = ConvertTo-SecureString $env:CERT_PASSWORD -AsPlainText -Force
+            $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          } finally {
+            Remove-Item $pfx -Force -ErrorAction SilentlyContinue
+          }
+          if ($cert.Thumbprint -ne $expected) {
+            throw "WINDOWS_CERTIFICATE has thumbprint $($cert.Thumbprint), tauri.release.conf.json expects $expected"
+          }
+          "Imported certificate $($cert.Thumbprint)"
+
+      # tauri.release.conf.json turns on createUpdaterArtifacts: each installer gets a
+      # minisign `.sig`, and tauri-action uploads them with `latest.json`, the manifest
+      # the in-app updater reads from .../releases/latest/download/latest.json.
       - name: Build and release
-        if: github.event_name == 'push'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ needs.tag-release.outputs.new_tag }}
           releaseName: ${{ needs.tag-release.outputs.new_tag }}
           releaseBody: ${{ needs.tag-release.outputs.notes }}
-          releaseDraft: false
+          # Published by the `publish` job after the checks.
+          releaseDraft: true
           prerelease: false
+          args: --config src-tauri/tauri.release.conf.json
+          includeUpdaterJson: true
+          # Per-user NSIS updates need no administrator prompt (v0.7 plan U3).
+          updaterJsonPreferNsis: true
           assetNamePattern: "[name]_[version]_[platform]_[arch][setup][ext]"
 
-      # Builds are not code-signed yet: publish SHA-256 checksums of the installers as
-      # they were uploaded (names and bytes from the release itself), so a download can
-      # be checked with `Get-FileHash` (v0.6 plan H11).
+      - name: Remove code-signing certificate
+        if: always()
+        shell: pwsh
+        run: |
+          $thumbprint = node -p "require('./src-tauri/tauri.release.conf.json').bundle.windows.certificateThumbprint"
+          Get-ChildItem Cert:\CurrentUser\My | Where-Object Thumbprint -eq $thumbprint | Remove-Item -DeleteKey -ErrorAction SilentlyContinue
+          if (Get-ChildItem Cert:\CurrentUser\My | Where-Object Thumbprint -eq $thumbprint) { throw 'certificate still in the store' }
+
+      # Checks the uploaded installers (and the exe files inside the NSIS one) carry the
+      # expected Authenticode signature and a timestamp (scripts/verify-authenticode.ps1).
+      - name: Verify Authenticode signatures
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.tag-release.outputs.new_tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = Join-Path $env:RUNNER_TEMP 'signed-assets'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --dir $dir --pattern '*.exe' --pattern '*.msi'
+          if ($LASTEXITCODE -ne 0) { throw 'gh release download failed' }
+          $thumbprint = node -p "require('./src-tauri/tauri.release.conf.json').bundle.windows.certificateThumbprint"
+          ./scripts/verify-authenticode.ps1 -Thumbprint $thumbprint -Path $dir
+
+      - name: Install cargo-cyclonedx
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-cyclonedx
+
+      # CycloneDX SBOMs of what ships (v0.7 plan U12): the Rust crates of the app for the
+      # Windows target without build-time dependencies, and the npm packages bundled
+      # into the frontend (no dev dependencies).
+      - name: Generate and upload SBOMs
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.tag-release.outputs.new_tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = $env:TAG.TrimStart('v')
+          $dir = Join-Path $env:RUNNER_TEMP 'sbom'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          cargo cyclonedx --manifest-path src-tauri/Cargo.toml --format json --spec-version 1.5 `
+            --target x86_64-pc-windows-msvc --no-build-deps --override-filename xpass-sbom -q
+          if ($LASTEXITCODE -ne 0) { throw 'cargo cyclonedx failed' }
+          $rust = Join-Path $dir "xpass_${version}_sbom-rust.cdx.json"
+          Move-Item src-tauri/xpass-sbom.json $rust
+          # cargo-cyclonedx writes one file per workspace member; the app's covers them all.
+          Remove-Item crates/xpass-core/xpass-sbom.json, crates/xpass-interop/xpass-sbom.json -ErrorAction SilentlyContinue
+          $npm = Join-Path $dir "xpass_${version}_sbom-npm.cdx.json"
+          npm sbom --sbom-format cyclonedx --omit dev | Set-Content -LiteralPath $npm -Encoding utf8NoBOM
+          if ($LASTEXITCODE -ne 0) { throw 'npm sbom failed' }
+          foreach ($file in $rust, $npm) {
+            $bom = Get-Content -Raw $file | ConvertFrom-Json
+            if ($bom.bomFormat -ne 'CycloneDX' -or $bom.components.Count -lt 1) { throw "$file is not a CycloneDX SBOM" }
+            "$(Split-Path $file -Leaf): $($bom.components.Count) components"
+          }
+          gh release upload $env:TAG $rust $npm --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'gh release upload failed' }
+
+      # SHA-256 checksums of the installers and SBOMs as they were uploaded (names and
+      # bytes from the release itself), so a download can be checked with `Get-FileHash`
+      # (v0.6 plan H11); the self-signed signature is only checked by thumbprint.
       - name: Publish SHA256SUMS.txt
-        if: github.event_name == 'push'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -136,10 +263,10 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $dir = Join-Path $env:RUNNER_TEMP 'release-assets'
           New-Item -ItemType Directory -Force $dir | Out-Null
-          gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --dir $dir --pattern '*.exe' --pattern '*.msi'
+          gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --dir $dir --pattern '*.exe' --pattern '*.msi' --pattern '*.cdx.json'
           if ($LASTEXITCODE -ne 0) { throw 'gh release download failed' }
           $files = Get-ChildItem $dir -File | Sort-Object Name
-          if ($files.Count -eq 0) { throw 'no installers found in the release' }
+          if (-not ($files | Where-Object Extension -in '.exe', '.msi')) { throw 'no installers found in the release' }
           $lines = $files | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" }
           $sums = Join-Path $env:RUNNER_TEMP 'SHA256SUMS.txt'
           # LF line endings, no BOM: the format `sha256sum -c` reads.
@@ -148,14 +275,101 @@ jobs:
           gh release upload $env:TAG $sums --repo $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { throw 'gh release upload failed' }
 
-      - name: Build app bundles
-        if: github.event_name == 'workflow_dispatch'
-        uses: tauri-apps/tauri-action@v0
+      # Signed statements, stored by GitHub, that these exact installers were built by
+      # this workflow from this commit, and which SBOM describes them. Anyone can check
+      # a download with `gh attestation verify <file> --repo bs135/xpass`.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            ${{ runner.temp }}/release-assets/*.exe
+            ${{ runner.temp }}/release-assets/*.msi
+
+      - name: Attest Rust SBOM
+        uses: actions/attest-sbom@v4
+        with:
+          subject-path: |
+            ${{ runner.temp }}/release-assets/*.exe
+            ${{ runner.temp }}/release-assets/*.msi
+          sbom-path: ${{ runner.temp }}/sbom/xpass_${{ needs.tag-release.outputs.version }}_sbom-rust.cdx.json
+
+      - name: Attest npm SBOM
+        uses: actions/attest-sbom@v4
+        with:
+          subject-path: |
+            ${{ runner.temp }}/release-assets/*.exe
+            ${{ runner.temp }}/release-assets/*.msi
+          sbom-path: ${{ runner.temp }}/sbom/xpass_${{ needs.tag-release.outputs.version }}_sbom-npm.cdx.json
+
+  # Checks the published updater artifacts against the public key committed in
+  # tauri.conf.json (v0.7 plan U5): a secret that does not match the committed key,
+  # a missing `.sig` or a manifest pointing anywhere else turns the run red.
+  verify-updater:
+    name: Verify updater artifacts
+    needs: [tag-release, build-and-release]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.tag-release.outputs.new_tag }}
+
+      - name: Install minisign
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq minisign
+
+      - name: Check latest.json and signatures
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.tag-release.outputs.new_tag }}
+        run: bash scripts/verify-updater-artifacts.sh "$TAG" src-tauri/tauri.conf.json
+
+  # The draft release becomes public (and `latest`, which the in-app updater reads)
+  # only after the Authenticode and updater checks passed.
+  publish:
+    name: Publish release
+    needs: [tag-release, build-and-release, verify-updater]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.tag-release.outputs.new_tag }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+
+  # Manual build without publishing: no environment, no signing key, unsigned bundles.
+  build-artifacts:
+    name: Build (Windows x64, no release)
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build app bundles
+        uses: tauri-apps/tauri-action@v0
 
       - name: Upload artifacts
-        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
           name: xpass-windows-x64

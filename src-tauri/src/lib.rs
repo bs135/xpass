@@ -1,11 +1,13 @@
 mod clipboard;
 mod commands;
+mod crash_dump;
 mod entries;
 mod error;
 mod file_dialog;
 mod generator;
 mod github;
 mod hello;
+mod history;
 mod lock_watch;
 mod paths;
 mod secrets;
@@ -28,11 +30,15 @@ use crate::{clipboard::SecureClipboard, lock_watch::LockReason, paths::Paths, st
 
 pub fn run() {
     install_panic_hook();
+    crash_dump::install();
     tauri::Builder::default()
         // Must be the first plugin: a second launch focuses the running app instead.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             tray::show_main(app)
         }))
+        // Signed in-app update (v0.7 plan U2): driven from `update.rs`; no capability
+        // grants the WebView any of the plugin's own commands.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let paths = data_dir_override().map_or_else(|| Paths::from_app(app.handle()), |dir| Ok(Paths::new(dir)))?;
             let overridden = data_dir_override().is_some();
@@ -48,6 +54,7 @@ pub fn run() {
             tray::setup(app)?;
             sync_worker::start(app.handle().clone());
             update::start(app.handle().clone());
+            crash_dump::start_crash_test(app.handle().clone());
             Ok(())
         })
         .on_window_event(tray::on_window_event)
@@ -56,6 +63,7 @@ pub fn run() {
             commands::open_project_page,
             update::check_update,
             update::update_status,
+            update::install_update,
             update::open_release_page,
             commands::session::vault_status,
             commands::session::create_vault,
@@ -82,6 +90,8 @@ pub fn run() {
             commands::sync::sync_join,
             commands::sync::sync_resolve_key_change,
             commands::sync::sync_replace_local,
+            commands::sync::sync_history_preview,
+            commands::sync::sync_rewrite_history,
             commands::backups::list_backups,
             commands::backups::restore_backup,
             commands::import::import_open,

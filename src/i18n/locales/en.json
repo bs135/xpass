@@ -46,7 +46,7 @@
     "license": "License",
     "projectPage": "Project page on GitHub",
     "rotateExplainHello": "Windows Hello is turned off. You can set it up again right after.",
-    "rotateExplainSync": "Sync is on: the new vault is uploaded to GitHub first, so this needs a working connection. Your other PCs then ask for the master password once."
+    "rotateExplainSync": "Sync is on: the new vault is uploaded to GitHub first, so this needs a working connection. Your other PCs then ask for the master password once. Older versions stay in the repository history until you remove them."
   },
   "theme": {
     "system": "System",
@@ -130,7 +130,8 @@
     "sessionLocked": "Locked because Windows was locked.",
     "displayOff": "Locked because the screen turned off (sleep or display timeout).",
     "suspend": "Locked because the computer went to sleep.",
-    "minimized": "Locked because xPass was minimized or hidden."
+    "minimized": "Locked because xPass was minimized or hidden.",
+    "update": "Locked to install an update."
   },
   "recovery": {
     "title": "Unlock with recovery key",
@@ -239,6 +240,8 @@
     "sync_failed": "Sync with GitHub failed. Please try again.",
     "sync_remote_missing": "There is no vault at this path on GitHub.",
     "sync_required": "Sync with GitHub must succeed first. Check the connection and the sync status, then try again. Nothing was changed.",
+    "history_rewrite_refused": "GitHub refused to replace the branch: branch protection or a ruleset blocks force pushes. Nothing was changed. Allow force pushes for this branch, or remove the old versions on GitHub yourself.",
+    "history_rewrite_failed": "The branch was replaced, but the vault on GitHub could not be confirmed. Sync runs again now; check the sync status.",
     "import_too_large": "The file is too large to import (at most {{mb}} MB and {{rows}} rows).",
     "import_invalid_csv": "This file is not a valid CSV file.",
     "import_invalid_csv_line": "This file is not a valid CSV file (problem near line {{line}}).",
@@ -246,7 +249,8 @@
     "import_empty": "This file has no entries to import.",
     "import_expired": "The import was cancelled because the vault locked or 10 minutes passed. Open the file again.",
     "dialog_failed": "The file dialog could not be opened. Please try again.",
-    "update_failed": "Could not check for updates. Check the connection and try again."
+    "update_failed": "Could not check for or download the update. Check the connection and try again.",
+    "update_signature": "The update was refused: its signature, version or download address did not match. Nothing was installed. Get the new version from the release page instead."
   },
   "about": {
     "version": "Version {{version}} · vault format v{{format}}"
@@ -340,6 +344,26 @@
       "needsPassword": "Sync stopped: the vault key was changed on another device. Your master password is needed.",
       "differentVault": "Sync stopped: GitHub holds a different vault at this path.",
       "error": "Sync failed; it will be retried."
+    },
+    "history": {
+      "title": "Remove old versions from GitHub",
+      "intro": "Every sync adds a version of the encrypted vault to the repository history. After you rotate the vault key, the older versions still open with the old master password or recovery key. This removes them from the branch.",
+      "button": "Remove old versions",
+      "explain": [
+        "The branch {{branch}} is replaced by a single commit with the current files. Every older version of the vault is removed from it.",
+        "Your vault and the other PCs are not affected: they keep syncing as before.",
+        "This PC must be in sync with GitHub, with no changes waiting to upload."
+      ],
+      "limits": "What this cannot do: GitHub may still serve an old version to someone who knows its commit ID for a while; forks, clones and caches keep their copies. Removing every trace needs GitHub Support.",
+      "otherFiles_one": "The branch has {{count}} other file. It stays, but its history is removed too:",
+      "otherFiles_other": "The branch has {{count}} other files. They stay, but their history is removed too:",
+      "more_one": "and {{count}} more",
+      "more_other": "and {{count}} more",
+      "useHello": "Use Windows Hello",
+      "confirm": "Remove old versions",
+      "done": "Done. The branch {{branch}} now has a single commit with the current vault.",
+      "single": "The branch {{branch}} already has a single commit. There is nothing to remove.",
+      "afterRotate": "Sync is on: the versions encrypted with the old key are still in the GitHub repository history. Remove them now."
     }
   },
   "join": {
@@ -531,10 +555,18 @@
     "checking": "Checking…",
     "upToDate": "xPass is up to date.",
     "available": "Version {{version}} is available.",
+    "published": "Published {{date}}",
+    "notes": "What's new",
     "openRelease": "Open release page",
+    "install": "Install and restart",
+    "downloading": "Downloading… {{percent}}%",
+    "downloadingBytes": "Downloading… {{mb}} MB",
+    "installing": "Starting the installer…",
+    "confirmTitle": "Install version {{version}}?",
+    "confirmMessage": "xPass downloads the update and checks its signature. It then locks the vault, sends unsynced changes to GitHub and closes; the installer replaces the app and starts it again. You unlock with your password or Windows Hello as usual.",
     "lastChecked": "Last checked: {{date}}",
     "onStartup": "Check for updates when xPass starts (at most once a day)",
-    "hint": "xPass only asks GitHub for the latest version number. Nothing is downloaded or installed: get the new version from the release page.",
+    "hint": "The check only reads the latest version and its signed release data from GitHub. Nothing is downloaded or installed until you choose Install and restart.",
     "badge": "Settings (update available)"
   }
 }

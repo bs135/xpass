@@ -1,9 +1,18 @@
 import {type ReactNode, useEffect, useState} from 'react'
-import {ArrowLeft, ExternalLink, RefreshCw} from 'lucide-react'
+import {ArrowLeft, Download, ExternalLink, RefreshCw} from 'lucide-react'
+import {listen} from '@tauri-apps/api/event'
 import {useTranslation} from 'react-i18next'
+import {ConfirmDialog} from '../../components/ConfirmDialog'
 import {NewPasswordForm} from '../../components/NewPasswordForm'
-import {Button, Field, PasswordInput} from '../../components/ui'
-import {api, type AppInfo, AUTO_LOCK_CHOICES, CLIPBOARD_CHOICES} from '../../lib/api'
+import {Alert, Button, Field, PasswordInput} from '../../components/ui'
+import {
+    api,
+    type AppInfo,
+    AUTO_LOCK_CHOICES,
+    CLIPBOARD_CHOICES,
+    EVENT_UPDATE_PROGRESS,
+    type UpdateProgress,
+} from '../../lib/api'
 import {errorMessage} from '../../lib/errors'
 import {THEMES, type Theme} from '../../lib/theme'
 import {useSession} from '../../stores/session'
@@ -17,6 +26,7 @@ import {ImportSettings} from './ImportSettings'
 import {PasswordPrompt} from './PasswordPrompt'
 import {RestoreSettings} from './RestoreSettings'
 import {SyncSettings} from './SyncSettings'
+import {RemoveOldVersions} from './HistoryRewrite'
 
 const selectClass =
     'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900'
@@ -158,6 +168,8 @@ function SecuritySection() {
     const [current, setCurrent] = useState('')
     const [passwordError, setPasswordError] = useState<string | null>(null)
     const [prompt, setPrompt] = useState<'kit' | 'rotate' | null>(null)
+    // After a rotation with sync on, offer to remove the copies under the old key.
+    const [rotatedWithSync, setRotatedWithSync] = useState(false)
     // Remounting the form clears the new-password fields after a change.
     const [formKey, setFormKey] = useState(0)
 
@@ -183,6 +195,7 @@ function SecuritySection() {
     const rotate = async (password: string) => {
         // When Hello was on, the entry list offers to set it up again after the kit.
         const {recoveryKey} = await api.rotateVaultKey(password)
+        setRotatedWithSync(syncOn)
         await refresh().catch(() => undefined)
         await refreshHello().catch(() => undefined)
         showKit(recoveryKey)
@@ -224,6 +237,12 @@ function SecuritySection() {
             <Button variant="danger" onClick={() => setPrompt('rotate')}>
                 {t('settings.rotateButton')}
             </Button>
+            {rotatedWithSync && (
+                <div className="mt-4">
+                    <Alert tone="warning">{t('sync.history.afterRotate')}</Alert>
+                    <RemoveOldVersions/>
+                </div>
+            )}
 
             {prompt === 'kit' && (
                 <PasswordPrompt
@@ -287,45 +306,113 @@ function AboutSection() {
     )
 }
 
-/** Settings → About: update check (Rust asks GitHub; nothing is downloaded or installed). */
+/**
+ * Settings → About: update check and signed in-app update. Rust reads the release
+ * manifest; nothing is downloaded until the user confirms Install and restart.
+ */
 function UpdateCheck() {
     const {t, i18n} = useTranslation()
     const {settings, update} = useUi()
     const {info, set} = useUpdate()
     const show = useToast((s) => s.show)
     const [checking, setChecking] = useState(false)
+    const [confirming, setConfirming] = useState(false)
+    const [installing, setInstalling] = useState(false)
+    const [progress, setProgress] = useState<UpdateProgress | null>(null)
+
+    useEffect(() => {
+        const off = listen<UpdateProgress>(EVENT_UPDATE_PROGRESS, (e) => setProgress(e.payload))
+        return () => void off.then((f) => f())
+    }, [])
 
     const check = () => {
         setChecking(true)
         api.checkUpdate()
             .then(set)
-            .catch((e) => show(errorMessage(t, e), 4000))
+            .catch((e) => show(errorMessage(t, e), 6000))
             .finally(() => setChecking(false))
+    }
+
+    const install = () => {
+        setConfirming(false)
+        setInstalling(true)
+        setProgress(null)
+        // On success the app closes and the installer starts it again.
+        api.installUpdate()
+            .catch((e) => show(errorMessage(t, e), 8000))
+            .finally(() => setInstalling(false))
+    }
+
+    const progressText = () => {
+        if (!progress) return t('update.downloading', {percent: 0})
+        if (progress.total && progress.downloaded >= progress.total) return t('update.installing')
+        if (progress.total) {
+            return t('update.downloading', {percent: Math.floor((progress.downloaded / progress.total) * 100)})
+        }
+        return t('update.downloadingBytes', {mb: (progress.downloaded / 1_048_576).toFixed(1)})
     }
 
     return (
         <div className="mt-4 border-t border-neutral-200 pt-4 dark:border-neutral-800">
             <div className="mb-3 flex flex-wrap items-center gap-3">
-                <Button variant="secondary" disabled={checking} onClick={check}>
+                <Button variant="secondary" disabled={checking || installing} onClick={check}>
                     <RefreshCw className="size-4" aria-hidden/>
                     {checking ? t('update.checking') : t('update.check')}
                 </Button>
                 {info && !info.newer && <span className="text-sm text-neutral-500">{t('update.upToDate')}</span>}
                 {info?.newer && (
-                    <>
-                        <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-                            {t('update.available', {version: info.latest})}
-                        </span>
+                    <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                        {t('update.available', {version: info.latest})}
+                    </span>
+                )}
+            </div>
+            {info?.newer && (
+                <div className="mb-3 rounded-md border border-neutral-200 p-3 dark:border-neutral-800">
+                    {info.date !== null && (
+                        <p className="mb-2 text-xs text-neutral-500">
+                            {t('update.published', {date: new Date(info.date).toLocaleDateString(i18n.language)})}
+                        </p>
+                    )}
+                    {info.notes && (
+                        <>
+                            <p className="mb-1 text-sm font-medium">{t('update.notes')}</p>
+                            {/* Plain text only: notes come from the release and are never rendered as HTML. */}
+                            <pre className="mb-3 max-h-48 overflow-auto font-sans text-sm whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">
+                                {info.notes}
+                            </pre>
+                        </>
+                    )}
+                    <div className="flex flex-wrap items-center gap-3">
+                        <Button disabled={installing} onClick={() => setConfirming(true)}>
+                            <Download className="size-4" aria-hidden/>
+                            {t('update.install')}
+                        </Button>
                         <Button
                             variant="secondary"
+                            disabled={installing}
                             onClick={() => api.openReleasePage().catch((e) => show(errorMessage(t, e), 4000))}
                         >
                             <ExternalLink className="size-4" aria-hidden/>
                             {t('update.openRelease')}
                         </Button>
-                    </>
-                )}
-            </div>
+                    </div>
+                    {installing && (
+                        <div className="mt-3" role="status" aria-live="polite">
+                            <div className="mb-1 h-1.5 w-full overflow-hidden rounded bg-neutral-200 dark:bg-neutral-800">
+                                <div
+                                    className="h-full bg-emerald-600 transition-[width]"
+                                    style={{
+                                        width: progress?.total
+                                            ? `${Math.min(100, (progress.downloaded / progress.total) * 100)}%`
+                                            : '0%',
+                                    }}
+                                />
+                            </div>
+                            <p className="text-xs text-neutral-500">{progressText()}</p>
+                        </div>
+                    )}
+                </div>
+            )}
             {info && (
                 <p className="mb-3 text-xs text-neutral-500">
                     {t('update.lastChecked', {date: new Date(info.checkedAt).toLocaleString(i18n.language)})}
@@ -345,6 +432,15 @@ function UpdateCheck() {
                 {t('update.onStartup')}
             </label>
             <p className="mt-1 text-xs text-neutral-500">{t('update.hint')}</p>
+            {confirming && info?.newer && (
+                <ConfirmDialog
+                    title={t('update.confirmTitle', {version: info.latest})}
+                    message={t('update.confirmMessage')}
+                    confirmLabel={t('update.install')}
+                    onConfirm={install}
+                    onCancel={() => setConfirming(false)}
+                />
+            )}
         </div>
     )
 }

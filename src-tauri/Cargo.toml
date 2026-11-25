@@ -1,6 +1,6 @@
 [package]
 name = "xpass"
-version = "0.6.1"
+version = "0.7.0"
 description = "Zero-knowledge personal password manager"
 edition.workspace = true
 license.workspace = true
@@ -35,6 +35,9 @@ uuid = "1"
 zeroize = { version = "1", features = ["derive"] }
 zxcvbn = "3.1.1"
 tauri-plugin-single-instance = "2"
+# Signed in-app update (v0.7 plan U2): used from Rust only, no capability; rustls, no zip/tar
+# (Windows updates are the installers themselves).
+tauri-plugin-updater = { version = "2.12", default-features = false, features = ["rustls-tls", "system-proxy"] }
 
 [target.'cfg(windows)'.dependencies]
 # WinRT: Windows Hello (KeyCredentialManager); COM: file dialogs.
@@ -54,6 +57,7 @@ windows-sys = { version = "0.61", features = [
     "Win32_Globalization",
     "Win32_Graphics_Gdi",
     "Win32_System_DataExchange",
+    "Win32_System_ErrorReporting",
     "Win32_System_LibraryLoader",
     "Win32_System_Power",
     "Win32_System_RemoteDesktop",

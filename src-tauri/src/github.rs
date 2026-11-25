@@ -6,6 +6,8 @@
 //! - `PUT` the same path with `{message, content (base64), sha?, branch?}`;
 //!   409, and 422 mentioning the sha, mean another device pushed first: `Conflict`.
 //!
+//! - Git Data API (refs, commits, trees) for "Remove old versions" ([`GitData`], U10).
+//!
 //! The token is only ever put into the `Authorization` header. Errors are mapped to
 //! [`StoreError`] codes; reqwest errors and response bodies are never formatted
 //! into messages or logs.
@@ -19,11 +21,14 @@ use url::Url;
 use uuid::Uuid;
 use xpass_core::{
     format,
-    sync::{Remote, RemoteStore, StoreError},
+    sync::{blob_sha, Remote, RemoteStore, StoreError},
 };
 use zeroize::Zeroizing;
 
-use crate::settings::SyncSettings;
+use crate::{
+    history::{BranchHead, GitData, RewriteError, TreeFile},
+    settings::SyncSettings,
+};
 
 const API: &str = "https://api.github.com";
 const API_VERSION: &str = "2022-11-28";
@@ -200,6 +205,189 @@ impl GitHubStore {
             branch_exists,
             remote,
         })
+    }
+}
+
+#[derive(Deserialize)]
+struct RefResponse {
+    object: GitObject,
+}
+
+#[derive(Deserialize)]
+struct GitObject {
+    sha: String,
+}
+
+#[derive(Deserialize)]
+struct CommitResponse {
+    sha: String,
+    tree: GitObject,
+    #[serde(default)]
+    parents: Vec<GitObject>,
+}
+
+#[derive(Deserialize)]
+struct TreeResponse {
+    tree: Vec<TreeItem>,
+    #[serde(default)]
+    truncated: bool,
+}
+
+#[derive(Deserialize)]
+struct TreeItem {
+    path: String,
+    #[serde(rename = "type")]
+    kind: String,
+    sha: String,
+}
+
+fn root_commit_body(tree: &str, message: &str) -> serde_json::Value {
+    serde_json::json!({ "message": message, "tree": tree, "parents": [] })
+}
+
+fn force_ref_body(commit: &str) -> serde_json::Value {
+    serde_json::json!({ "sha": commit, "force": true })
+}
+
+/// Errors of the forced ref update: 409 and 422 are branch protection, a ruleset
+/// ("Cannot force-push to this branch") or another refusal of the update.
+fn classify_force(status: u16, limit: RateLimit, body: &[u8]) -> RewriteError {
+    match status {
+        409 | 422 => RewriteError::Refused,
+        _ => RewriteError::Store(classify(status, limit, body)),
+    }
+}
+
+fn checked_sha(sha: String) -> Result<String, StoreError> {
+    if is_blob_sha(&sha) {
+        Ok(sha)
+    } else {
+        Err(StoreError::InvalidResponse)
+    }
+}
+
+fn now_s() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
+impl GitHubStore {
+    async fn branch_name(&self) -> Result<String, StoreError> {
+        match &self.branch {
+            Some(b) => Ok(b.clone()),
+            None => Ok(self.repo_info().await?.default_branch),
+        }
+    }
+
+    /// `git/<kind>/heads/<branch>`; a branch with `/` keeps its segments.
+    fn ref_url(&self, kind: &str, branch: &str) -> Url {
+        let mut tail = vec!["git", kind, "heads"];
+        tail.extend(branch.split('/'));
+        self.url(&tail)
+    }
+
+    async fn get_json<T: serde::de::DeserializeOwned>(&self, url: Url) -> Result<T, StoreError> {
+        let rb = self
+            .request(Method::GET, url)?
+            .header(header::ACCEPT, "application/vnd.github+json");
+        let resp = self.send(rb).await?;
+        match resp.status() {
+            StatusCode::OK => json(resp).await,
+            _ => Err(error_from(resp).await),
+        }
+    }
+
+    fn json_request(&self, method: Method, url: Url, body: &serde_json::Value) -> Result<RequestBuilder, StoreError> {
+        let body = serde_json::to_vec(body).map_err(|_| StoreError::InvalidResponse)?;
+        Ok(self
+            .request(method, url)?
+            .header(header::ACCEPT, "application/vnd.github+json")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(body))
+    }
+}
+
+impl GitData for GitHubStore {
+    fn vault_path(&self) -> &str {
+        &self.path
+    }
+
+    async fn head(&self) -> Result<BranchHead, RewriteError> {
+        let branch = self.branch_name().await?;
+        let r: RefResponse = self.get_json(self.ref_url("ref", &branch)).await?;
+        let commit = checked_sha(r.object.sha)?;
+        let c: CommitResponse = self.get_json(self.url(&["git", "commits", &commit])).await?;
+        if c.sha != commit {
+            return Err(StoreError::InvalidResponse.into());
+        }
+        Ok(BranchHead {
+            branch,
+            commit,
+            tree: checked_sha(c.tree.sha)?,
+            parents: c.parents.len(),
+        })
+    }
+
+    async fn tree_files(&self, tree: &str) -> Result<Vec<TreeFile>, RewriteError> {
+        let mut url = self.url(&["git", "trees", tree]);
+        url.query_pairs_mut().append_pair("recursive", "1");
+        let t: TreeResponse = self.get_json(url).await?;
+        if t.truncated {
+            // Too many files for one answer: the vault may be missing from it.
+            return Err(StoreError::InvalidResponse.into());
+        }
+        Ok(t.tree
+            .into_iter()
+            .filter(|i| i.kind == "blob")
+            .map(|i| TreeFile {
+                path: i.path,
+                sha: i.sha,
+            })
+            .collect())
+    }
+
+    async fn create_root_commit(&self, tree: &str, message: &str) -> Result<String, RewriteError> {
+        let rb = self.json_request(
+            Method::POST,
+            self.url(&["git", "commits"]),
+            &root_commit_body(tree, message),
+        )?;
+        let resp = self.send(rb).await?;
+        match resp.status() {
+            StatusCode::CREATED | StatusCode::OK => {
+                let c: CommitResponse = json(resp).await?;
+                if c.tree.sha != tree || !c.parents.is_empty() {
+                    return Err(StoreError::InvalidResponse.into());
+                }
+                Ok(checked_sha(c.sha)?)
+            }
+            _ => Err(error_from(resp).await.into()),
+        }
+    }
+
+    async fn force_branch(&self, branch: &str, commit: &str) -> Result<(), RewriteError> {
+        let rb = self.json_request(Method::PATCH, self.ref_url("refs", branch), &force_ref_body(commit))?;
+        let resp = self.send(rb).await?;
+        match resp.status() {
+            StatusCode::OK => {
+                let r: RefResponse = json(resp).await?;
+                if r.object.sha == commit {
+                    Ok(())
+                } else {
+                    Err(RewriteError::Unverified)
+                }
+            }
+            status => {
+                let limit = rate_limit(resp.headers(), now_s());
+                let body = resp.bytes().await.unwrap_or_default();
+                Err(classify_force(status.as_u16(), limit, &body))
+            }
+        }
+    }
+
+    async fn vault_sha(&self) -> Result<Option<String>, RewriteError> {
+        Ok(self.get().await?.map(|r| blob_sha(&r.bytes)))
     }
 }
 
@@ -467,6 +655,55 @@ mod tests {
         assert_eq!(classify_file(&file, Some(v.vault_id())), RemoteFile::SameVault);
         assert_eq!(classify_file(&file, Some(Uuid::nil())), RemoteFile::OtherVault);
         assert_eq!(classify_file(b"# readme", None), RemoteFile::NotAVault);
+    }
+
+    #[test]
+    fn git_data_urls_and_bodies() {
+        let s = store("feature/x", "xpass/vault.xpv");
+        assert_eq!(
+            s.ref_url("ref", "feature/x").as_str(),
+            "https://api.github.com/repos/octo/vault-repo/git/ref/heads/feature/x"
+        );
+        assert_eq!(
+            s.ref_url("refs", "main").as_str(),
+            "https://api.github.com/repos/octo/vault-repo/git/refs/heads/main"
+        );
+        assert_eq!(
+            root_commit_body("t1", "m"),
+            serde_json::json!({"message": "m", "tree": "t1", "parents": []})
+        );
+        assert_eq!(force_ref_body("c2"), serde_json::json!({"sha": "c2", "force": true}));
+    }
+
+    #[test]
+    fn refused_force_updates() {
+        let none = RateLimit::default();
+        let ruleset = br#"{"message":"Repository rule violations found\n\nCannot force-push to this branch"}"#;
+        assert_eq!(classify_force(422, none, ruleset), RewriteError::Refused);
+        assert_eq!(classify_force(409, none, b""), RewriteError::Refused);
+        assert_eq!(
+            classify_force(403, none, b""),
+            RewriteError::Store(StoreError::Forbidden)
+        );
+        assert_eq!(
+            classify_force(401, none, b""),
+            RewriteError::Store(StoreError::Unauthorized)
+        );
+    }
+
+    #[test]
+    fn tree_and_commit_responses_parse() {
+        let t: TreeResponse = serde_json::from_str(
+            r#"{"sha":"x","tree":[{"path":"xpass","type":"tree","sha":"a","mode":"040000"},
+                {"path":"xpass/vault.xpv","type":"blob","sha":"b","size":3,"mode":"100644"}],"truncated":false}"#,
+        )
+        .unwrap();
+        assert_eq!(t.tree.len(), 2);
+        assert!(!t.truncated);
+        let c: CommitResponse =
+            serde_json::from_str(r#"{"sha":"c","tree":{"sha":"t","url":"u"},"parents":[],"message":"m"}"#).unwrap();
+        assert!(c.parents.is_empty());
+        assert_eq!(c.tree.sha, "t");
     }
 
     #[test]
