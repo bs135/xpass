@@ -34,6 +34,9 @@ pub const MIN_SECRET: usize = 10;
 pub const MAX_SECRET: usize = 128;
 /// Longer inputs are refused before parsing.
 pub const MAX_INPUT: usize = 2048;
+/// Issuer and account, in bytes. With the other limits this keeps every
+/// normalized URI (percent-encoding triples a byte) under [`MAX_INPUT`].
+pub const MAX_LABEL: usize = 128;
 
 /// Field names that mark a bare base32 value as a TOTP secret (any case).
 pub const FIELD_NAMES: [&str; 2] = ["TOTP", "OTP"];
@@ -257,8 +260,8 @@ fn parse_uri(input: &str) -> Result<Totp, OtpError> {
     // Key URI format: `issuer:account`, the separator a literal or an encoded colon.
     // A literal one wins, so an account with an encoded colon survives `to_uri`.
     let (label_issuer, account) = match split_label(label) {
-        Some((i, a)) => (non_empty(&decode(i)?), non_empty(&decode(a)?)),
-        None => (None, non_empty(&decode(label)?)),
+        Some((i, a)) => (label_part(&decode(i)?)?, label_part(&decode(a)?)?),
+        None => (None, label_part(&decode(label)?)?),
     };
 
     let mut secret = None;
@@ -271,7 +274,7 @@ fn parse_uri(input: &str) -> Result<Totp, OtpError> {
         let value = decode(value)?;
         match key.to_ascii_lowercase().as_str() {
             "secret" => secret = Some(decode_base32(&value)?),
-            "issuer" => issuer = non_empty(&value),
+            "issuer" => issuer = label_part(&value)?,
             "algorithm" => {
                 algorithm = match value.to_ascii_uppercase().as_str() {
                     "SHA1" => Algorithm::Sha1,
@@ -317,9 +320,14 @@ fn split_label(label: &str) -> Option<(&str, &str)> {
     Some((&label[..at], &label[at + 3..]))
 }
 
-fn non_empty(s: &str) -> Option<String> {
+/// Trimmed issuer or account: `None` when empty; control characters and more
+/// than [`MAX_LABEL`] bytes are refused.
+fn label_part(s: &str) -> Result<Option<String>, OtpError> {
     let s = s.trim();
-    (!s.is_empty()).then(|| s.to_owned())
+    if s.len() > MAX_LABEL || s.chars().any(char::is_control) {
+        return Err(OtpError::BadUri);
+    }
+    Ok((!s.is_empty()).then(|| s.to_owned()))
 }
 
 fn starts_with_ignore_case(s: &str, prefix: &str) -> bool {
@@ -487,6 +495,31 @@ mod tests {
         }
         assert_eq!(Totp::parse(&"A".repeat(MAX_INPUT + 1)).unwrap_err(), OtpError::BadUri);
         assert_eq!(Totp::parse(&"A".repeat(240)).unwrap_err(), OtpError::SecretLength);
+
+        // Labels: control characters and oversized issuer / account (fuzz finding:
+        // NUL bytes grew past MAX_INPUT once percent-encoded by `to_uri`).
+        let b32 = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+        for input in [
+            format!("otpauth://totp/a%00b?secret={b32}"),
+            format!("otpauth://totp/x?secret={b32}&issuer=a%0Ab"),
+            format!("otpauth://totp/{}?secret={b32}", "a".repeat(MAX_LABEL + 1)),
+            format!("otpauth://totp/x?secret={b32}&issuer={}", "a".repeat(MAX_LABEL + 1)),
+        ] {
+            assert_eq!(Totp::parse(&input).unwrap_err(), OtpError::BadUri, "{input}");
+        }
+    }
+
+    #[test]
+    fn longest_normalized_uri_fits_the_input_limit() {
+        // Every byte of issuer and account percent-encoded, longest secret, all
+        // non-default parameters.
+        let mut t = totp(&[0xAB; MAX_SECRET], Algorithm::Sha512, 8);
+        t.period = 120;
+        t.issuer = Some("é".repeat(MAX_LABEL / 2));
+        t.account = Some("é".repeat(MAX_LABEL / 2));
+        let uri = t.to_uri();
+        assert!(uri.len() <= MAX_INPUT, "{}", uri.len());
+        assert_eq!(Totp::parse(&uri).unwrap(), t);
     }
 
     #[test]
