@@ -184,18 +184,33 @@ Installing a newer version over an older one keeps your vault and settings.
 
 ### Check the download
 
-Builds are **not code-signed** yet. Each release (from v0.6.0) also has `SHA256SUMS.txt`; compare the installer's
-hash with the line for its file name before running it:
+Each release (from v0.6.0) has `SHA256SUMS.txt`; compare the installer's hash with the line for its file name before
+running it:
 
 ```powershell
-(Get-FileHash .\xpass_0.6.0_windows_x64-setup.exe -Algorithm SHA256).Hash.ToLower()
+(Get-FileHash .\xpass_0.7.0_windows_x64-setup.exe -Algorithm SHA256).Hash.ToLower()
 ```
+
+From v0.7.0 the installers, `xpass.exe` and the uninstaller also carry an Authenticode signature from a
+**self-signed** xPass certificate. Windows does not know that certificate, so it reports the signature as not
+trusted; what matters is **which** certificate signed the file. Check that the thumbprint is exactly
+`4D3E068AED69DE2C88578FC2CA46439E78E73D7D` (also in [docs/codesign/xpass-codesign.cer](docs/codesign/xpass-codesign.cer)
+and in every release's notes):
+
+```powershell
+(Get-AuthenticodeSignature .\xpass_0.7.0_windows_x64-setup.exe).SignerCertificate.Thumbprint
+```
+
+The same works later on the installed app (`%LOCALAPPDATA%\xpass\xpass.exe`). Do **not** import the certificate
+into "Trusted Root Certification Authorities" or "Trusted Publishers": that would make Windows trust anything signed
+with its key, not just xPass. If the thumbprint ever changes, the release notes and this README say so first.
 
 ### Windows SmartScreen
 
-Because the installer is not signed, SmartScreen may show "Windows protected your PC" on the first run. It means
-Windows does not know the publisher yet, not that the file is harmful. After checking the hash, choose
-**More info** → **Run anyway**. Download xPass only from the Releases page above.
+Because the certificate is self-signed, SmartScreen may show "Windows protected your PC" (Unknown publisher) on the
+first run. It means Windows does not know the publisher, not that the file is harmful. After checking the hash and
+the thumbprint, choose **More info** → **Run anyway**. Download xPass only from the Releases page above. Later
+versions can be installed from Settings → About (in-app update, signature checked by xPass itself).
 
 ### Uninstall
 
@@ -274,8 +289,17 @@ belongs to the repository owner and never enters the repository:
   Only the release build job uses that environment; pull requests never see it.
 - Public key: `plugins.updater.pubkey` in `src-tauri/tauri.conf.json` (base64 of the minisign `.pub` file).
 
-`src-tauri/tauri.release.conf.json` turns on `createUpdaterArtifacts` for the release build only, so local builds
-and the manual workflow run need no key. A release gets a `.sig` per installer and `latest.json` (the manifest the
+`src-tauri/tauri.release.conf.json` turns on `createUpdaterArtifacts` and Authenticode signing for the release
+build only, so local builds and the manual workflow run need no key.
+
+Code signing (v0.7): a self-signed certificate (`CN=bs135 (xPass code signing)`, RSA 3072, code signing only, valid
+until 2031-11-25), also owned by the repository owner. The PFX and its password are the `release` environment secrets
+`WINDOWS_CERTIFICATE` (base64) and `WINDOWS_CERTIFICATE_PASSWORD`; the public certificate is
+`docs/codesign/xpass-codesign.cer` and its thumbprint is `bundle.windows.certificateThumbprint` in
+`tauri.release.conf.json`. The release job imports the PFX into the runner's certificate store only for the build,
+tauri signs (with a timestamp) before computing the updater signatures, and `scripts/verify-authenticode.ps1` checks
+every installer and the exe files inside the NSIS one. The release is created as a draft and published only after
+these checks and the updater check pass; if a check fails, fix the cause and re-run the failed jobs. A release gets a `.sig` per installer and `latest.json` (the manifest the
 app reads); the `verify-updater` job then checks them against the committed public key with
 `scripts/verify-updater-artifacts.sh`. To sign a local build with the real key, set the two variables in your own
 shell (never in a file in the repository) and run
