@@ -35,6 +35,7 @@ jobs:
       contents: write
     outputs:
       new_tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
       notes: ${{ steps.notes.outputs.notes }}
       released: ${{ steps.version.outputs.release }}
     steps:
@@ -102,6 +103,9 @@ jobs:
     environment: release
     permissions:
       contents: write
+      # Build provenance and SBOM attestations (v0.7 plan U12).
+      id-token: write
+      attestations: write
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -211,9 +215,45 @@ jobs:
           $thumbprint = node -p "require('./src-tauri/tauri.release.conf.json').bundle.windows.certificateThumbprint"
           ./scripts/verify-authenticode.ps1 -Thumbprint $thumbprint -Path $dir
 
-      # SHA-256 checksums of the installers as they were uploaded (names and bytes from
-      # the release itself), so a download can be checked with `Get-FileHash` (v0.6 plan
-      # H11); the self-signed signature is only checked by thumbprint.
+      - name: Install cargo-cyclonedx
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-cyclonedx
+
+      # CycloneDX SBOMs of what ships (v0.7 plan U12): the Rust crates of the app for the
+      # Windows target without build-time dependencies, and the npm packages bundled
+      # into the frontend (no dev dependencies).
+      - name: Generate and upload SBOMs
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.tag-release.outputs.new_tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = $env:TAG.TrimStart('v')
+          $dir = Join-Path $env:RUNNER_TEMP 'sbom'
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          cargo cyclonedx --manifest-path src-tauri/Cargo.toml --format json --spec-version 1.5 `
+            --target x86_64-pc-windows-msvc --no-build-deps --override-filename xpass-sbom -q
+          if ($LASTEXITCODE -ne 0) { throw 'cargo cyclonedx failed' }
+          $rust = Join-Path $dir "xpass_${version}_sbom-rust.cdx.json"
+          Move-Item src-tauri/xpass-sbom.json $rust
+          # cargo-cyclonedx writes one file per workspace member; the app's covers them all.
+          Remove-Item crates/xpass-core/xpass-sbom.json, crates/xpass-interop/xpass-sbom.json -ErrorAction SilentlyContinue
+          $npm = Join-Path $dir "xpass_${version}_sbom-npm.cdx.json"
+          npm sbom --sbom-format cyclonedx --omit dev | Set-Content -LiteralPath $npm -Encoding utf8NoBOM
+          if ($LASTEXITCODE -ne 0) { throw 'npm sbom failed' }
+          foreach ($file in $rust, $npm) {
+            $bom = Get-Content -Raw $file | ConvertFrom-Json
+            if ($bom.bomFormat -ne 'CycloneDX' -or $bom.components.Count -lt 1) { throw "$file is not a CycloneDX SBOM" }
+            "$(Split-Path $file -Leaf): $($bom.components.Count) components"
+          }
+          gh release upload $env:TAG $rust $npm --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'gh release upload failed' }
+
+      # SHA-256 checksums of the installers and SBOMs as they were uploaded (names and
+      # bytes from the release itself), so a download can be checked with `Get-FileHash`
+      # (v0.6 plan H11); the self-signed signature is only checked by thumbprint.
       - name: Publish SHA256SUMS.txt
         shell: pwsh
         env:
@@ -223,10 +263,10 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $dir = Join-Path $env:RUNNER_TEMP 'release-assets'
           New-Item -ItemType Directory -Force $dir | Out-Null
-          gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --dir $dir --pattern '*.exe' --pattern '*.msi'
+          gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --dir $dir --pattern '*.exe' --pattern '*.msi' --pattern '*.cdx.json'
           if ($LASTEXITCODE -ne 0) { throw 'gh release download failed' }
           $files = Get-ChildItem $dir -File | Sort-Object Name
-          if ($files.Count -eq 0) { throw 'no installers found in the release' }
+          if (-not ($files | Where-Object Extension -in '.exe', '.msi')) { throw 'no installers found in the release' }
           $lines = $files | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" }
           $sums = Join-Path $env:RUNNER_TEMP 'SHA256SUMS.txt'
           # LF line endings, no BOM: the format `sha256sum -c` reads.
@@ -234,6 +274,32 @@ jobs:
           Get-Content $sums
           gh release upload $env:TAG $sums --repo $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { throw 'gh release upload failed' }
+
+      # Signed statements, stored by GitHub, that these exact installers were built by
+      # this workflow from this commit, and which SBOM describes them. Anyone can check
+      # a download with `gh attestation verify <file> --repo bs135/xpass`.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            ${{ runner.temp }}/release-assets/*.exe
+            ${{ runner.temp }}/release-assets/*.msi
+
+      - name: Attest Rust SBOM
+        uses: actions/attest-sbom@v4
+        with:
+          subject-path: |
+            ${{ runner.temp }}/release-assets/*.exe
+            ${{ runner.temp }}/release-assets/*.msi
+          sbom-path: ${{ runner.temp }}/sbom/xpass_${{ needs.tag-release.outputs.version }}_sbom-rust.cdx.json
+
+      - name: Attest npm SBOM
+        uses: actions/attest-sbom@v4
+        with:
+          subject-path: |
+            ${{ runner.temp }}/release-assets/*.exe
+            ${{ runner.temp }}/release-assets/*.msi
+          sbom-path: ${{ runner.temp }}/sbom/xpass_${{ needs.tag-release.outputs.version }}_sbom-npm.cdx.json
 
   # Checks the published updater artifacts against the public key committed in
   # tauri.conf.json (v0.7 plan U5): a secret that does not match the committed key,

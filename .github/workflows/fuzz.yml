@@ -1,9 +1,14 @@
 name: Fuzz
-# On-demand fuzzing of the vault file parser (v0.6 plan H5). xpass-core has no OS
-# code, so Linux fuzzes the same parser the Windows app ships. Normal CI only
-# replays the checked-in seeds and regressions on stable (`cargo test`).
+# Fuzzing of the vault file parser (v0.6 plan H5): on demand and every Sunday (v0.7
+# plan U11). xpass-core has no OS code, so Linux fuzzes the same parser the Windows
+# app ships. Normal CI only replays the checked-in seeds and regressions on stable
+# (`cargo test`). The working corpus is kept between runs in the Actions cache, so
+# each run starts from what earlier runs found; a crash turns the run red and its
+# input is uploaded (after the fix it goes to fuzz/regressions/<target>/).
 
 on:
+  schedule:
+    - cron: "0 3 * * 0"
   workflow_dispatch:
     inputs:
       target:
@@ -28,7 +33,8 @@ jobs:
     steps:
       - id: pick
         env:
-          TARGET: ${{ inputs.target }}
+          # Empty on a scheduled run: fuzz every target.
+          TARGET: ${{ inputs.target || 'all' }}
         run: |
           if [ "$TARGET" = "all" ]; then
             echo 'list=["parse","unlock_hello","recovery_decode"]' >> "$GITHUB_OUTPUT"
@@ -60,10 +66,20 @@ jobs:
         with:
           tool: cargo-fuzz
 
+      # Restore the newest corpus of this target; a new entry is saved after every run
+      # (cache keys are immutable, so the key carries the run id).
+      - name: Restore corpus
+        uses: actions/cache/restore@v6
+        with:
+          path: crates/xpass-core/fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: fuzz-corpus-${{ matrix.target }}-
+
       - name: Run
         env:
           TARGET: ${{ matrix.target }}
-          MINUTES: ${{ inputs.minutes }}
+          # 15 minutes per target on a scheduled run.
+          MINUTES: ${{ inputs.minutes || 15 }}
         run: |
           set -euo pipefail
           mkdir -p "fuzz/corpus/$TARGET"
@@ -73,6 +89,20 @@ jobs:
           cargo +nightly fuzz run --target x86_64-unknown-linux-gnu \
             "$TARGET" "fuzz/corpus/$TARGET" "fuzz/seeds/$TARGET" "fuzz/regressions/$TARGET" \
             -- -max_total_time=$((MINUTES * 60)) -max_len=65536
+
+      - name: Corpus size
+        if: always()
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          echo "corpus/$TARGET has $(find "fuzz/corpus/$TARGET" -type f 2>/dev/null | wc -l) inputs"
+
+      - name: Save corpus
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: crates/xpass-core/fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
 
       - name: Upload crash inputs
         if: failure()
