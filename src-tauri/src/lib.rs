@@ -7,6 +7,7 @@ mod file_dialog;
 mod generator;
 mod github;
 mod hello;
+mod history;
 mod lock_watch;
 mod paths;
 mod secrets;
@@ -89,6 +90,8 @@ pub fn run() {
             commands::sync::sync_join,
             commands::sync::sync_resolve_key_change,
             commands::sync::sync_replace_local,
+            commands::sync::sync_history_preview,
+            commands::sync::sync_rewrite_history,
             commands::backups::list_backups,
             commands::backups::restore_backup,
             commands::import::import_open,

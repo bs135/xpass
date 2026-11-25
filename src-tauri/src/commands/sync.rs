@@ -5,15 +5,18 @@
 use std::future::Future;
 
 use tauri::State;
+
+use super::session::blocking;
 use url::Url;
 use zeroize::Zeroizing;
 
 use crate::{
     error::{AppError, AppResult},
     github::ConnectionReport,
+    history::{HistoryPreview, RewriteReport},
     settings::SyncSettings,
     shell,
-    state::{AppState, SyncConfig, SyncStatus, VaultStatus},
+    state::{AppState, Auth, SyncConfig, SyncStatus, VaultStatus},
     sync_worker::Trigger,
 };
 
@@ -137,4 +140,27 @@ pub async fn sync_replace_local(state: State<'_, AppState>, password: String) ->
     let state = state.inner().clone();
     let store = state.sync_store()?.ok_or(AppError::SyncNotConfigured)?;
     off_ipc(async move { state.replace_with_remote(&store, &password).await }).await
+}
+
+/// "Remove old versions from GitHub": what the dialog shows before the user confirms.
+#[tauri::command]
+pub async fn sync_history_preview(state: State<'_, AppState>) -> AppResult<HistoryPreview> {
+    let state = state.inner().clone();
+    state.check_history_rewrite()?;
+    let store = state.sync_store()?.ok_or(AppError::SyncNotConfigured)?;
+    state.preview_history(&store).await
+}
+
+/// Replaces the sync branch with one commit holding the current files (U10), after
+/// re-authentication (password or Windows Hello).
+#[tauri::command]
+pub async fn sync_rewrite_history(state: State<'_, AppState>, auth: Auth) -> AppResult<RewriteReport> {
+    let state = state.inner().clone();
+    state.check_history_rewrite()?;
+    let store = state.sync_store()?.ok_or(AppError::SyncNotConfigured)?;
+    {
+        let state = state.clone();
+        blocking(move || state.reauthorize(&auth)).await?;
+    }
+    state.rewrite_history(&store).await
 }

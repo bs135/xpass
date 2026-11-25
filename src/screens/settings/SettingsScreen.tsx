@@ -4,7 +4,7 @@ import {listen} from '@tauri-apps/api/event'
 import {useTranslation} from 'react-i18next'
 import {ConfirmDialog} from '../../components/ConfirmDialog'
 import {NewPasswordForm} from '../../components/NewPasswordForm'
-import {Button, Field, PasswordInput} from '../../components/ui'
+import {Alert, Button, Field, PasswordInput} from '../../components/ui'
 import {
     api,
     type AppInfo,
@@ -26,6 +26,7 @@ import {ImportSettings} from './ImportSettings'
 import {PasswordPrompt} from './PasswordPrompt'
 import {RestoreSettings} from './RestoreSettings'
 import {SyncSettings} from './SyncSettings'
+import {RemoveOldVersions} from './HistoryRewrite'
 
 const selectClass =
     'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 dark:border-neutral-700 dark:bg-neutral-900'
@@ -167,6 +168,8 @@ function SecuritySection() {
     const [current, setCurrent] = useState('')
     const [passwordError, setPasswordError] = useState<string | null>(null)
     const [prompt, setPrompt] = useState<'kit' | 'rotate' | null>(null)
+    // After a rotation with sync on, offer to remove the copies under the old key.
+    const [rotatedWithSync, setRotatedWithSync] = useState(false)
     // Remounting the form clears the new-password fields after a change.
     const [formKey, setFormKey] = useState(0)
 
@@ -192,6 +195,7 @@ function SecuritySection() {
     const rotate = async (password: string) => {
         // When Hello was on, the entry list offers to set it up again after the kit.
         const {recoveryKey} = await api.rotateVaultKey(password)
+        setRotatedWithSync(syncOn)
         await refresh().catch(() => undefined)
         await refreshHello().catch(() => undefined)
         showKit(recoveryKey)
@@ -233,6 +237,12 @@ function SecuritySection() {
             <Button variant="danger" onClick={() => setPrompt('rotate')}>
                 {t('settings.rotateButton')}
             </Button>
+            {rotatedWithSync && (
+                <div className="mt-4">
+                    <Alert tone="warning">{t('sync.history.afterRotate')}</Alert>
+                    <RemoveOldVersions/>
+                </div>
+            )}
 
             {prompt === 'kit' && (
                 <PasswordPrompt

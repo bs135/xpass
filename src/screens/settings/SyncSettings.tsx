@@ -7,6 +7,7 @@ import {Alert, Button, Field, PasswordInput, TextInput} from '../../components/u
 import {api, type ConnectionReport, type SyncConfig, type SyncTarget} from '../../lib/api'
 import {errorMessage} from '../../lib/errors'
 import {blockingProblem, canSave} from '../../lib/sync'
+import {RemoveOldVersions} from './HistoryRewrite'
 import {syncText} from '../../lib/syncStatus'
 import {useNow} from '../../lib/useNow'
 import {useSync} from '../../stores/sync'
@@ -76,6 +77,16 @@ export function SyncSettings() {
                             {t('sync.disconnect')}
                         </Button>
                     </div>
+                    {config.enabled && config.hasToken && (
+                        <>
+                            <hr className="my-6 border-neutral-200 dark:border-neutral-800"/>
+                            <h3 className="mb-1 font-medium">{t('sync.history.title')}</h3>
+                            <p className="mb-3 text-sm text-neutral-600 dark:text-neutral-400">
+                                {t('sync.history.intro')}
+                            </p>
+                            <RemoveOldVersions/>
+                        </>
+                    )}
                 </>
             ) : (
                 <SyncForm

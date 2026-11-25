@@ -45,6 +45,21 @@ pub fn merge(a: &Payload, b: &Payload) -> Payload {
     }
 }
 
+/// `theirs` already holds every entry of `ours` at the same or a winning version, so
+/// `merge(ours, theirs)` would bring nothing new to `theirs`. Tombstones of `ours`
+/// older than `purge_before` are ignored: a push drops them anyway (D3).
+///
+/// A clean device adopts the remote only when this holds; otherwise the remote went
+/// back to an older copy (a history rewrite racing a push, or a rolled-back file, A8)
+/// and the device merges and pushes instead of losing its own edits.
+pub fn covers(theirs: &Payload, ours: &Payload, purge_before: i64) -> bool {
+    let by_id: BTreeMap<Uuid, &Entry> = theirs.entries.iter().map(|e| (e.id, e)).collect();
+    ours.entries
+        .iter()
+        .filter(|o| !(o.deleted && o.updated_at < purge_before))
+        .all(|o| by_id.get(&o.id).is_some_and(|t| lww_cmp(t, o) != Ordering::Less))
+}
+
 /// Merges all versions of one entry id (non-empty).
 fn merge_versions(versions: &[&Entry]) -> Entry {
     let winner = *versions

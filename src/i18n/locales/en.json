@@ -46,7 +46,7 @@
     "license": "License",
     "projectPage": "Project page on GitHub",
     "rotateExplainHello": "Windows Hello is turned off. You can set it up again right after.",
-    "rotateExplainSync": "Sync is on: the new vault is uploaded to GitHub first, so this needs a working connection. Your other PCs then ask for the master password once."
+    "rotateExplainSync": "Sync is on: the new vault is uploaded to GitHub first, so this needs a working connection. Your other PCs then ask for the master password once. Older versions stay in the repository history until you remove them."
   },
   "theme": {
     "system": "System",
@@ -240,6 +240,8 @@
     "sync_failed": "Sync with GitHub failed. Please try again.",
     "sync_remote_missing": "There is no vault at this path on GitHub.",
     "sync_required": "Sync with GitHub must succeed first. Check the connection and the sync status, then try again. Nothing was changed.",
+    "history_rewrite_refused": "GitHub refused to replace the branch: branch protection or a ruleset blocks force pushes. Nothing was changed. Allow force pushes for this branch, or remove the old versions on GitHub yourself.",
+    "history_rewrite_failed": "The branch was replaced, but the vault on GitHub could not be confirmed. Sync runs again now; check the sync status.",
     "import_too_large": "The file is too large to import (at most {{mb}} MB and {{rows}} rows).",
     "import_invalid_csv": "This file is not a valid CSV file.",
     "import_invalid_csv_line": "This file is not a valid CSV file (problem near line {{line}}).",
@@ -342,6 +344,26 @@
       "needsPassword": "Sync stopped: the vault key was changed on another device. Your master password is needed.",
       "differentVault": "Sync stopped: GitHub holds a different vault at this path.",
       "error": "Sync failed; it will be retried."
+    },
+    "history": {
+      "title": "Remove old versions from GitHub",
+      "intro": "Every sync adds a version of the encrypted vault to the repository history. After you rotate the vault key, the older versions still open with the old master password or recovery key. This removes them from the branch.",
+      "button": "Remove old versions",
+      "explain": [
+        "The branch {{branch}} is replaced by a single commit with the current files. Every older version of the vault is removed from it.",
+        "Your vault and the other PCs are not affected: they keep syncing as before.",
+        "This PC must be in sync with GitHub, with no changes waiting to upload."
+      ],
+      "limits": "What this cannot do: GitHub may still serve an old version to someone who knows its commit ID for a while; forks, clones and caches keep their copies. Removing every trace needs GitHub Support.",
+      "otherFiles_one": "The branch has {{count}} other file. It stays, but its history is removed too:",
+      "otherFiles_other": "The branch has {{count}} other files. They stay, but their history is removed too:",
+      "more_one": "and {{count}} more",
+      "more_other": "and {{count}} more",
+      "useHello": "Use Windows Hello",
+      "confirm": "Remove old versions",
+      "done": "Done. The branch {{branch}} now has a single commit with the current vault.",
+      "single": "The branch {{branch}} already has a single commit. There is nothing to remove.",
+      "afterRotate": "Sync is on: the versions encrypted with the old key are still in the GitHub repository history. Remove them now."
     }
   },
   "join": {

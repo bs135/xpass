@@ -75,6 +75,10 @@ pub enum AppError {
     SyncRemoteMissing,
     #[error("this action needs a successful sync first")]
     SyncRequired,
+    #[error("GitHub refused to replace the branch (branch protection or a ruleset)")]
+    HistoryRewriteRefused,
+    #[error("the branch was replaced but the vault on GitHub could not be confirmed")]
+    HistoryRewriteFailed,
     #[error("the import file is too large")]
     ImportTooLarge { max_mb: usize, max_rows: usize },
     #[error("the import file is not a valid CSV file")]

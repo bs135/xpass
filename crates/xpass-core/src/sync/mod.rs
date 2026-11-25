@@ -11,8 +11,9 @@
 //!   no remote          → PUT(expected = none)                          → Pushed
 //!   remote.sha == base → clean: UpToDate | dirty: PUT(expected = base)  → Pushed
 //!   remote.sha != base → theirs = open_sibling(remote)                 (KeyChanged / DifferentVault stop)
-//!                        clean: adopt theirs (local Hello slot kept)   → Pulled
-//!                        dirty: merge, PUT(expected = remote.sha)       → Merged
+//!                        clean, theirs covers ours: adopt theirs (local Hello slot kept) → Pulled
+//!                        dirty, or the remote went back to an older copy (U10, A8):
+//!                               merge, PUT(expected = remote.sha)       → Merged
 //!   PUT Conflict → retry from the snapshot; the local side is only changed by `commit`
 //! ```
 //!
@@ -31,7 +32,7 @@ use sha1::{Digest, Sha1};
 use crate::{
     format::SlotKind,
     maintenance::{purge_tombstones, TOMBSTONE_TTL_MS},
-    merge::merge,
+    merge::{covers, merge},
     Error, Unlock, UnlockedVault,
 };
 
@@ -173,7 +174,7 @@ pub enum SyncOutcome {
     Pushed,
     /// Remote changes adopted; there were no local changes.
     Pulled,
-    /// Both sides changed: merged and uploaded.
+    /// Both sides changed (or the remote went back to an older copy): merged and uploaded.
     Merged,
 }
 
@@ -312,7 +313,10 @@ pub fn reconcile(snap: &Snapshot, remote: Option<&Remote>, now_ms: i64) -> Resul
     let theirs = ours.open_sibling(&remote.bytes)?;
     let keep_local_credentials = snap.dirty && snap.state.slots_dirty;
     let (mut candidate, password_changed) = adopt_slots(ours, theirs, keep_local_credentials)?;
-    if !snap.dirty {
+    let purge_before = now_ms.saturating_sub(TOMBSTONE_TTL_MS);
+    // A clean device whose entries are all in the remote just takes it. When the remote
+    // went back to an older copy, the clean device merges too, so no edit is lost (U10).
+    if !snap.dirty && covers(&candidate.payload, &ours.payload, purge_before) {
         return Ok(Step::Adopt {
             vault: candidate,
             base_sha: remote.sha.clone(),

@@ -46,7 +46,7 @@
     "license": "Giấy phép",
     "projectPage": "Trang dự án trên GitHub",
     "rotateExplainHello": "Windows Hello sẽ bị tắt. Bạn có thể thiết lập lại ngay sau đó.",
-    "rotateExplainSync": "Đồng bộ đang bật: vault mới được tải lên GitHub trước, nên cần có kết nối. Các máy khác sẽ hỏi mật khẩu chính một lần."
+    "rotateExplainSync": "Đồng bộ đang bật: vault mới được tải lên GitHub trước, nên cần có kết nối. Các máy khác sẽ hỏi mật khẩu chính một lần. Các phiên bản cũ vẫn còn trong lịch sử repository cho tới khi bạn xoá chúng."
   },
   "theme": {
     "system": "Theo hệ thống",
@@ -240,6 +240,8 @@
     "sync_failed": "Đồng bộ với GitHub thất bại. Hãy thử lại.",
     "sync_remote_missing": "Không có vault ở đường dẫn này trên GitHub.",
     "sync_required": "Cần đồng bộ thành công với GitHub trước. Kiểm tra kết nối và trạng thái đồng bộ rồi thử lại. Chưa có gì bị thay đổi.",
+    "history_rewrite_refused": "GitHub từ chối thay branch: branch protection hoặc ruleset đang chặn force push. Chưa có gì bị thay đổi. Hãy cho phép force push trên branch này, hoặc tự xoá các phiên bản cũ trên GitHub.",
+    "history_rewrite_failed": "Branch đã được thay, nhưng không xác nhận được vault trên GitHub. Đồng bộ sẽ chạy lại ngay; hãy kiểm tra trạng thái đồng bộ.",
     "import_too_large": "Tệp quá lớn để nhập (tối đa {{mb}} MB và {{rows}} dòng).",
     "import_invalid_csv": "Tệp này không phải là tệp CSV hợp lệ.",
     "import_invalid_csv_line": "Tệp này không phải là tệp CSV hợp lệ (lỗi gần dòng {{line}}).",
@@ -342,6 +344,26 @@
       "needsPassword": "Đồng bộ đã dừng: khoá vault đã được đổi trên máy khác. Cần nhập mật khẩu chính.",
       "differentVault": "Đồng bộ đã dừng: GitHub đang chứa một vault khác ở đường dẫn này.",
       "error": "Đồng bộ thất bại; sẽ thử lại."
+    },
+    "history": {
+      "title": "Xoá các phiên bản cũ trên GitHub",
+      "intro": "Mỗi lần đồng bộ thêm một phiên bản của vault (đã mã hoá) vào lịch sử repository. Sau khi đổi khoá vault, các phiên bản cũ vẫn mở được bằng mật khẩu chính hoặc khoá khôi phục cũ. Chức năng này xoá chúng khỏi branch.",
+      "button": "Xoá các phiên bản cũ",
+      "explain": [
+        "Branch {{branch}} được thay bằng một commit duy nhất chứa các file hiện tại. Mọi phiên bản cũ của vault bị xoá khỏi branch.",
+        "Vault của bạn và các máy khác không bị ảnh hưởng: chúng vẫn đồng bộ như trước.",
+        "Máy này phải đang đồng bộ với GitHub và không có thay đổi nào đang chờ tải lên."
+      ],
+      "limits": "Những gì chức năng này không làm được: trong một thời gian, GitHub vẫn có thể trả về phiên bản cũ cho người biết commit ID của nó; các fork, bản clone và cache vẫn giữ bản của họ. Muốn xoá hết dấu vết phải nhờ GitHub Support.",
+      "otherFiles_one": "Branch có {{count}} file khác. File vẫn giữ nguyên, nhưng lịch sử của nó cũng bị xoá:",
+      "otherFiles_other": "Branch có {{count}} file khác. Các file vẫn giữ nguyên, nhưng lịch sử của chúng cũng bị xoá:",
+      "more_one": "và {{count}} file nữa",
+      "more_other": "và {{count}} file nữa",
+      "useHello": "Dùng Windows Hello",
+      "confirm": "Xoá các phiên bản cũ",
+      "done": "Xong. Branch {{branch}} giờ chỉ còn một commit chứa vault hiện tại.",
+      "single": "Branch {{branch}} đã chỉ có một commit. Không có gì để xoá.",
+      "afterRotate": "Đồng bộ đang bật: các phiên bản mã hoá bằng khoá cũ vẫn còn trong lịch sử repository trên GitHub. Hãy xoá chúng ngay."
     }
   },
   "join": {
