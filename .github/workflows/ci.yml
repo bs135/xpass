@@ -3,7 +3,8 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [develop]
+    # main too: the README badge shows CI for the released code.
+    branches: [develop, main]
   # Weekly dependency audit (Monday 02:00 UTC): new advisories show up without a code change.
   schedule:
     - cron: "0 2 * * 1"

@@ -1,5 +1,9 @@
 # xPass
 
+[![CI](https://github.com/bs135/xpass/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bs135/xpass/actions/workflows/ci.yml?query=branch%3Amain)
+[![Latest release](https://img.shields.io/github/v/release/bs135/xpass)](https://github.com/bs135/xpass/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/bs135/xpass)](LICENSE)
+
 Zero-knowledge personal password manager for Windows, built with Tauri (Rust + React).
 
 > Status: **1.0 — first stable release.** The vault format is frozen ([docs/FORMAT.md](docs/FORMAT.md)), versions
