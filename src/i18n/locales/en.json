@@ -212,6 +212,8 @@
     "locked": "The vault is locked.",
     "weak_password": "The password is too weak.",
     "invalid_input": "Some input is missing or invalid.",
+    "field_limit": "Too many custom fields or a field is too long: at most {{fields}} fields, {{name}} characters per name and {{value}} per value.",
+    "field_name": "Every custom field needs a name.",
     "bad_credentials": "Wrong password.",
     "wrong_recovery_key": "This recovery key does not open this vault. It may have been replaced by a newer Emergency Kit.",
     "bad_recovery_key": "This recovery key is not valid. Check it for typos.",
@@ -568,5 +570,26 @@
     "onStartup": "Check for updates when xPass starts (at most once a day)",
     "hint": "The check only reads the latest version and its signed release data from GitHub. Nothing is downloaded or installed until you choose Install and restart.",
     "badge": "Settings (update available)"
+  },
+  "fields": {
+    "title": "Custom fields",
+    "none": "No custom fields.",
+    "name": "Field name",
+    "value": "Value",
+    "secret": "Secret",
+    "up": "Move up",
+    "down": "Move down",
+    "remove": "Remove field",
+    "add": "Add field",
+    "stored": "Stored value (hidden)",
+    "reveal": "Reveal",
+    "replace": "Replace",
+    "lostTitle": "Replace secret values?",
+    "lostMessage": "The old values of these secret fields are not kept in the password history: {{names}}. The last 10 local versions of the vault still have them. Save anyway?",
+    "problem": {
+      "name": "Every custom field needs a name.",
+      "tooMany": "An entry can have at most 50 custom fields.",
+      "tooLong": "A field name can have at most 100 characters and a value at most 10,000."
+    }
   }
 }

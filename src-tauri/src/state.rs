@@ -1214,6 +1214,7 @@ mod tests {
             notes: String::new(),
             tags: Vec::new(),
             favorite: false,
+            fields: None,
         };
         let id = state.edit(|p, ts| entries::save(p, &input, ts)).unwrap();
         // A failing edit leaves the vault unchanged.
@@ -1262,6 +1263,7 @@ mod tests {
             notes: String::new(),
             tags: Vec::new(),
             favorite: false,
+            fields: None,
         };
         let id = state.edit(|p, ts| entries::save(p, &input, ts)).unwrap();
 

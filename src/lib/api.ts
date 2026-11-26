@@ -91,6 +91,18 @@ export interface EntryInput {
     notes: string
     tags: string[]
     favorite: boolean
+    /** Omitted or null keeps the stored custom fields; a list replaces them in order. */
+    fields?: FieldInput[] | null
+}
+
+/**
+ * A custom field of the edit form: a new value (`set`), or the stored value of the
+ * field that was at `index` when the form was loaded (`keep`; `name` must still match).
+ */
+export interface FieldInput {
+    name: string
+    secret: boolean
+    value: {set: string} | {keep: {index: number; name: string}}
 }
 
 /** Part of an entry that can be copied (all) or revealed (password, secret field). */
@@ -336,6 +348,7 @@ export type AppError =
     | {code: 'clipboard'}
     | {code: 'weak_password'}
     | {code: 'invalid_input'; field: string}
+    | {code: 'field_limit'; maxFields: number; maxName: number; maxValue: number}
     | {code: 'bad_credentials'}
     | {code: 'bad_recovery_key'}
     | {code: 'throttled'; retryAfterMs: number}

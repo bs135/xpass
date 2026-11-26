@@ -1082,6 +1082,64 @@ mod tests {
     }
 
     #[test]
+    fn custom_field_edits_on_two_devices_keep_the_newer_entry() {
+        use crate::entries::{self, EntryInput, FieldInput, FieldValue};
+
+        fn fields_of(d: &Device) -> Vec<(String, String)> {
+            d.state
+                .read(|p| {
+                    Ok(p.entries[0]
+                        .fields
+                        .iter()
+                        .map(|f| (f.name.clone(), f.value.clone()))
+                        .collect())
+                })
+                .unwrap()
+        }
+        fn edit(d: &Device, id: Option<Uuid>, fields: &[(&str, &str)]) -> Uuid {
+            let input = EntryInput {
+                id,
+                title: "Bank".into(),
+                username: String::new(),
+                password: None,
+                urls: Vec::new(),
+                notes: String::new(),
+                tags: Vec::new(),
+                favorite: false,
+                fields: Some(
+                    fields
+                        .iter()
+                        .map(|(n, v)| FieldInput {
+                            name: (*n).into(),
+                            secret: true,
+                            value: FieldValue::Set((*v).into()),
+                        })
+                        .collect(),
+                ),
+            };
+            d.state.edit(|p, ts| entries::save(p, &input, ts)).unwrap()
+        }
+
+        let store = MemoryStore::new();
+        let a = Device::create();
+        let id = edit(&a, None, &[("PIN", "1111")]);
+        a.sync(&store).unwrap();
+        let b = Device::join(&store);
+        edit(&a, Some(id), &[("PIN", "2222")]);
+        std::thread::sleep(std::time::Duration::from_millis(3));
+        edit(&b, Some(id), &[("PIN", "3333"), ("Branch", "Main")]);
+        a.sync(&store).unwrap();
+        assert_eq!(b.sync(&store).unwrap(), SyncOutcome::Merged);
+        a.sync(&store).unwrap();
+        let want = [
+            ("PIN".to_owned(), "3333".to_owned()),
+            ("Branch".to_owned(), "Main".to_owned()),
+        ];
+        assert_eq!(fields_of(&a), want);
+        assert_eq!(fields_of(&b), want);
+    }
+
+    #[test]
     fn history_rewrite_runs_only_when_github_has_exactly_this_vault() {
         use crate::history::fake::FakeGit;
 
