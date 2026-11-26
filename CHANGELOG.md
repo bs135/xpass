@@ -3,7 +3,7 @@
 All notable changes to xPass. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.0]
 
 First stable release. The features are those of 0.8.0; what changes is the promise that comes with 1.0.
 
