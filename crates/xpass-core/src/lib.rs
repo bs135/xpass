@@ -1,7 +1,7 @@
 //! xpass core: vault file format, crypto, data model, merge and the sync engine.
 //!
 //! This crate has no UI or OS dependencies so the security-critical code can be
-//! unit-tested on any platform. Layout and rationale: `docs/spikes/vault-format.md`.
+//! unit-tested on any platform. File format and sync contract: `docs/FORMAT.md`.
 //!
 //! - [`format`]: binary envelope (header + key slots + ciphertext), hand-written parser.
 //! - [`crypto`]: Argon2id, HKDF and XChaCha20-Poly1305 primitives.

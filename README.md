@@ -368,6 +368,8 @@ src/                 React + TypeScript frontend
 - [docs/IDEA.md](docs/IDEA.md) — concept review and design decisions
 - [docs/PLAN.md](docs/PLAN.md) — implementation plan and milestones
 - [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) — assets, attackers, accepted limits and the security self-review
+- [docs/FORMAT.md](docs/FORMAT.md) — vault file format v1, payload schema 1 and the sync contract (frozen for 1.0)
+- [SECURITY.md](SECURITY.md) — supported versions and how to report a vulnerability
 - [docs/plan-v0.1.0.md](docs/plan-v0.1.0.md) — v0.1 tasks and manual test checklist
 - [docs/plan-v0.2.0.md](docs/plan-v0.2.0.md) — v0.2 tasks (custom title bar) and manual test checklist
 - [docs/plan-v0.3.0.md](docs/plan-v0.3.0.md) — v0.3 tasks (Windows Hello unlock) and manual test checklist
