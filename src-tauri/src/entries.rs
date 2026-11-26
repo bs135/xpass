@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use url::Url;
 use uuid::Uuid;
-use xpass_core::model::{Entry, HistoryItem, Payload};
+use xpass_core::model::{CustomField, Entry, HistoryItem, Payload};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use crate::error::{AppError, AppResult};
@@ -54,8 +54,13 @@ pub struct FieldView {
     pub secret: bool,
 }
 
-/// Create (`id: None`) or update an entry. Custom fields are kept as they are
-/// (no UI for them in v0.1).
+/// Custom fields per entry, and the size of a name and a value (v0.8 plan V6).
+pub const MAX_FIELDS: usize = 50;
+pub const MAX_FIELD_NAME: usize = 100;
+pub const MAX_FIELD_VALUE: usize = 10_000;
+
+/// Create (`id: None`) or update an entry. `fields: None` keeps the stored custom
+/// fields; `Some` replaces them in that order (v0.8 plan V6).
 #[derive(Deserialize, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct EntryInput {
@@ -75,6 +80,29 @@ pub struct EntryInput {
     pub tags: Vec<String>,
     #[serde(default)]
     pub favorite: bool,
+    #[serde(default)]
+    pub fields: Option<Vec<FieldInput>>,
+}
+
+/// One custom field of the edit form.
+#[derive(Deserialize, Zeroize, ZeroizeOnDrop)]
+#[serde(rename_all = "camelCase")]
+pub struct FieldInput {
+    pub name: String,
+    #[serde(default)]
+    pub secret: bool,
+    pub value: FieldValue,
+}
+
+/// A new value, or the stored value of the field that was at `index` when the
+/// form was loaded. `name` must still match, so a list changed under the form (a
+/// sync merge) gives `not_found` instead of another field's value. Secret values
+/// never have to reach the WebView to keep them.
+#[derive(Deserialize, Zeroize, ZeroizeOnDrop)]
+#[serde(rename_all = "camelCase")]
+pub enum FieldValue {
+    Set(String),
+    Keep { index: usize, name: String },
 }
 
 /// No field values: `Debug` output must never carry a password or notes.
@@ -83,6 +111,7 @@ impl std::fmt::Debug for EntryInput {
         f.debug_struct("EntryInput")
             .field("id", &self.id)
             .field("password_set", &self.password.is_some())
+            .field("fields", &self.fields.as_ref().map(Vec::len))
             .finish_non_exhaustive()
     }
 }
@@ -261,6 +290,19 @@ pub fn save(payload: &mut Payload, input: &EntryInput, ts: i64) -> AppResult<Uui
     if title.is_empty() {
         return Err(AppError::InvalidInput { field: "title" });
     }
+    // Checked before anything changes; `keep` needs the stored fields.
+    let stored: &[CustomField] = match input.id {
+        Some(id) => {
+            &payload
+                .entries
+                .iter()
+                .find(|e| e.id == id && !e.deleted)
+                .ok_or(AppError::NotFound)?
+                .fields
+        }
+        None => &[],
+    };
+    let fields = input.fields.as_deref().map(|f| custom_fields(f, stored)).transpose()?;
     let entry = match input.id {
         None => {
             payload.entries.push(Entry::new(title, ts));
@@ -283,9 +325,54 @@ pub fn save(payload: &mut Payload, input: &EntryInput, ts: i64) -> AppResult<Uui
     entry.notes.clone_from(&input.notes);
     entry.tags = clean_list(&input.tags, true);
     entry.favorite = input.favorite;
+    if let Some(fields) = fields {
+        entry.fields = fields;
+    }
     entry.updated_at = ts;
     entry.normalize_history();
     Ok(entry.id)
+}
+
+/// The new field list from the form (V6): names trimmed and non-empty, sizes
+/// within the limits, kept values taken from `stored`.
+fn custom_fields(input: &[FieldInput], stored: &[CustomField]) -> AppResult<Vec<CustomField>> {
+    if input.len() > MAX_FIELDS {
+        return Err(AppError::FieldLimit {
+            max_fields: MAX_FIELDS,
+            max_name: MAX_FIELD_NAME,
+            max_value: MAX_FIELD_VALUE,
+        });
+    }
+    input
+        .iter()
+        .map(|f| {
+            let name = f.name.trim();
+            if name.is_empty() {
+                return Err(AppError::InvalidInput { field: "fieldName" });
+            }
+            let value = match &f.value {
+                FieldValue::Set(value) => value.clone(),
+                FieldValue::Keep { index, name } => stored
+                    .get(*index)
+                    .filter(|s| s.name == *name)
+                    .ok_or(AppError::NotFound)?
+                    .value
+                    .clone(),
+            };
+            if name.chars().count() > MAX_FIELD_NAME || value.chars().count() > MAX_FIELD_VALUE {
+                return Err(AppError::FieldLimit {
+                    max_fields: MAX_FIELDS,
+                    max_name: MAX_FIELD_NAME,
+                    max_value: MAX_FIELD_VALUE,
+                });
+            }
+            Ok(CustomField {
+                name: name.to_owned(),
+                value,
+                secret: f.secret,
+            })
+        })
+        .collect()
 }
 
 pub fn delete(payload: &mut Payload, id: Uuid, ts: i64) -> AppResult<()> {
@@ -351,7 +438,7 @@ fn clean_list(items: &[String], dedupe: bool) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use xpass_core::model::{CustomField, HISTORY_NOTE_IMPORT};
+    use xpass_core::model::HISTORY_NOTE_IMPORT;
 
     use super::*;
 
@@ -365,7 +452,169 @@ mod tests {
             notes: "note".into(),
             tags: vec!["Work".into(), "work".into(), " 2fa ".into()],
             favorite: false,
+            fields: None,
         }
+    }
+
+    fn set(name: &str, value: &str, secret: bool) -> FieldInput {
+        FieldInput {
+            name: name.into(),
+            secret,
+            value: FieldValue::Set(value.into()),
+        }
+    }
+
+    fn keep(name: &str, index: usize, stored_name: &str, secret: bool) -> FieldInput {
+        FieldInput {
+            name: name.into(),
+            secret,
+            value: FieldValue::Keep {
+                index,
+                name: stored_name.into(),
+            },
+        }
+    }
+
+    /// An entry with a secret `PIN` (1234) and a plain `Branch` (Main).
+    fn with_fields() -> (Payload, Uuid) {
+        let mut p = Payload::default();
+        let mut create = input("Bank", Some("pw"));
+        create.fields = Some(vec![set("PIN", "1234", true), set(" Branch ", "Main", false)]);
+        let id = save(&mut p, &create, 1).unwrap();
+        (p, id)
+    }
+
+    fn edit_fields(p: &mut Payload, id: Uuid, fields: Vec<FieldInput>) -> AppResult<Uuid> {
+        let mut edit = input("Bank", None);
+        edit.id = Some(id);
+        edit.fields = Some(fields);
+        save(p, &edit, 5)
+    }
+
+    fn names(p: &Payload) -> Vec<(String, String, bool)> {
+        p.entries[0]
+            .fields
+            .iter()
+            .map(|f| (f.name.clone(), f.value.clone(), f.secret))
+            .collect()
+    }
+
+    #[test]
+    fn fields_are_created_with_trimmed_names() {
+        let (p, _) = with_fields();
+        assert_eq!(
+            names(&p),
+            [
+                ("PIN".to_owned(), "1234".to_owned(), true),
+                ("Branch".to_owned(), "Main".to_owned(), false)
+            ]
+        );
+    }
+
+    #[test]
+    fn keep_reorders_renames_and_flips_without_the_value() {
+        let (mut p, id) = with_fields();
+        edit_fields(
+            &mut p,
+            id,
+            vec![
+                keep("Branch office", 1, "Branch", true),
+                keep("Card PIN", 0, "PIN", true),
+                set("Customer no.", "42", false),
+            ],
+        )
+        .unwrap();
+        assert_eq!(
+            names(&p),
+            [
+                ("Branch office".to_owned(), "Main".to_owned(), true),
+                ("Card PIN".to_owned(), "1234".to_owned(), true),
+                ("Customer no.".to_owned(), "42".to_owned(), false)
+            ]
+        );
+        assert_eq!(p.entries[0].updated_at, 5);
+    }
+
+    #[test]
+    fn set_replaces_and_a_missing_field_is_deleted() {
+        let (mut p, id) = with_fields();
+        edit_fields(&mut p, id, vec![set("PIN", "9999", true)]).unwrap();
+        assert_eq!(names(&p), [("PIN".to_owned(), "9999".to_owned(), true)]);
+        edit_fields(&mut p, id, Vec::new()).unwrap();
+        assert!(p.entries[0].fields.is_empty());
+    }
+
+    #[test]
+    fn none_keeps_the_stored_fields() {
+        let (mut p, id) = with_fields();
+        let mut edit = input("Bank renamed", None);
+        edit.id = Some(id);
+        save(&mut p, &edit, 5).unwrap();
+        assert_eq!(p.entries[0].fields.len(), 2);
+        assert_eq!(p.entries[0].fields[0].value, "1234");
+    }
+
+    #[test]
+    fn a_stale_keep_changes_nothing() {
+        let (mut p, id) = with_fields();
+        let before = p.entries[0].clone();
+        for stale in [keep("PIN", 0, "Branch", true), keep("PIN", 7, "PIN", true)] {
+            assert_eq!(edit_fields(&mut p, id, vec![stale]).unwrap_err(), AppError::NotFound);
+        }
+        assert_eq!(p.entries[0], before);
+        // A new entry has nothing to keep.
+        let mut create = input("New", None);
+        create.fields = Some(vec![keep("PIN", 0, "PIN", true)]);
+        assert_eq!(save(&mut p, &create, 6).unwrap_err(), AppError::NotFound);
+        assert_eq!(p.entries.len(), 1, "nothing created");
+    }
+
+    #[test]
+    fn field_limits() {
+        let (mut p, id) = with_fields();
+        let limit = AppError::FieldLimit {
+            max_fields: MAX_FIELDS,
+            max_name: MAX_FIELD_NAME,
+            max_value: MAX_FIELD_VALUE,
+        };
+        let many = (0..=MAX_FIELDS).map(|i| set(&format!("f{i}"), "", false)).collect();
+        assert_eq!(edit_fields(&mut p, id, many).unwrap_err(), limit);
+        let long_name = "n".repeat(MAX_FIELD_NAME + 1);
+        assert_eq!(
+            edit_fields(&mut p, id, vec![set(&long_name, "", false)]).unwrap_err(),
+            limit
+        );
+        let long_value = "é".repeat(MAX_FIELD_VALUE + 1);
+        assert_eq!(
+            edit_fields(&mut p, id, vec![set("Note", &long_value, false)]).unwrap_err(),
+            limit
+        );
+        assert_eq!(
+            edit_fields(&mut p, id, vec![set("  ", "x", false)]).unwrap_err(),
+            AppError::InvalidInput { field: "fieldName" }
+        );
+        // At the limits, and duplicate names (imports have them), are fine.
+        let full = (0..MAX_FIELDS)
+            .map(|_| set("Same", &"v".repeat(MAX_FIELD_VALUE), false))
+            .collect();
+        edit_fields(&mut p, id, full).unwrap();
+        assert_eq!(p.entries[0].fields.len(), MAX_FIELDS);
+    }
+
+    #[test]
+    fn field_input_wire_format_and_debug() {
+        let json = r#"{"id":null,"title":"T","fields":[
+            {"name":"PIN","secret":true,"value":{"set":"1234"}},
+            {"name":"Old","value":{"keep":{"index":2,"name":"Old"}}}]}"#;
+        let parsed: EntryInput = serde_json::from_str(json).unwrap();
+        let fields = parsed.fields.as_ref().unwrap();
+        assert!(matches!(&fields[0].value, FieldValue::Set(v) if v == "1234"));
+        assert!(fields[0].secret && !fields[1].secret);
+        assert!(matches!(&fields[1].value, FieldValue::Keep { index: 2, name } if name == "Old"));
+        let text = format!("{parsed:?}");
+        assert!(!text.contains("1234") && !text.contains("PIN"), "{text}");
+        let without: EntryInput = serde_json::from_str(r#"{"id":null,"title":"T"}"#).unwrap();
+        assert!(without.fields.is_none());
     }
 
     #[test]

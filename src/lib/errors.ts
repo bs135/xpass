@@ -19,6 +19,12 @@ export function errorMessage(t: TFunction, e: unknown): string {
             return e.line === null
                 ? t('errors.import_invalid_csv')
                 : t('errors.import_invalid_csv_line', {line: e.line})
+        case 'field_limit':
+            return t('errors.field_limit', {fields: e.maxFields, name: e.maxName, value: e.maxValue.toLocaleString()})
+        case 'invalid_input':
+            return e.field === 'fieldName'
+                ? t('errors.field_name')
+                : t('errors.invalid_input', {defaultValue: t('errors.generic')})
         case 'io':
             return t('errors.io', {kind: e.kind})
         default:

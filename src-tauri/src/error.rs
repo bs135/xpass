@@ -25,6 +25,12 @@ pub enum AppError {
     WeakPassword,
     #[error("invalid input: {field}")]
     InvalidInput { field: &'static str },
+    #[error("too many custom fields, or a name or value is too long")]
+    FieldLimit {
+        max_fields: usize,
+        max_name: usize,
+        max_value: usize,
+    },
     #[error("wrong credentials")]
     BadCredentials,
     #[error("invalid recovery key")]
