@@ -117,6 +117,14 @@ export type FieldRef =
     /** Current code of the TOTP field at `index` (copy only). */
     | {kind: 'totp'; index: number}
 
+/** Weak and reused passwords as entry ids (`password_health`); never passwords. */
+export interface HealthReport {
+    weak: string[]
+    /** Groups of two or more entries sharing a password. */
+    reused: string[][]
+    checkedAt: number
+}
+
 /** A one-time code; the secret stays in Rust. */
 export interface TotpCode {
     code: string
@@ -480,6 +488,8 @@ export const api = {
     setFavorite: (id: string, favorite: boolean) => invoke<void>('set_favorite', {id, favorite}),
     openUrl: (id: string, index: number) => invoke<void>('open_url', {id, index}),
     copyField: (id: string, field: FieldRef) => invoke<void>('copy_field', {id, field}),
+    /** Computed in Rust on a blocking thread; cached until the vault changes. */
+    passwordHealth: () => invoke<HealthReport>('password_health'),
     totpCode: (id: string, index: number) => invoke<TotpCode>('totp_code', {id, index}),
     /** `input`: an otpauth:// URI or a base32 secret; non-empty issuer / account replace the URI's. */
     totpPreview: (input: string, issuer: string, account: string) =>

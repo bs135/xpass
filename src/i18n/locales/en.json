@@ -607,5 +607,17 @@
     "previewCode": "Current code:",
     "compare": "Compare it with the code the site expects.",
     "add": "Add"
+  },
+  "health": {
+    "filter": "Password health: weak or reused passwords",
+    "checking": "Checking passwords…",
+    "allGood": "No weak or reused passwords.",
+    "summary": "{{weak}} weak, {{reused}} reused group(s). The list updates after each change.",
+    "weak_one": "Weak password ({{count}})",
+    "weak_other": "Weak passwords ({{count}})",
+    "reusedGroup": "Same password in {{count}} entries",
+    "badgeWeak": "Weak password",
+    "badgeReused_one": "Also used in {{count}} other entry",
+    "badgeReused_other": "Also used in {{count}} other entries"
   }
 }

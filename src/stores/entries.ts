@@ -1,5 +1,5 @@
 import {create} from 'zustand'
-import {api, type EntryDetail, type EntryInput, type EntrySummary} from '../lib/api'
+import {api, type EntryDetail, type EntryInput, type EntrySummary, type HealthReport} from '../lib/api'
 
 /**
  * Entry list and selection. Holds metadata and details only: passwords never enter
@@ -15,6 +15,10 @@ interface EntriesState {
     mode: Mode
     query: string
     favoritesOnly: boolean
+    /** Last password health result (ids only), or null before the first check. */
+    health: HealthReport | null
+    healthOnly: boolean
+    healthBusy: boolean
     load: () => Promise<void>
     /** After a sync brought remote changes: reload the list and the shown entry (not while editing). */
     refresh: () => Promise<void>
@@ -28,6 +32,9 @@ interface EntriesState {
     toggleFavorite: (id: string, favorite: boolean) => Promise<void>
     setQuery: (query: string) => void
     setFavoritesOnly: (value: boolean) => void
+    /** Shows only entries with a weak or reused password (checks first). */
+    setHealthOnly: (value: boolean) => Promise<void>
+    checkHealth: () => Promise<void>
     reset: () => void
 }
 
@@ -38,12 +45,17 @@ const initial = {
     mode: 'view' as Mode,
     query: '',
     favoritesOnly: false,
+    health: null as HealthReport | null,
+    healthOnly: false,
+    healthBusy: false,
 }
 
 export const useEntries = create<EntriesState>((set, get) => ({
     ...initial,
     load: async () => {
         set({entries: await api.listEntries()})
+        // Once checked, keep the result current (Rust returns the cache when nothing changed).
+        if (get().health !== null) await get().checkHealth().catch(() => undefined)
     },
     refresh: async () => {
         await get().load()
@@ -83,6 +95,18 @@ export const useEntries = create<EntriesState>((set, get) => ({
         if (get().selectedId === id) await get().select(id)
     },
     setQuery: (query) => set({query}),
-    setFavoritesOnly: (favoritesOnly) => set({favoritesOnly}),
+    setFavoritesOnly: (favoritesOnly) => set({favoritesOnly, healthOnly: favoritesOnly ? false : get().healthOnly}),
+    setHealthOnly: async (healthOnly) => {
+        set({healthOnly, favoritesOnly: healthOnly ? false : get().favoritesOnly})
+        if (healthOnly) await get().checkHealth()
+    },
+    checkHealth: async () => {
+        set({healthBusy: true})
+        try {
+            set({health: await api.passwordHealth()})
+        } finally {
+            set({healthBusy: false})
+        }
+    },
     reset: () => set(initial),
 }))

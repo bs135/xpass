@@ -42,6 +42,26 @@ pub fn estimate(password: &str) -> Strength {
     }
 }
 
+/// Score only, with extra words (an entry's title, username, hosts) that count as
+/// guessable (password health, v0.8 plan V8).
+pub fn score(password: &str, user_inputs: &[&str]) -> u8 {
+    if password.is_empty() {
+        return 0;
+    }
+    let mut inputs = vec!["xpass"];
+    inputs.extend_from_slice(user_inputs);
+    zxcvbn::zxcvbn(capped(password), &inputs).score().into()
+}
+
+/// The first [`MAX_CHARS`] characters.
+fn capped(password: &str) -> &str {
+    let end = password
+        .char_indices()
+        .nth(MAX_CHARS)
+        .map_or(password.len(), |(i, _)| i);
+    &password[..end]
+}
+
 pub fn is_strong_enough(password: &str) -> bool {
     estimate(password).score >= MIN_SCORE
 }

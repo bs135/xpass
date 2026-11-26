@@ -7,6 +7,7 @@ import {SyncProblem} from '../../components/SyncProblem'
 import {Alert} from '../../components/ui'
 import {copyField} from '../../lib/copy'
 import {errorMessage} from '../../lib/errors'
+import {flaggedIds} from '../../lib/health'
 import {filterEntries} from '../../lib/search'
 import {useEntries} from '../../stores/entries'
 import {useSession} from '../../stores/session'
@@ -17,12 +18,18 @@ import {EntryView} from './EntryView'
 /** Two-pane entry manager: list + search on the left, details or form on the right. */
 export function EntriesScreen() {
     const {t} = useTranslation()
-    const {entries, query, favoritesOnly, selectedId, detail, mode, load, remove} = useEntries()
+    const {entries, query, favoritesOnly, healthOnly, health, selectedId, detail, mode, load, remove} = useEntries()
     const lock = useSession((s) => s.lock)
     const searchRef = useRef<HTMLInputElement>(null)
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const visible = useMemo(() => filterEntries(entries, query, favoritesOnly), [entries, query, favoritesOnly])
+    const visible = useMemo(() => {
+        const found = filterEntries(entries, query, favoritesOnly)
+        if (!healthOnly) return found
+        if (!health) return []
+        const flagged = flaggedIds(health)
+        return found.filter((e) => flagged.has(e.id))
+    }, [entries, query, favoritesOnly, healthOnly, health])
 
     useEffect(() => {
         load().catch((e) => setError(errorMessage(t, e)))
