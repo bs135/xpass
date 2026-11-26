@@ -2,8 +2,8 @@
 
 Zero-knowledge personal password manager for Windows, built with Tauri (Rust + React).
 
-> Status: **v0.7 — trusted updates**: signed in-app update, signed builds, no crash dumps with secrets, removable
-> sync history. A third-party review before 1.0 is next. See [docs/PLAN.md](docs/PLAN.md).
+> Status: **v0.8 — TOTP, custom fields and password health**, the last feature release before 1.0. The vault
+> format is frozen ([docs/FORMAT.md](docs/FORMAT.md)). See [docs/PLAN.md](docs/PLAN.md).
 
 ![xPass: entry list and an entry with its password history](docs/screenshots/main.png)
 
@@ -11,7 +11,7 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   <img src="docs/screenshots/unlock.png" alt="xPass unlock screen with Windows Hello and the master password" width="500">
 </p>
 
-## Features (v0.7)
+## Features (v0.8)
 
 - **Encrypted local vault** — one file, `%APPDATA%\com.bs135.xpass\vault.xpv`, with the last 10 versions kept in
   `backups\`.
@@ -19,8 +19,14 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   available and is needed to turn Hello on.
 - **Master password + Emergency Kit** — a printable recovery key, confirmed at setup, unlocks the vault if the
   password is forgotten.
-- **Entries** — title, username, password, websites, tags, notes, favorites; search and keyboard shortcuts.
-  Custom fields (for example a TOTP secret from an import) are shown read-only.
+- **Entries** — title, username, password, websites, tags, notes, favorites, custom fields (add, rename,
+  reorder, mark as secret); search and keyboard shortcuts.
+- **One-time passwords (TOTP)** — an entry shows the current code of its TOTP secret with a countdown and copies
+  it; add one by pasting the `otpauth://` link or the key a site shows when you turn on two-factor
+  authentication. Imported TOTP secrets (Bitwarden, KeePassXC) work as they are. See
+  [One-time passwords](#one-time-passwords).
+- **Password health** — the shield button in the entry list shows entries with a weak password or one used in
+  several entries.
 - **Password history** — the last 20 passwords of each entry, newest first, with reveal, copy and **Use this
   password**; labels show which ones came from a sync conflict, a restore or an import.
 - **Import / export** — import CSV files from Bitwarden, Chrome / Edge, KeePassXC or any password manager, with a
@@ -71,6 +77,17 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
 - **Not protected against:** malware running as your Windows user, or a stolen backup file plus a weak master
   password. Older backups keep opening with the credentials that were valid when they were written. Full list of
   what is and is not covered: [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
+
+## One-time passwords
+
+A TOTP secret is stored as a secret custom field named `TOTP` (an `otpauth://totp/…` link). The code is computed
+in the Rust side; the secret itself stays hidden unless you reveal it in the edit form.
+
+Keeping the TOTP secret in the same vault as the password is convenient, but anyone who opens the vault then has
+**both** factors of that account. For accounts where that matters, keep the TOTP in a separate authenticator app.
+
+HOTP (counter-based) and Steam codes are not supported. A KDBX export also writes the secret as KeePassXC's `otp`
+attribute.
 
 ## Sync with GitHub
 

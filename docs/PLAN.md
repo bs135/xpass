@@ -6,6 +6,7 @@ Status: **approved** (2026-11-16). Inputs: [IDEA.md](IDEA.md) (decisions) and th
 Each milestone is a runnable, releasable app. MVP = **v0.1 → v0.4**, complete with v0.4.0 (2026-11-18).
 v0.5 (import / export, password history) done 2026-11-24. v0.6 (hardening, update check) done 2026-11-24.
 v0.7 (signed updates, code signing, crash dumps, history rewrite, SBOM) done 2026-11-25.
+v0.8 (TOTP, custom field editing, password health, FORMAT.md, SECURITY.md) done 2026-11-26.
 
 ---
 
@@ -30,9 +31,9 @@ v0.7 (signed updates, code signing, crash dumps, history rewrite, SBOM) done 202
   check, release process with a protected `main`, installer notes.
 - v0.7 (done): signed in-app update, self-signed Authenticode, WER exclusion, sync history rewrite, SBOM and
   build provenance, weekly fuzzing.
-- v0.8 → 1.0: third-party review and what it needs (frozen format spec, `SECURITY.md`); optionally a publicly
-  trusted code-signing certificate.
-- Later: auto-type (global hotkey), TOTP codes, password health (weak/reused), editing custom fields, Touch ID
+- v0.8 (done): TOTP codes, custom field editing, password health, frozen format spec (`FORMAT.md`), `SECURITY.md`.
+- 1.0: the owner decides on the third-party review; then 1.0, real use, fixes in patch releases (v0.8 plan V12).
+- After 1.0 (from the owner's notes during real use): auto-type (global hotkey, not in 1.0), Touch ID
   (macOS).
 
 ### Out of scope
@@ -131,11 +132,11 @@ Frontend never holds the VaultKey; it receives passwords only for an explicit re
 | Group | Commands |
 |---|---|
 | Session | `vault_status`, `create_vault`, `unlock_password`, `unlock_recovery`, `unlock_hello`, `lock` |
-| Entries | `list_entries` (metadata), `get_entry` (no secrets), `save_entry`, `delete_entry`, `set_favorite`, `open_url`, `list_history` (no passwords), `use_history_password(id, index, at)` |
-| Secrets | `copy_field(id, field)`, `reveal_secret(id, field)` (auto-hide in UI after 15 s); `field` = username, password, url, field or history `{ index, at }` |
+| Entries | `list_entries` (metadata), `get_entry` (no secrets; fields marked `totp`), `save_entry` (custom fields as `set` / `keep`), `delete_entry`, `set_favorite`, `open_url`, `list_history` (no passwords), `use_history_password(id, index, at)`, `password_health` (ids only) |
+| Secrets | `copy_field(id, field)`, `reveal_secret(id, field)` (auto-hide in UI after 15 s); `field` = username, password, url, field, history `{ index, at }` or totp `{ index }` (copies the code); `totp_code(id, index)` |
 | Import | `import_open(preset?)` (native open dialog → preview without secrets, or `null`), `import_set_mapping`, `import_commit`, `import_cancel`, `import_delete_source` |
 | Export | `export_vault(format, auth, kdbxPassword?)` (re-auth → native save dialog → `{ fileName, count }` or `null`) |
-| Tools | `generate_password(opts)`, `password_strength(pw)` |
+| Tools | `generate_password(opts)`, `password_strength(pw)`, `totp_preview(input, issuer, account)` |
 | Security | `change_password`, `rotate_vault_key`, `show_recovery_kit`, `hello_status`, `hello_enable`, `hello_disable` |
 | Sync setup | `sync_get_config`, `sync_configure`, `sync_set_token`, `sync_disconnect`, `sync_test_connection`, `sync_open_token_page` |
 | Sync | `sync_status`, `sync_now`, `sync_dismiss_password_changed`, `sync_join`, `sync_resolve_key_change`, `sync_replace_local`, `sync_history_preview` (branch, other files), `sync_rewrite_history(auth)` → `{ rewritten, otherFiles }`; events `sync://status`, `vault://changed` |
@@ -251,15 +252,26 @@ Done in T38–T44; decisions U1–U14, as-built notes and the manual checklist: 
   engine now merges instead of adopting a remote that lacks local entries.
 - Per release: CycloneDX SBOMs and build provenance attestations; weekly fuzzing with a cached corpus.
 
-### v0.8 → v1.0 — Release (outline)
+### v0.8 — TOTP, custom fields, password health (size: M, ~1–2 weeks)
 
-Planned in its own plan when it starts (v0.7 plan U1, U8, U14):
+Done in T45–T50; decisions V1–V13, as-built notes and the manual checklist: [plan-v0.8.0.md](plan-v0.8.0.md).
 
-- Before 1.0: a frozen format v1 spec (`docs/FORMAT.md` from `spikes/vault-format.md`), `SECURITY.md` with
-  supported versions, private vulnerability reporting, the threat model up to date, and a third-party review
-  (scope: xpass-core crypto, format and sync, the IPC boundary, the update chain; reviewer to be chosen).
+- TOTP codes from secret custom fields (RFC 6238 in `xpass-core`, fuzzed); the secret stays in Rust; add dialog;
+  KDBX export writes KeePassXC's `otp`.
+- Custom fields: add, edit, reorder, delete in the form, secret values kept without reaching the WebView.
+- Password health: weak and reused passwords, ids only.
+- [FORMAT.md](FORMAT.md) (format v1 / schema 1, frozen) and [SECURITY.md](../SECURITY.md); payload `schema`
+  now checked.
+
+### v1.0 — Release (outline)
+
+Planned when v0.8 is out (v0.8 plan V12):
+
+- The owner decides on the third-party review before 1.0 (scope: xpass-core crypto, format and sync, the IPC
+  boundary, the update chain; options in v0.7 plan U14).
 - Optional: a publicly trusted code-signing certificate if SmartScreen matters (options in v0.7 plan U8).
-- The first in-app update (v0.7.0 → next release) is the real test of the update path for NSIS and MSI installs.
+- After 1.0: real use; bugs fixed in patch releases (in-app update), improvements collected for the next plan.
+  Auto-type is not part of 1.0.
 
 ---
 
@@ -267,7 +279,7 @@ Planned in its own plan when it starts (v0.7 plan U1, U8, U14):
 
 | Layer | How |
 |---|---|
-| `xpass-core` | Unit tests ported from spikes (format, tamper, rotation, merge algebra, races, offline, remote moved back); golden vector freezes format v1; `cargo-fuzz` targets `parse`, `unlock_hello`, `recovery_decode` (weekly and on demand, corpus kept between runs), seeds and regressions replayed by `cargo test`. |
+| `xpass-core` | Unit tests ported from spikes (format, tamper, rotation, merge algebra, races, offline, remote moved back); golden vector freezes format v1; `cargo-fuzz` targets `parse`, `unlock_hello`, `recovery_decode`, `otp_parse` (weekly and on demand, corpus kept between runs), seeds and regressions replayed by `cargo test`. |
 | Sync | Engine tests with `MemoryStore`; manual two-device checklist against a private test repo each release touching sync. |
 | Tauri commands | Rust tests on command handlers with a temp app dir. |
 | Windows-specific | Manual checklist per release: Hello enroll/unlock/reset, clipboard history exclusion, lock triggers, tray. |
@@ -287,6 +299,8 @@ Planned in its own plan when it starts (v0.7 plan U1, U8, U14):
 | GitHub PAT expiry | Sync stops | Sync pauses with a "token expired" banner; edits stay local; a new token resumes (v0.4). |
 | Public repository chosen by mistake | Encrypted vault and its history readable by anyone | Test connection flags it; saving needs an explicit acknowledgement (v0.4). |
 | VaultKey rotated while another PC has unsynced edits | Edits encrypted with a discarded key | Rotation only online with sync on (S6); the other PC merges after the password prompt (S7). |
+| TOTP secret stored next to the password | Opening the vault gives both factors | User's choice per entry; README "One-time passwords" says so (v0.8). |
+| Secret custom field changed by mistake | Old value gone (no field history) | Confirmation before saving; local backups and git history keep older copies (v0.8). |
 | Restored backup loses to newer copies on other PCs | Restore undone by the next sync | Restore is a new edit with fresh timestamps (S14). |
 | Clock skew | Wrong LWW winner | D2 + history copy (D1). |
 | Fake or tampered update | A bad installer runs with the user's rights | Minisign signature against the key in the app, signed version, URL and version checks, install only after a click (v0.7). |
