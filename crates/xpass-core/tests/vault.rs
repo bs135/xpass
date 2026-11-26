@@ -652,3 +652,26 @@ fn published_vector_matches() {
     let r = UnlockedVault::unlock(&file, Unlock::Recovery(vector["recovery_key"].as_str().unwrap())).unwrap();
     assert_eq!(r.vault_key_fingerprint(), v.vault_key_fingerprint());
 }
+
+/// The 55th character carries 2 data bits and 3 unused bits (34 bytes = 272 bits in
+/// 55 × 5 = 275). Non-zero unused bits are refused, so each key has one spelling
+/// (docs/FORMAT.md §5.2).
+#[test]
+fn recovery_key_with_non_zero_unused_bits_is_refused() {
+    const ALPHABET: &[u8; 32] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    let (_, rec) = sample(9);
+    assert!(recovery::decode(&rec).is_ok());
+    let last = *rec.as_bytes().last().unwrap();
+    let value = ALPHABET.iter().position(|&c| c == last).unwrap();
+    assert_eq!(value & 0b111, 0, "unused bits are written as zero");
+    for bit in [1, 2, 4] {
+        let mut changed = rec.clone();
+        changed.pop();
+        changed.push(char::from(ALPHABET[value | bit]));
+        assert_eq!(
+            recovery::decode(&changed).unwrap_err(),
+            Error::BadRecoveryKey,
+            "unused bit {bit}"
+        );
+    }
+}
