@@ -7,7 +7,7 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
 > had an independent security review; it rests on its own tests, fuzzing and the self-review in
 > [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). See [docs/PLAN.md](docs/PLAN.md).
 
-![xPass: entry list and an entry with its password history](docs/screenshots/main.png)
+![xPass: entry list and an entry with custom fields and a TOTP code](docs/screenshots/main.png)
 
 <p align="center">
   <img src="docs/screenshots/unlock.png" alt="xPass unlock screen with Windows Hello and the master password" width="500">
