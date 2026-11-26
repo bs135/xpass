@@ -3,7 +3,10 @@
 use std::collections::BTreeSet;
 
 use uuid::Uuid;
-use xpass_core::model::{Entry, Payload, HISTORY_NOTE_IMPORT};
+use xpass_core::{
+    model::{Entry, Payload, HISTORY_NOTE_IMPORT},
+    otp::is_totp_field,
+};
 use xpass_interop::{
     apply::{apply_import, DuplicateChoice, ImportOptions, ImportSummary},
     convert::{convert, ImportRow, Parsed, RowWarning, SkipReason, TOTP_FIELD},
@@ -54,6 +57,7 @@ fn bitwarden() {
     assert_eq!(field(social, "PIN").unwrap().value, "0000");
     let totp = field(social, TOTP_FIELD).unwrap();
     assert!(totp.secret && totp.value.starts_with("otpauth://"));
+    assert!(is_totp_field(totp), "v0.8 shows a code for it");
 
     let note = &p.rows[1];
     assert_eq!(
@@ -100,6 +104,7 @@ fn keepassxc() {
     assert_eq!(mail.tags, ["Email"]);
     assert_eq!(mail.notes, "Synthetic note");
     assert!(field(mail, TOTP_FIELD).unwrap().secret);
+    assert!(is_totp_field(field(mail, TOTP_FIELD).unwrap()));
     let git = &p.rows[2];
     assert_eq!(git.created_at, None);
     assert_eq!(git.warnings, [RowWarning::InvalidDate]);

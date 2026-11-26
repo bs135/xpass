@@ -1,13 +1,16 @@
 import {type FormEvent, useState} from 'react'
 import {Wand2} from 'lucide-react'
 import {useTranslation} from 'react-i18next'
+import {ConfirmDialog} from '../../components/ConfirmDialog'
 import {Generator} from '../../components/Generator'
 import {Modal} from '../../components/Modal'
 import {Alert, Button, Field, PasswordInput, TextInput} from '../../components/ui'
 import type {EntryDetail} from '../../lib/api'
 import {errorMessage} from '../../lib/errors'
+import {type FieldRow, lostSecrets, rowsFromDetail, rowsProblem, toInput} from '../../lib/fields'
 import {parseLines, parseTags} from '../../lib/search'
 import {useEntries} from '../../stores/entries'
+import {FieldEditor} from './FieldEditor'
 
 const areaClass =
     'w-full rounded-md border border-neutral-300 bg-white px-3 py-2 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 dark:border-neutral-700 dark:bg-neutral-900'
@@ -29,10 +32,28 @@ export function EntryForm({detail}: {detail: EntryDetail | null}) {
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [generating, setGenerating] = useState(false)
+    const [fields, setFields] = useState<FieldRow[]>(() => rowsFromDetail(detail?.fields ?? []))
+    // Stored secret field values the save would drop (no history for fields, V7).
+    const [confirmLost, setConfirmLost] = useState<string[] | null>(null)
 
-    const submit = async (e: FormEvent) => {
+    const submit = (e: FormEvent) => {
         e.preventDefault()
         if (!title.trim() || busy) return
+        const problem = rowsProblem(fields)
+        if (problem) {
+            setError(t(`fields.problem.${problem}`))
+            return
+        }
+        const lost = lostSecrets(fields, detail?.fields ?? [])
+        if (lost.length > 0) {
+            setConfirmLost(lost)
+            return
+        }
+        void persist()
+    }
+
+    const persist = async () => {
+        setConfirmLost(null)
         setBusy(true)
         setError(null)
         try {
@@ -46,6 +67,7 @@ export function EntryForm({detail}: {detail: EntryDetail | null}) {
                 notes,
                 tags: parseTags(tags),
                 favorite,
+                fields: toInput(fields),
             })
             setPassword('')
         } catch (err) {
@@ -97,6 +119,13 @@ export function EntryForm({detail}: {detail: EntryDetail | null}) {
             <Field label={t('entries.notes')}>
                 <textarea rows={5} className={areaClass} value={notes} onChange={(e) => setNotes(e.target.value)}/>
             </Field>
+            <FieldEditor
+                entryId={detail?.id ?? null}
+                rows={fields}
+                onChange={setFields}
+                issuer={title.trim()}
+                account={username.trim()}
+            />
             <label className="mb-5 flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={favorite} onChange={(e) => setFavorite(e.target.checked)}/>
                 {t('entries.favorite')}
@@ -110,6 +139,15 @@ export function EntryForm({detail}: {detail: EntryDetail | null}) {
                     {t('actions.save')}
                 </Button>
             </div>
+            {confirmLost && (
+                <ConfirmDialog
+                    title={t('fields.lostTitle')}
+                    message={t('fields.lostMessage', {names: confirmLost.join(', ')})}
+                    confirmLabel={t('actions.save')}
+                    onConfirm={() => void persist()}
+                    onCancel={() => setConfirmLost(null)}
+                />
+            )}
             {generating && (
                 <Modal title={t('generator.title')} onClose={() => setGenerating(false)}>
                     <Generator

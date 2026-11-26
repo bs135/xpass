@@ -6,6 +6,7 @@ mod error;
 mod file_dialog;
 mod generator;
 mod github;
+mod health;
 mod hello;
 mod history;
 mod lock_watch;
@@ -112,6 +113,9 @@ pub fn run() {
             commands::entries::set_favorite,
             commands::entries::open_url,
             commands::entries::copy_field,
+            commands::entries::totp_code,
+            commands::entries::password_health,
+            commands::tools::totp_preview,
             commands::entries::reveal_secret,
             commands::tools::generate_password,
             commands::tools::copy_text,

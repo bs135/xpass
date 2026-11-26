@@ -7,7 +7,10 @@
 use serde::{Deserialize, Serialize};
 use url::Url;
 use uuid::Uuid;
-use xpass_core::model::{Entry, HistoryItem, Payload};
+use xpass_core::{
+    model::{CustomField, Entry, HistoryItem, Payload},
+    otp::{self, Totp},
+};
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
 
 use crate::error::{AppError, AppResult};
@@ -52,10 +55,17 @@ pub struct FieldView {
     /// `None` for secret fields.
     pub value: Option<String>,
     pub secret: bool,
+    /// A TOTP secret: the view shows its code (`totp_code`, v0.8 plan V2).
+    pub totp: bool,
 }
 
-/// Create (`id: None`) or update an entry. Custom fields are kept as they are
-/// (no UI for them in v0.1).
+/// Custom fields per entry, and the size of a name and a value (v0.8 plan V6).
+pub const MAX_FIELDS: usize = 50;
+pub const MAX_FIELD_NAME: usize = 100;
+pub const MAX_FIELD_VALUE: usize = 10_000;
+
+/// Create (`id: None`) or update an entry. `fields: None` keeps the stored custom
+/// fields; `Some` replaces them in that order (v0.8 plan V6).
 #[derive(Deserialize, Zeroize, ZeroizeOnDrop)]
 #[serde(rename_all = "camelCase")]
 pub struct EntryInput {
@@ -75,6 +85,29 @@ pub struct EntryInput {
     pub tags: Vec<String>,
     #[serde(default)]
     pub favorite: bool,
+    #[serde(default)]
+    pub fields: Option<Vec<FieldInput>>,
+}
+
+/// One custom field of the edit form.
+#[derive(Deserialize, Zeroize, ZeroizeOnDrop)]
+#[serde(rename_all = "camelCase")]
+pub struct FieldInput {
+    pub name: String,
+    #[serde(default)]
+    pub secret: bool,
+    pub value: FieldValue,
+}
+
+/// A new value, or the stored value of the field that was at `index` when the
+/// form was loaded. `name` must still match, so a list changed under the form (a
+/// sync merge) gives `not_found` instead of another field's value. Secret values
+/// never have to reach the WebView to keep them.
+#[derive(Deserialize, Zeroize, ZeroizeOnDrop)]
+#[serde(rename_all = "camelCase")]
+pub enum FieldValue {
+    Set(String),
+    Keep { index: usize, name: String },
 }
 
 /// No field values: `Debug` output must never carry a password or notes.
@@ -83,6 +116,7 @@ impl std::fmt::Debug for EntryInput {
         f.debug_struct("EntryInput")
             .field("id", &self.id)
             .field("password_set", &self.password.is_some())
+            .field("fields", &self.fields.as_ref().map(Vec::len))
             .finish_non_exhaustive()
     }
 }
@@ -106,6 +140,54 @@ pub enum FieldRef {
         index: usize,
         at: i64,
     },
+    /// The current code of the TOTP field at `index` (copy only; the secret itself
+    /// is revealed as `Field`).
+    Totp {
+        index: usize,
+    },
+}
+
+/// A TOTP code for the entry view (V4); the secret stays in Rust.
+#[derive(Serialize, Zeroize, ZeroizeOnDrop)]
+#[serde(rename_all = "camelCase")]
+pub struct TotpCode {
+    pub code: String,
+    #[zeroize(skip)]
+    pub period: u32,
+    #[zeroize(skip)]
+    pub remaining_ms: u64,
+}
+
+/// What the "Add one-time password" dialog shows (V5): the code to compare with,
+/// and the normalized URI the new field will hold.
+#[derive(Serialize, Zeroize, ZeroizeOnDrop)]
+#[serde(rename_all = "camelCase")]
+pub struct TotpPreview {
+    pub code: String,
+    #[zeroize(skip)]
+    pub period: u32,
+    #[zeroize(skip)]
+    pub remaining_ms: u64,
+    pub issuer: Option<String>,
+    pub account: Option<String>,
+    pub uri: String,
+}
+
+/// No code, secret or URI in `Debug` output.
+impl std::fmt::Debug for TotpCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TotpCode")
+            .field("period", &self.period)
+            .finish_non_exhaustive()
+    }
+}
+
+impl std::fmt::Debug for TotpPreview {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TotpPreview")
+            .field("period", &self.period)
+            .finish_non_exhaustive()
+    }
 }
 
 /// One password history item for the entry view, without the password.
@@ -123,10 +205,15 @@ pub struct HistoryView {
     pub has_password: bool,
 }
 
-/// Value to copy. Empty values are rejected so a copy never just clears the clipboard.
-pub fn field_value(payload: &Payload, id: Uuid, field: FieldRef) -> AppResult<Zeroizing<String>> {
+/// Value to copy: for `Totp`, the code at `now_ms`. Empty values are rejected so a
+/// copy never just clears the clipboard.
+pub fn field_value(payload: &Payload, id: Uuid, field: FieldRef, now_ms: i64) -> AppResult<Zeroizing<String>> {
     let e = find(payload, id)?;
     let value = match field {
+        FieldRef::Totp { index } => {
+            let code = totp_of(e, index)?.code_at(now_ms).code;
+            return Ok(code);
+        }
         FieldRef::Username => &e.username,
         FieldRef::Password => &e.password,
         FieldRef::Url { index } => e.urls.get(index).ok_or(AppError::NotFound)?,
@@ -154,7 +241,9 @@ pub fn secret_value(payload: &Payload, id: Uuid, field: FieldRef) -> AppResult<Z
             }
         }
         FieldRef::History { index, at } => Ok(Zeroizing::new(history_item(e, index, at)?.password.clone())),
-        FieldRef::Username | FieldRef::Url { .. } => Err(AppError::InvalidInput { field: "field" }),
+        FieldRef::Username | FieldRef::Url { .. } | FieldRef::Totp { .. } => {
+            Err(AppError::InvalidInput { field: "field" })
+        }
     }
 }
 
@@ -246,6 +335,7 @@ pub fn detail(payload: &Payload, id: Uuid) -> AppResult<EntryDetail> {
                 name: f.name.clone(),
                 value: (!f.secret).then(|| f.value.clone()),
                 secret: f.secret,
+                totp: otp::is_totp_field(f),
             })
             .collect(),
         history_count: e.history.len(),
@@ -261,6 +351,19 @@ pub fn save(payload: &mut Payload, input: &EntryInput, ts: i64) -> AppResult<Uui
     if title.is_empty() {
         return Err(AppError::InvalidInput { field: "title" });
     }
+    // Checked before anything changes; `keep` needs the stored fields.
+    let stored: &[CustomField] = match input.id {
+        Some(id) => {
+            &payload
+                .entries
+                .iter()
+                .find(|e| e.id == id && !e.deleted)
+                .ok_or(AppError::NotFound)?
+                .fields
+        }
+        None => &[],
+    };
+    let fields = input.fields.as_deref().map(|f| custom_fields(f, stored)).transpose()?;
     let entry = match input.id {
         None => {
             payload.entries.push(Entry::new(title, ts));
@@ -283,9 +386,100 @@ pub fn save(payload: &mut Payload, input: &EntryInput, ts: i64) -> AppResult<Uui
     entry.notes.clone_from(&input.notes);
     entry.tags = clean_list(&input.tags, true);
     entry.favorite = input.favorite;
+    if let Some(fields) = fields {
+        entry.fields = fields;
+    }
     entry.updated_at = ts;
     entry.normalize_history();
     Ok(entry.id)
+}
+
+/// The TOTP secret of the field at `index`; `totp_invalid` for any other field.
+fn totp_of(e: &Entry, index: usize) -> AppResult<Totp> {
+    let field = e.fields.get(index).ok_or(AppError::NotFound)?;
+    if !otp::is_totp_field(field) {
+        return Err(AppError::TotpInvalid);
+    }
+    Totp::parse(&field.value).map_err(|_| AppError::TotpInvalid)
+}
+
+/// The current code of a TOTP field (V4).
+pub fn totp_code(payload: &Payload, id: Uuid, index: usize, now_ms: i64) -> AppResult<TotpCode> {
+    let code = totp_of(find(payload, id)?, index)?.code_at(now_ms);
+    Ok(TotpCode {
+        code: code.code.to_string(),
+        period: code.period,
+        remaining_ms: code.remaining_ms,
+    })
+}
+
+/// Parses a pasted URI or base32 secret for the add dialog (V5). A non-empty
+/// `issuer` / `account` replaces the one in the URI.
+pub fn totp_preview(input: &str, issuer: &str, account: &str, now_ms: i64) -> AppResult<TotpPreview> {
+    let mut totp = Totp::parse(input).map_err(|_| AppError::TotpInvalid)?;
+    let set = |value: &str, current: &mut Option<String>| {
+        let value = value.trim();
+        if !value.is_empty() {
+            *current = Some(value.to_owned());
+        }
+    };
+    set(issuer, &mut totp.issuer);
+    set(account, &mut totp.account);
+    let uri = totp.to_uri();
+    // The label rules (length, control characters) are the parser's: the URI that
+    // will be stored must read back.
+    let totp = Totp::parse(&uri).map_err(|_| AppError::TotpInvalid)?;
+    let code = totp.code_at(now_ms);
+    Ok(TotpPreview {
+        code: code.code.to_string(),
+        period: code.period,
+        remaining_ms: code.remaining_ms,
+        issuer: totp.issuer.clone(),
+        account: totp.account.clone(),
+        uri: uri.to_string(),
+    })
+}
+
+/// The new field list from the form (V6): names trimmed and non-empty, sizes
+/// within the limits, kept values taken from `stored`.
+fn custom_fields(input: &[FieldInput], stored: &[CustomField]) -> AppResult<Vec<CustomField>> {
+    if input.len() > MAX_FIELDS {
+        return Err(AppError::FieldLimit {
+            max_fields: MAX_FIELDS,
+            max_name: MAX_FIELD_NAME,
+            max_value: MAX_FIELD_VALUE,
+        });
+    }
+    input
+        .iter()
+        .map(|f| {
+            let name = f.name.trim();
+            if name.is_empty() {
+                return Err(AppError::InvalidInput { field: "fieldName" });
+            }
+            let value = match &f.value {
+                FieldValue::Set(value) => value.clone(),
+                FieldValue::Keep { index, name } => stored
+                    .get(*index)
+                    .filter(|s| s.name == *name)
+                    .ok_or(AppError::NotFound)?
+                    .value
+                    .clone(),
+            };
+            if name.chars().count() > MAX_FIELD_NAME || value.chars().count() > MAX_FIELD_VALUE {
+                return Err(AppError::FieldLimit {
+                    max_fields: MAX_FIELDS,
+                    max_name: MAX_FIELD_NAME,
+                    max_value: MAX_FIELD_VALUE,
+                });
+            }
+            Ok(CustomField {
+                name: name.to_owned(),
+                value,
+                secret: f.secret,
+            })
+        })
+        .collect()
 }
 
 pub fn delete(payload: &mut Payload, id: Uuid, ts: i64) -> AppResult<()> {
@@ -351,7 +545,7 @@ fn clean_list(items: &[String], dedupe: bool) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use xpass_core::model::{CustomField, HISTORY_NOTE_IMPORT};
+    use xpass_core::model::HISTORY_NOTE_IMPORT;
 
     use super::*;
 
@@ -365,7 +559,248 @@ mod tests {
             notes: "note".into(),
             tags: vec!["Work".into(), "work".into(), " 2fa ".into()],
             favorite: false,
+            fields: None,
         }
+    }
+
+    fn set(name: &str, value: &str, secret: bool) -> FieldInput {
+        FieldInput {
+            name: name.into(),
+            secret,
+            value: FieldValue::Set(value.into()),
+        }
+    }
+
+    fn keep(name: &str, index: usize, stored_name: &str, secret: bool) -> FieldInput {
+        FieldInput {
+            name: name.into(),
+            secret,
+            value: FieldValue::Keep {
+                index,
+                name: stored_name.into(),
+            },
+        }
+    }
+
+    /// An entry with a secret `PIN` (1234) and a plain `Branch` (Main).
+    fn with_fields() -> (Payload, Uuid) {
+        let mut p = Payload::default();
+        let mut create = input("Bank", Some("pw"));
+        create.fields = Some(vec![set("PIN", "1234", true), set(" Branch ", "Main", false)]);
+        let id = save(&mut p, &create, 1).unwrap();
+        (p, id)
+    }
+
+    fn edit_fields(p: &mut Payload, id: Uuid, fields: Vec<FieldInput>) -> AppResult<Uuid> {
+        let mut edit = input("Bank", None);
+        edit.id = Some(id);
+        edit.fields = Some(fields);
+        save(p, &edit, 5)
+    }
+
+    fn names(p: &Payload) -> Vec<(String, String, bool)> {
+        p.entries[0]
+            .fields
+            .iter()
+            .map(|f| (f.name.clone(), f.value.clone(), f.secret))
+            .collect()
+    }
+
+    #[test]
+    fn fields_are_created_with_trimmed_names() {
+        let (p, _) = with_fields();
+        assert_eq!(
+            names(&p),
+            [
+                ("PIN".to_owned(), "1234".to_owned(), true),
+                ("Branch".to_owned(), "Main".to_owned(), false)
+            ]
+        );
+    }
+
+    #[test]
+    fn keep_reorders_renames_and_flips_without_the_value() {
+        let (mut p, id) = with_fields();
+        edit_fields(
+            &mut p,
+            id,
+            vec![
+                keep("Branch office", 1, "Branch", true),
+                keep("Card PIN", 0, "PIN", true),
+                set("Customer no.", "42", false),
+            ],
+        )
+        .unwrap();
+        assert_eq!(
+            names(&p),
+            [
+                ("Branch office".to_owned(), "Main".to_owned(), true),
+                ("Card PIN".to_owned(), "1234".to_owned(), true),
+                ("Customer no.".to_owned(), "42".to_owned(), false)
+            ]
+        );
+        assert_eq!(p.entries[0].updated_at, 5);
+    }
+
+    #[test]
+    fn set_replaces_and_a_missing_field_is_deleted() {
+        let (mut p, id) = with_fields();
+        edit_fields(&mut p, id, vec![set("PIN", "9999", true)]).unwrap();
+        assert_eq!(names(&p), [("PIN".to_owned(), "9999".to_owned(), true)]);
+        edit_fields(&mut p, id, Vec::new()).unwrap();
+        assert!(p.entries[0].fields.is_empty());
+    }
+
+    #[test]
+    fn none_keeps_the_stored_fields() {
+        let (mut p, id) = with_fields();
+        let mut edit = input("Bank renamed", None);
+        edit.id = Some(id);
+        save(&mut p, &edit, 5).unwrap();
+        assert_eq!(p.entries[0].fields.len(), 2);
+        assert_eq!(p.entries[0].fields[0].value, "1234");
+    }
+
+    #[test]
+    fn a_stale_keep_changes_nothing() {
+        let (mut p, id) = with_fields();
+        let before = p.entries[0].clone();
+        for stale in [keep("PIN", 0, "Branch", true), keep("PIN", 7, "PIN", true)] {
+            assert_eq!(edit_fields(&mut p, id, vec![stale]).unwrap_err(), AppError::NotFound);
+        }
+        assert_eq!(p.entries[0], before);
+        // A new entry has nothing to keep.
+        let mut create = input("New", None);
+        create.fields = Some(vec![keep("PIN", 0, "PIN", true)]);
+        assert_eq!(save(&mut p, &create, 6).unwrap_err(), AppError::NotFound);
+        assert_eq!(p.entries.len(), 1, "nothing created");
+    }
+
+    #[test]
+    fn field_limits() {
+        let (mut p, id) = with_fields();
+        let limit = AppError::FieldLimit {
+            max_fields: MAX_FIELDS,
+            max_name: MAX_FIELD_NAME,
+            max_value: MAX_FIELD_VALUE,
+        };
+        let many = (0..=MAX_FIELDS).map(|i| set(&format!("f{i}"), "", false)).collect();
+        assert_eq!(edit_fields(&mut p, id, many).unwrap_err(), limit);
+        let long_name = "n".repeat(MAX_FIELD_NAME + 1);
+        assert_eq!(
+            edit_fields(&mut p, id, vec![set(&long_name, "", false)]).unwrap_err(),
+            limit
+        );
+        let long_value = "é".repeat(MAX_FIELD_VALUE + 1);
+        assert_eq!(
+            edit_fields(&mut p, id, vec![set("Note", &long_value, false)]).unwrap_err(),
+            limit
+        );
+        assert_eq!(
+            edit_fields(&mut p, id, vec![set("  ", "x", false)]).unwrap_err(),
+            AppError::InvalidInput { field: "fieldName" }
+        );
+        // At the limits, and duplicate names (imports have them), are fine.
+        let full = (0..MAX_FIELDS)
+            .map(|_| set("Same", &"v".repeat(MAX_FIELD_VALUE), false))
+            .collect();
+        edit_fields(&mut p, id, full).unwrap();
+        assert_eq!(p.entries[0].fields.len(), MAX_FIELDS);
+    }
+
+    /// RFC 6238 SHA-1 secret ("12345678901234567890") as base32 and as a URI.
+    const RFC_B32: &str = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+
+    fn with_totp() -> (Payload, Uuid) {
+        let mut p = Payload::default();
+        let mut create = input("Mail", Some("pw"));
+        create.fields = Some(vec![
+            set("Recovery code", RFC_B32, true),
+            set("TOTP", RFC_B32, true),
+            set(
+                "Login code",
+                &format!("otpauth://totp/Mail:a?secret={RFC_B32}&digits=8"),
+                true,
+            ),
+        ]);
+        let id = save(&mut p, &create, 1).unwrap();
+        (p, id)
+    }
+
+    #[test]
+    fn totp_fields_are_marked_and_give_codes() {
+        let (p, id) = with_totp();
+        let d = detail(&p, id).unwrap();
+        let marks: Vec<bool> = d.fields.iter().map(|f| f.totp).collect();
+        assert_eq!(marks, [false, true, true], "base32 counts only under a TOTP / OTP name");
+        assert!(
+            d.fields.iter().all(|f| f.value.is_none()),
+            "secret values stay out of details"
+        );
+
+        // RFC 6238 Appendix B, T = 59 s: 94287082 (8 digits) / 287082 (6 digits).
+        let c = totp_code(&p, id, 1, 59_000).unwrap();
+        assert_eq!((c.code.as_str(), c.period, c.remaining_ms), ("287082", 30, 1_000));
+        assert_eq!(totp_code(&p, id, 2, 59_000).unwrap().code, "94287082");
+        assert_eq!(totp_code(&p, id, 0, 59_000).unwrap_err(), AppError::TotpInvalid);
+        assert_eq!(totp_code(&p, id, 9, 59_000).unwrap_err(), AppError::NotFound);
+    }
+
+    #[test]
+    fn copying_a_totp_gives_the_code_not_the_secret() {
+        let (p, id) = with_totp();
+        let copied = field_value(&p, id, FieldRef::Totp { index: 1 }, 59_000).unwrap();
+        assert_eq!(*copied, "287082");
+        assert_eq!(
+            field_value(&p, id, FieldRef::Totp { index: 0 }, 59_000).unwrap_err(),
+            AppError::TotpInvalid
+        );
+        assert!(
+            secret_value(&p, id, FieldRef::Totp { index: 1 }).is_err(),
+            "no reveal of a code"
+        );
+        assert_eq!(*secret_value(&p, id, FieldRef::Field { index: 1 }).unwrap(), RFC_B32);
+        let parsed: FieldRef = serde_json::from_str(r#"{"kind":"totp","index":1}"#).unwrap();
+        assert_eq!(parsed, FieldRef::Totp { index: 1 });
+    }
+
+    #[test]
+    fn totp_preview_normalizes_and_overrides_the_label() {
+        let p = totp_preview(" gezd gnbv gy3t qojq gezd gnbv gy3t qojq ", "ACME", " bob ", 59_000).unwrap();
+        assert_eq!(p.code, "287082");
+        assert_eq!((p.issuer.as_deref(), p.account.as_deref()), (Some("ACME"), Some("bob")));
+        assert_eq!(p.uri, format!("otpauth://totp/ACME:bob?secret={RFC_B32}&issuer=ACME"));
+        let kept = totp_preview(&format!("otpauth://totp/X:y?secret={RFC_B32}"), "", "", 0).unwrap();
+        assert_eq!(
+            (kept.issuer.as_deref(), kept.account.as_deref()),
+            (Some("X"), Some("y"))
+        );
+        assert_eq!(totp_preview("nope!", "", "", 0).unwrap_err(), AppError::TotpInvalid);
+        assert_eq!(
+            totp_preview(RFC_B32, &"x".repeat(200), "", 0).unwrap_err(),
+            AppError::TotpInvalid,
+            "a label the stored URI could not read back"
+        );
+        assert_eq!(
+            totp_preview("otpauth://hotp/x?secret=GEZDGNBVGY3TQOJQ", "", "", 0).unwrap_err(),
+            AppError::TotpInvalid
+        );
+    }
+
+    #[test]
+    fn field_input_wire_format_and_debug() {
+        let json = r#"{"id":null,"title":"T","fields":[
+            {"name":"PIN","secret":true,"value":{"set":"1234"}},
+            {"name":"Old","value":{"keep":{"index":2,"name":"Old"}}}]}"#;
+        let parsed: EntryInput = serde_json::from_str(json).unwrap();
+        let fields = parsed.fields.as_ref().unwrap();
+        assert!(matches!(&fields[0].value, FieldValue::Set(v) if v == "1234"));
+        assert!(fields[0].secret && !fields[1].secret);
+        assert!(matches!(&fields[1].value, FieldValue::Keep { index: 2, name } if name == "Old"));
+        let text = format!("{parsed:?}");
+        assert!(!text.contains("1234") && !text.contains("PIN"), "{text}");
+        let without: EntryInput = serde_json::from_str(r#"{"id":null,"title":"T"}"#).unwrap();
+        assert!(without.fields.is_none());
     }
 
     #[test]
@@ -537,7 +972,7 @@ mod tests {
                 secret: false,
             },
         ];
-        let v = |f| field_value(&p, id, f).map(|z| z.to_string());
+        let v = |f| field_value(&p, id, f, 0).map(|z| z.to_string());
         assert_eq!(v(FieldRef::Username).unwrap(), "alice");
         assert_eq!(v(FieldRef::Password).unwrap(), "pw");
         assert_eq!(v(FieldRef::Url { index: 0 }).unwrap(), "github.com/login");
@@ -555,7 +990,7 @@ mod tests {
 
         let empty = save(&mut p, &input("Empty", None), 2).unwrap();
         assert_eq!(
-            field_value(&p, empty, FieldRef::Password).unwrap_err(),
+            field_value(&p, empty, FieldRef::Password, 0).unwrap_err(),
             AppError::InvalidInput { field: "field" }
         );
         let parsed: FieldRef = serde_json::from_str(r#"{"kind":"url","index":1}"#).unwrap();
@@ -615,10 +1050,10 @@ mod tests {
         let (p, id) = with_history();
         let r = FieldRef::History { index: 0, at: 10 };
         assert_eq!(*secret_value(&p, id, r).unwrap(), "pw1");
-        assert_eq!(*field_value(&p, id, r).unwrap(), "pw1");
+        assert_eq!(*field_value(&p, id, r, 0).unwrap(), "pw1");
         let stale = FieldRef::History { index: 0, at: 20 };
         assert_eq!(secret_value(&p, id, stale).unwrap_err(), AppError::NotFound);
-        assert_eq!(field_value(&p, id, stale).unwrap_err(), AppError::NotFound);
+        assert_eq!(field_value(&p, id, stale, 0).unwrap_err(), AppError::NotFound);
         let gone = FieldRef::History { index: 5, at: 10 };
         assert_eq!(secret_value(&p, id, gone).unwrap_err(), AppError::NotFound);
     }

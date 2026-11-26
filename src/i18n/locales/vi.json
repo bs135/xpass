@@ -155,7 +155,8 @@
     "username": "Sao chép tên đăng nhập (Ctrl+B)",
     "password": "Sao chép mật khẩu (Ctrl+C)",
     "url": "Sao chép địa chỉ web",
-    "field": "Sao chép giá trị"
+    "field": "Sao chép giá trị",
+    "totp": "Sao chép mã"
   },
   "generator": {
     "title": "Tạo mật khẩu",
@@ -212,6 +213,9 @@
     "locked": "Kho đang khoá.",
     "weak_password": "Mật khẩu quá yếu.",
     "invalid_input": "Thiếu thông tin hoặc thông tin không hợp lệ.",
+    "field_limit": "Quá nhiều trường tuỳ chỉnh hoặc có trường quá dài: tối đa {{fields}} trường, {{name}} ký tự mỗi tên và {{value}} ký tự mỗi giá trị.",
+    "field_name": "Mỗi trường tuỳ chỉnh cần có tên.",
+    "totp_invalid": "Không dùng được làm khoá mật khẩu một lần. Hãy dán link otpauth://totp/ hoặc key base32 (chữ A–Z và số 2–7). Không hỗ trợ mã theo bộ đếm (HOTP) và mã Steam.",
     "bad_credentials": "Sai mật khẩu.",
     "wrong_recovery_key": "Mã khôi phục này không mở được kho. Có thể nó đã được thay bằng một Emergency Kit mới hơn.",
     "bad_recovery_key": "Mã khôi phục không hợp lệ. Hãy kiểm tra lỗi gõ.",
@@ -219,6 +223,7 @@
     "tampered": "File kho đã bị sửa đổi hoặc bị hỏng. Hãy khôi phục một bản trong thư mục backups.",
     "invalid_file": "Đây không phải file kho xPass hợp lệ.",
     "unsupported_version": "Kho này được tạo bởi phiên bản xPass mới hơn (định dạng v{{version}}). Hãy cập nhật ứng dụng.",
+    "unsupported_schema": "Vault này được lưu bởi một phiên bản xPass mới hơn (data schema {{schema}}). Hãy cập nhật xPass để mở. Chưa có gì bị thay đổi.",
     "io": "Không đọc hoặc ghi được file kho ({{kind}}).",
     "not_found": "Mục này không còn tồn tại.",
     "open_failed": "Không mở được liên kết.",
@@ -557,5 +562,52 @@
     "onStartup": "Kiểm tra cập nhật khi mở xPass (tối đa mỗi ngày một lần)",
     "hint": "Việc kiểm tra chỉ đọc phiên bản mới nhất và dữ liệu phát hành đã ký từ GitHub. Không tải hay cài gì cho đến khi bạn chọn Cài đặt và khởi động lại.",
     "badge": "Cài đặt (có bản cập nhật)"
+  },
+  "fields": {
+    "title": "Trường tuỳ chỉnh",
+    "none": "Chưa có trường tuỳ chỉnh.",
+    "name": "Tên trường",
+    "value": "Giá trị",
+    "secret": "Bí mật",
+    "up": "Chuyển lên",
+    "down": "Chuyển xuống",
+    "remove": "Xoá trường",
+    "add": "Thêm trường",
+    "stored": "Giá trị đã lưu (đang ẩn)",
+    "reveal": "Hiện",
+    "replace": "Thay",
+    "lostTitle": "Thay giá trị bí mật?",
+    "lostMessage": "Giá trị cũ của các trường bí mật này không được giữ trong lịch sử mật khẩu: {{names}}. 10 phiên bản vault gần nhất trên máy vẫn còn chúng. Vẫn lưu?",
+    "problem": {
+      "name": "Mỗi trường tuỳ chỉnh cần có tên.",
+      "tooMany": "Mỗi entry có tối đa 50 trường tuỳ chỉnh.",
+      "tooLong": "Tên trường tối đa 100 ký tự và giá trị tối đa 10.000 ký tự."
+    }
+  },
+  "totp": {
+    "label": "Mật khẩu một lần",
+    "code": "Mã một lần hiện tại",
+    "expires": "Mã mới sau {{seconds}} giây",
+    "addButton": "Thêm mật khẩu một lần",
+    "addTitle": "Thêm mật khẩu một lần",
+    "addExplain": "Dán link otpauth:// hoặc secret key mà trang web hiện khi bật xác thực hai bước (đoạn chữ dưới mã QR). xPass hiện mã; key vẫn nằm trong vault.",
+    "secret": "Link otpauth:// hoặc secret key",
+    "issuer": "Nhà cung cấp",
+    "account": "Tài khoản",
+    "previewCode": "Mã hiện tại:",
+    "compare": "So với mã mà trang web yêu cầu.",
+    "add": "Thêm"
+  },
+  "health": {
+    "filter": "Sức khoẻ mật khẩu: mật khẩu yếu hoặc dùng lại",
+    "checking": "Đang kiểm tra mật khẩu…",
+    "allGood": "Không có mật khẩu yếu hay dùng lại.",
+    "summary": "{{weak}} mật khẩu yếu, {{reused}} nhóm dùng lại. Danh sách tự cập nhật sau mỗi thay đổi.",
+    "weak_one": "Mật khẩu yếu ({{count}})",
+    "weak_other": "Mật khẩu yếu ({{count}})",
+    "reusedGroup": "Cùng mật khẩu ở {{count}} entry",
+    "badgeWeak": "Mật khẩu yếu",
+    "badgeReused_one": "Cũng dùng ở {{count}} entry khác",
+    "badgeReused_other": "Cũng dùng ở {{count}} entry khác"
   }
 }

@@ -155,7 +155,8 @@
     "username": "Copy username (Ctrl+B)",
     "password": "Copy password (Ctrl+C)",
     "url": "Copy website",
-    "field": "Copy value"
+    "field": "Copy value",
+    "totp": "Copy code"
   },
   "generator": {
     "title": "Password generator",
@@ -212,6 +213,9 @@
     "locked": "The vault is locked.",
     "weak_password": "The password is too weak.",
     "invalid_input": "Some input is missing or invalid.",
+    "field_limit": "Too many custom fields or a field is too long: at most {{fields}} fields, {{name}} characters per name and {{value}} per value.",
+    "field_name": "Every custom field needs a name.",
+    "totp_invalid": "Not a usable one-time password key. Paste the otpauth://totp/ link or the base32 key (letters A–Z and digits 2–7). Counter-based (HOTP) and Steam codes are not supported.",
     "bad_credentials": "Wrong password.",
     "wrong_recovery_key": "This recovery key does not open this vault. It may have been replaced by a newer Emergency Kit.",
     "bad_recovery_key": "This recovery key is not valid. Check it for typos.",
@@ -219,6 +223,7 @@
     "tampered": "The vault file was modified or is corrupted. Restore a copy from the backups folder.",
     "invalid_file": "This is not a valid xPass vault file.",
     "unsupported_version": "This vault was created by a newer version of xPass (format v{{version}}). Update the app.",
+    "unsupported_schema": "This vault was saved by a newer version of xPass (data schema {{schema}}). Update xPass to open it. Nothing was changed.",
     "io": "Could not read or write the vault file ({{kind}}).",
     "not_found": "This entry no longer exists.",
     "open_failed": "Could not open the link.",
@@ -568,5 +573,52 @@
     "onStartup": "Check for updates when xPass starts (at most once a day)",
     "hint": "The check only reads the latest version and its signed release data from GitHub. Nothing is downloaded or installed until you choose Install and restart.",
     "badge": "Settings (update available)"
+  },
+  "fields": {
+    "title": "Custom fields",
+    "none": "No custom fields.",
+    "name": "Field name",
+    "value": "Value",
+    "secret": "Secret",
+    "up": "Move up",
+    "down": "Move down",
+    "remove": "Remove field",
+    "add": "Add field",
+    "stored": "Stored value (hidden)",
+    "reveal": "Reveal",
+    "replace": "Replace",
+    "lostTitle": "Replace secret values?",
+    "lostMessage": "The old values of these secret fields are not kept in the password history: {{names}}. The last 10 local versions of the vault still have them. Save anyway?",
+    "problem": {
+      "name": "Every custom field needs a name.",
+      "tooMany": "An entry can have at most 50 custom fields.",
+      "tooLong": "A field name can have at most 100 characters and a value at most 10,000."
+    }
+  },
+  "totp": {
+    "label": "One-time password",
+    "code": "Current one-time code",
+    "expires": "New code in {{seconds}} s",
+    "addButton": "Add one-time password",
+    "addTitle": "Add one-time password",
+    "addExplain": "Paste the otpauth:// link or the secret key the site shows when you turn on two-factor authentication (the text under the QR code). xPass shows the codes; the key stays in the vault.",
+    "secret": "otpauth:// link or secret key",
+    "issuer": "Issuer",
+    "account": "Account",
+    "previewCode": "Current code:",
+    "compare": "Compare it with the code the site expects.",
+    "add": "Add"
+  },
+  "health": {
+    "filter": "Password health: weak or reused passwords",
+    "checking": "Checking passwords…",
+    "allGood": "No weak or reused passwords.",
+    "summary": "{{weak}} weak, {{reused}} reused group(s). The list updates after each change.",
+    "weak_one": "Weak password ({{count}})",
+    "weak_other": "Weak passwords ({{count}})",
+    "reusedGroup": "Same password in {{count}} entries",
+    "badgeWeak": "Weak password",
+    "badgeReused_one": "Also used in {{count}} other entry",
+    "badgeReused_other": "Also used in {{count}} other entries"
   }
 }

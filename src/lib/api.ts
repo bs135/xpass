@@ -74,7 +74,8 @@ export interface EntryDetail {
     notes: string
     tags: string[]
     favorite: boolean
-    fields: {name: string; value: string | null; secret: boolean}[]
+    /** `totp`: a one-time password secret; the view shows its code (`totpCode`). */
+    fields: {name: string; value: string | null; secret: boolean; totp: boolean}[]
     historyCount: number
     createdAt: number
     updatedAt: number
@@ -91,6 +92,18 @@ export interface EntryInput {
     notes: string
     tags: string[]
     favorite: boolean
+    /** Omitted or null keeps the stored custom fields; a list replaces them in order. */
+    fields?: FieldInput[] | null
+}
+
+/**
+ * A custom field of the edit form: a new value (`set`), or the stored value of the
+ * field that was at `index` when the form was loaded (`keep`; `name` must still match).
+ */
+export interface FieldInput {
+    name: string
+    secret: boolean
+    value: {set: string} | {keep: {index: number; name: string}}
 }
 
 /** Part of an entry that can be copied (all) or revealed (password, secret field). */
@@ -101,6 +114,30 @@ export type FieldRef =
     | {kind: 'field'; index: number}
     /** Old password at `index` (oldest first); `at` must match or the call fails with not_found. */
     | {kind: 'history'; index: number; at: number}
+    /** Current code of the TOTP field at `index` (copy only). */
+    | {kind: 'totp'; index: number}
+
+/** Weak and reused passwords as entry ids (`password_health`); never passwords. */
+export interface HealthReport {
+    weak: string[]
+    /** Groups of two or more entries sharing a password. */
+    reused: string[][]
+    checkedAt: number
+}
+
+/** A one-time code; the secret stays in Rust. */
+export interface TotpCode {
+    code: string
+    period: number
+    remainingMs: number
+}
+
+/** Checked secret for the add dialog, with the URI the new field will hold. */
+export interface TotpPreview extends TotpCode {
+    issuer: string | null
+    account: string | null
+    uri: string
+}
 
 /** Password history item without the password (`list_history`, newest first). */
 export interface HistoryItemView {
@@ -336,12 +373,15 @@ export type AppError =
     | {code: 'clipboard'}
     | {code: 'weak_password'}
     | {code: 'invalid_input'; field: string}
+    | {code: 'field_limit'; maxFields: number; maxName: number; maxValue: number}
+    | {code: 'totp_invalid'}
     | {code: 'bad_credentials'}
     | {code: 'bad_recovery_key'}
     | {code: 'throttled'; retryAfterMs: number}
     | {code: 'tampered'}
     | {code: 'invalid_file'}
     | {code: 'unsupported_version'; version: number}
+    | {code: 'unsupported_schema'; schema: number}
     | {code: 'no_such_slot'}
     | {code: 'different_vault'}
     | {code: 'key_changed'}
@@ -449,6 +489,12 @@ export const api = {
     setFavorite: (id: string, favorite: boolean) => invoke<void>('set_favorite', {id, favorite}),
     openUrl: (id: string, index: number) => invoke<void>('open_url', {id, index}),
     copyField: (id: string, field: FieldRef) => invoke<void>('copy_field', {id, field}),
+    /** Computed in Rust on a blocking thread; cached until the vault changes. */
+    passwordHealth: () => invoke<HealthReport>('password_health'),
+    totpCode: (id: string, index: number) => invoke<TotpCode>('totp_code', {id, index}),
+    /** `input`: an otpauth:// URI or a base32 secret; non-empty issuer / account replace the URI's. */
+    totpPreview: (input: string, issuer: string, account: string) =>
+        invoke<TotpPreview>('totp_preview', {input, issuer, account}),
     revealSecret: (id: string, field: FieldRef) =>
         invoke<{value: string}>('reveal_secret', {id, field}).then((s) => s.value),
     generatePassword: (options: GeneratorOptions) => invoke<Generated>('generate_password', {options}),

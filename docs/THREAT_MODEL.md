@@ -1,7 +1,8 @@
 # xPass — Threat Model
 
-Status: **v0.7** (2026-11-25), written against the code on `develop` after v0.5.0 and updated for v0.7.0 (signed
-updates, code signing, crash dumps, history rewrite, release provenance). Updated when a release changes
+Status: **v0.8** (2026-11-26), written against the code on `develop` after v0.5.0 and updated for v0.7.0 (signed
+updates, code signing, crash dumps, history rewrite, release provenance) and v0.8.0 (TOTP codes, custom field
+editing, password health, payload schema check). The vault format is specified in [FORMAT.md](FORMAT.md). Updated when a release changes
 what is stored, who can reach it or how it is protected. Decisions it refers to: [IDEA.md §3](IDEA.md#3-design-issues),
 [PLAN.md §2](PLAN.md#2-decisions), and the per-milestone plans (`plan-v0.X.0.md`).
 
@@ -13,6 +14,7 @@ remote party is the user's own private GitHub repository, which receives the enc
 | Asset | Where it lives | Sensitivity |
 |---|---|---|
 | Entry secrets (passwords, notes, custom fields, password history) | Encrypted in `vault.xpv`; plaintext only in the Rust process while unlocked | Critical |
+| TOTP secrets (v0.8, secret custom fields) | Same as entry secrets; only the current code reaches the WebView | Critical: with the password, they open the account on their own (see §5) |
 | Entry metadata (titles, usernames, URLs, tags) | Same as above; also in the WebView while unlocked (list, detail) | High |
 | **VaultKey** (random 256-bit) | Rust memory while unlocked; on disk only wrapped in header slots | Critical |
 | Master password | Typed by the user; in the WebView form and Rust memory during unlock / re-auth | Critical |
@@ -95,11 +97,15 @@ remote party is the user's own private GitHub repository, which receives the enc
 | No crash dump with secrets (v0.7) | `WerSetFlags(NOHEAP)`, `WerAddExcludedApplication` per user, `WerRegisterExcludedMemoryBlock` for every `LockedKey` page (`crash_dump.rs`, `xpass-core::secret::set_page_hooks`); the NSIS uninstaller removes the exclusion | `secret.rs` hook test; manual crash test (debug `XPASS_CRASH_TEST=1`) left no dump, report or event |
 | Binaries signed by a published key (v0.7) | Authenticode (self-signed, SHA-256, RFC 3161 timestamp) in the release build; `scripts/verify-authenticode.ps1` checks every installer and the exe files inside the NSIS one before the draft release is published | Release workflow; README "Check the download" |
 | Release provenance (v0.7) | `SHA256SUMS.txt`, CycloneDX SBOMs, `actions/attest-build-provenance` and `attest-sbom` per release | `gh attestation verify` (README) |
+| TOTP codes without the secret (v0.8) | `otp.rs`: RFC 4226 / 6238, parser with size and label limits; `totp_code` and `copy_field` (`totp`) return or copy only the current code; the add dialog sends the secret once and gets back the normalized URI | `otp.rs` RFC vectors, `entries.rs` / `state.rs` TOTP tests; fuzz target `otp_parse` (its first run found a length bug, fixed with a regression file) |
+| Custom field edits without revealing secrets (v0.8) | `save_entry` fields as `set` or `keep { index, name }`: a stored secret value never has to reach the WebView to be kept, renamed or reordered; limits checked before any change | `entries.rs` field tests (stale `keep` → `not_found`, limits, redacted `Debug`) |
+| Password health by id only (v0.8) | `health.rs`: passwords copied into `Zeroizing` buffers outside the session lock and wiped after the check; the result carries entry ids only | `health.rs` tests (`the_report_carries_no_password`), `state.rs` cache test |
+| Newer payload schema refused (v0.8) | `vault.rs` `decode_payload`: unlock and sync refuse `schema` above the one the build knows, instead of saving it back as schema 1 | `newer_payload_schema_is_refused` |
 | Old vault versions removable from GitHub (v0.7) | `history.rs`: parentless commit of the same tree, head re-checked before a forced ref update, vault read back; only when this device is synced and clean, after re-auth | `history.rs`, `state/sync.rs` tests; `xpass-core/tests/sync.rs` remote-moved-back tests |
 
 ## 5. Accepted limits
 
-Known gaps that v0.7 does **not** close. Each was weighed against its cost; revisit before 1.0.
+Known gaps that v0.8 does **not** close. Each was weighed against its cost; revisit before 1.0.
 
 | Limit | Impact | Why accepted / what reduces it |
 |---|---|---|
@@ -115,6 +121,10 @@ Known gaps that v0.7 does **not** close. Each was weighed against its cost; revi
 | Git history and local backups keep old encrypted copies | An old password (A2) opens old copies | Rotate after a suspected compromise, then **Remove old versions from GitHub** (v0.7). That rewrite cannot reach what GitHub still serves by commit SHA for a while, forks, clones or caches, and it removes the history of other files in the same branch too; a full purge needs GitHub Support. Local backups after a rotation are still the old key's copies (last 10). |
 | Metadata leaks to GitHub | Commit times, file size ≈ entry count, IP address | Accepted for personal use (IDEA §3.3). |
 | `Payload.extra` / `Entry.extra` (unknown fields from newer versions, D5) not zeroized | Only matters for fields written by a future version | `serde_json::Value` has no zeroize support. |
+| TOTP secret in the same vault as the password (v0.8) | Whoever opens the vault (A2, A4, A5) has both factors of that account: two-factor login becomes one factor | The user's choice per entry; README says so. Keeping the TOTP in a separate authenticator keeps the factors apart. |
+| TOTP codes reach the WebView (v0.8) | A code is shown and may stay in WebView memory | Codes are valid for one period (usually 30 s) and only while the entry is open; the secret stays in Rust except on an explicit reveal in the edit form. |
+| Custom fields have no history (v0.8) | Changing or deleting a secret field loses the old value (except in local backups and git history) | The form asks first; `HistoryItem` cannot hold fields without a schema change (FORMAT.md §9). |
+| Payload schema checked only from v0.8 | Builds up to v0.7 would open a newer schema and save it back as schema 1 | FORMAT.md §9.5: a breaking payload change also bumps the envelope `version` while such builds may still sync. |
 | Plaintext CSV export | Anyone with the file reads everything | Warning + checkbox + re-auth; KDBX offered first; result screen says to delete it. |
 | Self-signed builds (v0.7) | The Authenticode signature proves which key signed a file only to someone who checks the thumbprint; Windows reports it as not trusted and SmartScreen still warns | Checksums, build provenance attestations and the update signature stay; users are never asked to trust the certificate. A publicly trusted certificate is optional later (v0.7 plan U8). |
 | Hello key name `xpass-<vault_id>` is in the per-user namespace | Another app of the same user can ask to sign with it — but each signature shows the Hello prompt | Spike finding (D9); A5 already wins in that case. |
@@ -146,7 +156,7 @@ Checklist from [IDEA.md §3](IDEA.md#3-design-issues) and the milestone plans, c
 | R14 | Clipboard excluded from history / cloud / monitoring; clear only if unchanged (§3.7) | OK | `clipboard.rs` + tests |
 | R15 | Auto-lock: idle, Windows lock, sleep, exit (§4) | OK | `lock_watch.rs`; also display off (Modern Standby) |
 | R16 | Strength check for the master password (§4) | OK | zxcvbn ≥ 3 |
-| R17 | Header parser fuzzed (§6 testing) | OK | T33: `cargo-fuzz` targets `parse` (header must re-encode to the same AAD bytes), `unlock_hello`, `recovery_decode`; on demand (Fuzz workflow / local nightly), seeds and regressions replayed by `cargo test` on every CI run |
+| R17 | Header parser fuzzed (§6 testing) | OK | T33: `cargo-fuzz` targets `parse` (header must re-encode to the same AAD bytes), `unlock_hello`, `recovery_decode`, and since v0.8 `otp_parse`; on demand (Fuzz workflow / local nightly), seeds and regressions replayed by `cargo test` on every CI run |
 | R18 | Wrong-password throttling | OK | `throttle.rs`; shared with re-auth |
 | R19 | Re-auth before export, password change, rotation, new kit, Hello enable (a recovery-key session is not asked again) | OK | `authorize` / `reauthorize` in `state.rs`, `state/reauth.rs` |
 | R20 | Import: limits before parsing, no file content in errors or preview, pending rows zeroized and expired | OK | `xpass-interop` tests, `state/import.rs` (`IMPORT_TTL`) |
@@ -161,6 +171,9 @@ Checklist from [IDEA.md §3](IDEA.md#3-design-issues) and the milestone plans, c
 | R29 | Signed auto-update | OK | v0.7 T38 / T39: minisign-signed `latest.json` and installers, checked in Rust, installed only after a click; signing key: A11 |
 | R30 | SBOM and build provenance per release | OK | v0.7 T42: CycloneDX SBOMs (Rust, npm), `attest-build-provenance`, `attest-sbom`, all in `SHA256SUMS.txt` |
 | R31 | Fuzzing runs regularly | OK | v0.7 T42: weekly scheduled run of every target with a cached corpus |
+| R32 | TOTP secrets stay in Rust | OK | v0.8 T45 / T47: codes computed in Rust, copy gives the code, reveal only as a secret field; limit: same vault as the password (§5) |
+| R33 | Password health leaks nothing | OK | v0.8 T48: ids only, copies wiped, no network check |
+| R34 | Format written down and frozen | OK | v0.8 T49: [FORMAT.md](FORMAT.md), checked against the code by an independent review; payload schema now checked |
 
 Findings of this review that were not already in the v0.6 plan: `sync_set_token` (PAT) and `copy_text` take a
 plain `String` over IPC. Rechecked in T32: like the other commands they move it into `Zeroizing` on entry, so R11
@@ -169,3 +182,4 @@ needed no signature changes (see R11).
 ## 7. Reporting a vulnerability
 
 Report it privately through GitHub ("Security" tab → "Report a vulnerability") rather than in a public issue.
+Supported versions, what to include, response times and scope: [SECURITY.md](../SECURITY.md).

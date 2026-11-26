@@ -3,6 +3,42 @@
 All notable changes to xPass. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/).
 
+## [0.8.0]
+
+One-time passwords, editable custom fields and a password health check; the vault format is written down and
+frozen for 1.0. This is the first release that 0.7.0 installs from Settings → About.
+
+### Added
+
+- **One-time passwords (TOTP)**: an entry with a TOTP secret shows the current code with a countdown, and
+  **Copy code** copies the code (not the secret) with the usual clipboard protections. **Add one-time password**
+  in the entry form takes the `otpauth://` link or the key a site shows; xPass shows the current code before it
+  is saved. TOTP secrets imported from Bitwarden or KeePassXC work as they are. HOTP and Steam codes are not
+  supported.
+- **Custom fields** can be added, renamed, reordered, marked secret and deleted in the entry form. Secret values
+  stay hidden until you reveal or replace them, and changing one asks first: custom fields have no history.
+- **Password health**: the shield button in the entry list shows entries with a weak password or one used in
+  several entries; the entry view marks them too. Checked on this PC only, nothing is sent anywhere.
+- [docs/FORMAT.md](docs/FORMAT.md): the vault file format (v1) and data schema (1), frozen for 1.0.
+- [SECURITY.md](SECURITY.md): supported versions and how to report a vulnerability privately.
+
+### Changed
+
+- The KDBX export also writes a TOTP secret as KeePassXC's `otp` attribute, so KeePassXC shows the code.
+
+### Fixed
+
+- A vault saved by a newer xPass with a newer data schema is refused with a clear message, instead of being
+  opened and saved back in the old schema.
+- Release workflow: the code-signing certificate is removed from the build machine correctly, and the update
+  files are checked before the release is published, so a release no longer needs to be published by hand.
+
+### Security
+
+- [Threat model](docs/THREAT_MODEL.md) updated for v0.8: TOTP secrets in the vault (both factors in one place),
+  codes in the WebView, custom fields without history, password health by entry id only.
+- The TOTP parser is fuzzed every week like the vault file parser.
+
 ## [0.7.0]
 
 Trusted updates: xPass installs signed updates itself, every build is signed, crash reports leave the vault out,

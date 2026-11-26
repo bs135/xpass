@@ -8,6 +8,9 @@ pub enum Error {
     /// Format version newer than this build understands.
     #[error("unsupported vault format version {0}")]
     UnsupportedVersion(u16),
+    /// Payload schema newer than this build understands (checked since v0.8).
+    #[error("unsupported vault payload schema {0}")]
+    UnsupportedSchema(u32),
     /// Wrong password / recovery key / Hello KEK, or the slot was tampered with.
     #[error("wrong credentials")]
     BadCredentials,

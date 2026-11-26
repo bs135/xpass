@@ -33,6 +33,7 @@ use crate::{
     entries::{self, FieldRef},
     error::{AppError, AppResult},
     github::{ConnectionReport, GitHubStore},
+    health::{self, HealthReport},
     hello::{self, HelloBackend, HelloError},
     lock_watch::LockReason,
     paths::Paths,
@@ -168,6 +169,8 @@ struct Inner {
     sync_running: tokio::sync::Mutex<()>,
     /// Pending CSV import (v0.5 I3). Lock order: `session`, then `import`.
     import: Mutex<import::ImportSlot>,
+    /// Last password health result and the vault (id, revision) it was computed for.
+    health: Mutex<Option<((Uuid, u64), HealthReport)>>,
 }
 
 impl AppState {
@@ -197,6 +200,7 @@ impl AppState {
             sync_notifier: OnceLock::new(),
             sync_running: tokio::sync::Mutex::new(()),
             import: Mutex::new(import::ImportSlot::default()),
+            health: Mutex::new(None),
         }))
     }
 
@@ -690,9 +694,31 @@ impl AppState {
         was_unlocked
     }
 
+    /// Weak and reused passwords (v0.8 plan V8). Computed outside the session lock
+    /// on copies that are wiped afterwards; cached until the vault changes (every
+    /// save, local or from a sync, bumps the payload revision). Call from a
+    /// blocking thread.
+    pub fn password_health(&self) -> AppResult<HealthReport> {
+        let (key, candidates) = {
+            let guard = lock(&self.0.session);
+            let session = guard.as_ref().ok_or(AppError::Locked)?;
+            let vault = session.vault();
+            let key = (vault.vault_id(), vault.payload.revision);
+            if let Some((cached, report)) = lock(&self.0.health).as_ref() {
+                if *cached == key {
+                    return Ok(report.clone());
+                }
+            }
+            (key, health::candidates(&vault.payload))
+        };
+        let report = health::check(&candidates, now_ms());
+        *lock(&self.0.health) = Some((key, report.clone()));
+        Ok(report)
+    }
+
     /// Copies an entry field to the clipboard; it is cleared after the timeout.
     pub fn copy_field(&self, id: uuid::Uuid, field: FieldRef) -> AppResult<()> {
-        let value = self.read(|p| entries::field_value(p, id, field))?;
+        let value = self.read(|p| entries::field_value(p, id, field, now_ms()))?;
         self.0.clipboard.copy(&value, self.settings().clipboard_clear())
     }
 
@@ -1214,6 +1240,7 @@ mod tests {
             notes: String::new(),
             tags: Vec::new(),
             favorite: false,
+            fields: None,
         };
         let id = state.edit(|p, ts| entries::save(p, &input, ts)).unwrap();
         // A failing edit leaves the vault unchanged.
@@ -1262,6 +1289,7 @@ mod tests {
             notes: String::new(),
             tags: Vec::new(),
             favorite: false,
+            fields: None,
         };
         let id = state.edit(|p, ts| entries::save(p, &input, ts)).unwrap();
 
@@ -1276,6 +1304,93 @@ mod tests {
             state.reveal_secret(id, FieldRef::Password).unwrap_err(),
             AppError::Locked
         );
+    }
+
+    #[test]
+    fn copying_a_totp_puts_the_current_code_on_the_clipboard() {
+        use crate::{
+            clipboard::fake::FakeClipboard,
+            entries::{EntryInput, FieldInput, FieldValue},
+        };
+        let tmp = tempfile::tempdir().unwrap();
+        let fake = FakeClipboard::default();
+        let state = AppState::new(
+            Paths::new(tmp.path()),
+            TEST_KDF,
+            SecureClipboard::new(fake.clone()),
+            Box::new(FakeHello::default()),
+        );
+        state.create_vault(PW).unwrap();
+        let secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+        let input = EntryInput {
+            id: None,
+            title: "Mail".into(),
+            username: String::new(),
+            password: None,
+            urls: Vec::new(),
+            notes: String::new(),
+            tags: Vec::new(),
+            favorite: false,
+            fields: Some(vec![FieldInput {
+                name: "TOTP".into(),
+                secret: true,
+                value: FieldValue::Set(secret.into()),
+            }]),
+        };
+        let id = state.edit(|p, ts| entries::save(p, &input, ts)).unwrap();
+
+        state.copy_field(id, FieldRef::Totp { index: 0 }).unwrap();
+        let copied = fake.text().unwrap();
+        assert!(
+            copied.len() == 6 && copied.bytes().all(|b| b.is_ascii_digit()),
+            "{copied}"
+        );
+        let shown = state.read(|p| entries::totp_code(p, id, 0, now_ms())).unwrap();
+        assert_eq!(shown.period, 30);
+
+        state.lock();
+        assert_eq!(fake.text(), None);
+        assert_eq!(
+            state.read(|p| entries::totp_code(p, id, 0, now_ms())).unwrap_err(),
+            AppError::Locked
+        );
+        assert_eq!(
+            state.copy_field(id, FieldRef::Totp { index: 0 }).unwrap_err(),
+            AppError::Locked
+        );
+    }
+
+    #[test]
+    fn password_health_is_cached_until_the_vault_changes() {
+        use crate::entries::EntryInput;
+        let (_tmp, _paths, state, _) = created();
+        let save = |title: &str, password: &str| {
+            let input = EntryInput {
+                id: None,
+                title: title.into(),
+                username: String::new(),
+                password: Some(password.into()),
+                urls: Vec::new(),
+                notes: String::new(),
+                tags: Vec::new(),
+                favorite: false,
+                fields: None,
+            };
+            state.edit(|p, ts| entries::save(p, &input, ts)).unwrap()
+        };
+        let a = save("A", "vN7#qL2$zR9!kP4&");
+        let first = state.password_health().unwrap();
+        assert!(first.weak.is_empty() && first.reused.is_empty());
+        assert_eq!(state.password_health().unwrap(), first, "cached: same checkedAt");
+
+        let b = save("B", "vN7#qL2$zR9!kP4&");
+        let c = save("C", "password1");
+        let next = state.password_health().unwrap();
+        assert_eq!(next.weak, [c]);
+        assert_eq!(next.reused, [vec![a, b]]);
+
+        state.lock();
+        assert_eq!(state.password_health().unwrap_err(), AppError::Locked);
     }
 
     #[test]

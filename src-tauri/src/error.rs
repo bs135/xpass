@@ -25,6 +25,14 @@ pub enum AppError {
     WeakPassword,
     #[error("invalid input: {field}")]
     InvalidInput { field: &'static str },
+    #[error("not a usable one-time password secret")]
+    TotpInvalid,
+    #[error("too many custom fields, or a name or value is too long")]
+    FieldLimit {
+        max_fields: usize,
+        max_name: usize,
+        max_value: usize,
+    },
     #[error("wrong credentials")]
     BadCredentials,
     #[error("invalid recovery key")]
@@ -37,6 +45,8 @@ pub enum AppError {
     InvalidFile,
     #[error("unsupported vault format version {version}")]
     UnsupportedVersion { version: u16 },
+    #[error("unsupported vault payload schema {schema}")]
+    UnsupportedSchema { schema: u32 },
     #[error("the vault has no key slot of this kind")]
     NoSuchSlot,
     #[error("the file belongs to a different vault")]
@@ -113,6 +123,7 @@ impl From<xpass_core::Error> for AppError {
             // Out-of-bounds KDF params can only come from a damaged or hostile file.
             E::Format(_) | E::BadKdfParams | E::Payload(_) => Self::InvalidFile,
             E::UnsupportedVersion(version) => Self::UnsupportedVersion { version },
+            E::UnsupportedSchema(schema) => Self::UnsupportedSchema { schema },
             E::NoSuchSlot => Self::NoSuchSlot,
             E::DifferentVault => Self::DifferentVault,
             E::KeyChanged => Self::KeyChanged,
