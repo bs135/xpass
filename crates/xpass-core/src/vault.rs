@@ -14,7 +14,7 @@ use zeroize::Zeroizing;
 use crate::{
     crypto::{self, KdfParams, KEY_LEN},
     format::{self, Header, Slot, SlotKind, SlotParams, WRAPPED_LEN},
-    model::Payload,
+    model::{Payload, SCHEMA_VERSION},
     recovery,
     secret::LockedKey,
     Error, Result,
@@ -143,7 +143,7 @@ impl UnlockedVault {
             parsed.header_bytes,
         )
         .ok_or(Error::Tampered)?;
-        let payload: Payload = serde_json::from_slice(&plaintext).map_err(|e| Error::Payload(e.to_string()))?;
+        let payload = decode_payload(&plaintext)?;
 
         Ok(Self {
             vault_id: header.vault_id,
@@ -179,7 +179,7 @@ impl UnlockedVault {
             None if without_hello(&header.slots) == without_hello(&self.slots) => return Err(Error::Tampered),
             None => return Err(Error::KeyChanged),
         };
-        let payload: Payload = serde_json::from_slice(&plaintext).map_err(|e| Error::Payload(e.to_string()))?;
+        let payload = decode_payload(&plaintext)?;
         Ok(Self {
             vault_id: self.vault_id,
             vault_key: self.vault_key.clone(),
@@ -413,6 +413,17 @@ impl UnlockedVault {
         self.slots.push(Slot { params, nonce, wrapped });
         self.slots.sort_by_key(|s| s.params.kind() as u8);
     }
+}
+
+/// Payload JSON from a decrypted body. A schema newer than this build is refused
+/// instead of read and saved back as schema 1, which would drop what it means
+/// (docs/FORMAT.md §9).
+fn decode_payload(plaintext: &[u8]) -> Result<Payload> {
+    let payload: Payload = serde_json::from_slice(plaintext).map_err(|e| Error::Payload(e.to_string()))?;
+    if payload.schema > SCHEMA_VERSION {
+        return Err(Error::UnsupportedSchema(payload.schema));
+    }
+    Ok(payload)
 }
 
 fn without_hello(slots: &[Slot]) -> Vec<&Slot> {

@@ -223,6 +223,7 @@
     "tampered": "The vault file was modified or is corrupted. Restore a copy from the backups folder.",
     "invalid_file": "This is not a valid xPass vault file.",
     "unsupported_version": "This vault was created by a newer version of xPass (format v{{version}}). Update the app.",
+    "unsupported_schema": "This vault was saved by a newer version of xPass (data schema {{schema}}). Update xPass to open it. Nothing was changed.",
     "io": "Could not read or write the vault file ({{kind}}).",
     "not_found": "This entry no longer exists.",
     "open_failed": "Could not open the link.",

@@ -381,6 +381,7 @@ export type AppError =
     | {code: 'tampered'}
     | {code: 'invalid_file'}
     | {code: 'unsupported_version'; version: number}
+    | {code: 'unsupported_schema'; schema: number}
     | {code: 'no_such_slot'}
     | {code: 'different_vault'}
     | {code: 'key_changed'}

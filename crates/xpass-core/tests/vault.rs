@@ -616,3 +616,20 @@ fn check_hello_verifies_without_changes() {
     v.check_hello(b"sig").unwrap();
     assert_eq!(v.check_hello(b"forged").unwrap_err(), Error::BadCredentials);
 }
+
+/// Since v0.8 a payload schema newer than this build is refused, by unlock and by
+/// the sync path (`open_sibling`), instead of being saved back as schema 1.
+#[test]
+fn newer_payload_schema_is_refused() {
+    let (file, _) = sample(7);
+    let mut r = rng(70);
+    let mut v = UnlockedVault::unlock(&file, Unlock::Password(PW)).unwrap();
+    let ours = v.clone();
+    v.payload.schema = xpass_core::model::SCHEMA_VERSION + 1;
+    let newer = v.save(&mut r).unwrap();
+    assert_eq!(
+        err(UnlockedVault::unlock(&newer, Unlock::Password(PW))),
+        Error::UnsupportedSchema(2)
+    );
+    assert_eq!(ours.open_sibling(&newer).unwrap_err(), Error::UnsupportedSchema(2));
+}
