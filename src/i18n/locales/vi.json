@@ -155,7 +155,8 @@
     "username": "Sao chép tên đăng nhập (Ctrl+B)",
     "password": "Sao chép mật khẩu (Ctrl+C)",
     "url": "Sao chép địa chỉ web",
-    "field": "Sao chép giá trị"
+    "field": "Sao chép giá trị",
+    "totp": "Sao chép mã"
   },
   "generator": {
     "title": "Tạo mật khẩu",
@@ -214,6 +215,7 @@
     "invalid_input": "Thiếu thông tin hoặc thông tin không hợp lệ.",
     "field_limit": "Quá nhiều trường tuỳ chỉnh hoặc có trường quá dài: tối đa {{fields}} trường, {{name}} ký tự mỗi tên và {{value}} ký tự mỗi giá trị.",
     "field_name": "Mỗi trường tuỳ chỉnh cần có tên.",
+    "totp_invalid": "Không dùng được làm khoá mật khẩu một lần. Hãy dán link otpauth://totp/ hoặc key base32 (chữ A–Z và số 2–7). Không hỗ trợ mã theo bộ đếm (HOTP) và mã Steam.",
     "bad_credentials": "Sai mật khẩu.",
     "wrong_recovery_key": "Mã khôi phục này không mở được kho. Có thể nó đã được thay bằng một Emergency Kit mới hơn.",
     "bad_recovery_key": "Mã khôi phục không hợp lệ. Hãy kiểm tra lỗi gõ.",
@@ -580,5 +582,19 @@
       "tooMany": "Mỗi entry có tối đa 50 trường tuỳ chỉnh.",
       "tooLong": "Tên trường tối đa 100 ký tự và giá trị tối đa 10.000 ký tự."
     }
+  },
+  "totp": {
+    "label": "Mật khẩu một lần",
+    "code": "Mã một lần hiện tại",
+    "expires": "Mã mới sau {{seconds}} giây",
+    "addButton": "Thêm mật khẩu một lần",
+    "addTitle": "Thêm mật khẩu một lần",
+    "addExplain": "Dán link otpauth:// hoặc secret key mà trang web hiện khi bật xác thực hai bước (đoạn chữ dưới mã QR). xPass hiện mã; key vẫn nằm trong vault.",
+    "secret": "Link otpauth:// hoặc secret key",
+    "issuer": "Nhà cung cấp",
+    "account": "Tài khoản",
+    "previewCode": "Mã hiện tại:",
+    "compare": "So với mã mà trang web yêu cầu.",
+    "add": "Thêm"
   }
 }

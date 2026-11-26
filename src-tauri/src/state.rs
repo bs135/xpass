@@ -692,7 +692,7 @@ impl AppState {
 
     /// Copies an entry field to the clipboard; it is cleared after the timeout.
     pub fn copy_field(&self, id: uuid::Uuid, field: FieldRef) -> AppResult<()> {
-        let value = self.read(|p| entries::field_value(p, id, field))?;
+        let value = self.read(|p| entries::field_value(p, id, field, now_ms()))?;
         self.0.clipboard.copy(&value, self.settings().clipboard_clear())
     }
 
@@ -1276,6 +1276,60 @@ mod tests {
         assert_eq!(state.copy_field(id, FieldRef::Password).unwrap_err(), AppError::Locked);
         assert_eq!(
             state.reveal_secret(id, FieldRef::Password).unwrap_err(),
+            AppError::Locked
+        );
+    }
+
+    #[test]
+    fn copying_a_totp_puts_the_current_code_on_the_clipboard() {
+        use crate::{
+            clipboard::fake::FakeClipboard,
+            entries::{EntryInput, FieldInput, FieldValue},
+        };
+        let tmp = tempfile::tempdir().unwrap();
+        let fake = FakeClipboard::default();
+        let state = AppState::new(
+            Paths::new(tmp.path()),
+            TEST_KDF,
+            SecureClipboard::new(fake.clone()),
+            Box::new(FakeHello::default()),
+        );
+        state.create_vault(PW).unwrap();
+        let secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+        let input = EntryInput {
+            id: None,
+            title: "Mail".into(),
+            username: String::new(),
+            password: None,
+            urls: Vec::new(),
+            notes: String::new(),
+            tags: Vec::new(),
+            favorite: false,
+            fields: Some(vec![FieldInput {
+                name: "TOTP".into(),
+                secret: true,
+                value: FieldValue::Set(secret.into()),
+            }]),
+        };
+        let id = state.edit(|p, ts| entries::save(p, &input, ts)).unwrap();
+
+        state.copy_field(id, FieldRef::Totp { index: 0 }).unwrap();
+        let copied = fake.text().unwrap();
+        assert!(
+            copied.len() == 6 && copied.bytes().all(|b| b.is_ascii_digit()),
+            "{copied}"
+        );
+        let shown = state.read(|p| entries::totp_code(p, id, 0, now_ms())).unwrap();
+        assert_eq!(shown.period, 30);
+
+        state.lock();
+        assert_eq!(fake.text(), None);
+        assert_eq!(
+            state.read(|p| entries::totp_code(p, id, 0, now_ms())).unwrap_err(),
+            AppError::Locked
+        );
+        assert_eq!(
+            state.copy_field(id, FieldRef::Totp { index: 0 }).unwrap_err(),
             AppError::Locked
         );
     }

@@ -18,7 +18,10 @@ use keepass::{
     db::{fields, Entry as KpEntry, Times, Value},
     Database, DatabaseKey,
 };
-use xpass_core::model::{Entry, Payload};
+use xpass_core::{
+    model::{Entry, Payload},
+    otp,
+};
 use zeroize::Zeroizing;
 
 /// Name of the group holding every exported entry.
@@ -27,6 +30,8 @@ pub const GROUP_NAME: &str = "xPass";
 pub const FAVORITE_TAG: &str = "favorite";
 /// KeePassXC / KeePass2Android field name prefix for extra URLs (`KP2A_URL_1`, …).
 pub const EXTRA_URL_PREFIX: &str = "KP2A_URL_";
+/// KeePassXC's one-time password attribute (an `otpauth://` URI).
+pub const OTP_FIELD: &str = "otp";
 
 /// Argon2id parameters of the exported file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -120,6 +125,15 @@ fn fill(kp: &mut KpEntry, e: &Entry) {
             Value::unprotected(f.value.as_str())
         };
         kp.set(field_name(kp, &f.name), value);
+    }
+    // KeePassXC reads one-time passwords from `otp` (v0.8 plan V2); the field stays too.
+    let totp = e
+        .fields
+        .iter()
+        .filter(|f| otp::is_totp_field(f))
+        .find_map(|f| otp::Totp::parse(&f.value).ok());
+    if let (Some(totp), false) = (totp, kp.fields.contains_key(OTP_FIELD)) {
+        kp.set_protected(OTP_FIELD, totp.to_uri().as_str());
     }
     kp.tags.clone_from(&e.tags);
     if e.favorite && !kp.tags.iter().any(|t| t == FAVORITE_TAG) {
@@ -235,6 +249,27 @@ mod tests {
         p
     }
 
+    #[test]
+    fn totp_fields_also_become_keepassxc_otp() {
+        let mut p = sample();
+        p.entries[0].fields.push(CustomField {
+            name: "OTP".into(),
+            value: "gezd gnbv gy3t qojq gezd gnbv gy3t qojq".into(),
+            secret: true,
+        });
+        let (bytes, _) = export_kdbx(&p, EXPORT_PW, &FAST).unwrap();
+        let db = open(&bytes, EXPORT_PW);
+        let root = db.root();
+        let group = root.group_by_name(GROUP_NAME).unwrap();
+        let e = group.entry_by_name("Example").unwrap();
+        assert_eq!(
+            e.get(OTP_FIELD),
+            Some("otpauth://totp/?secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ")
+        );
+        assert!(e.fields[OTP_FIELD].is_protected());
+        assert!(e.get("OTP").is_some(), "the field itself stays");
+    }
+
     fn open(bytes: &[u8], pw: &str) -> Database {
         Database::parse(bytes, DatabaseKey::new().with_password(pw)).unwrap()
     }
@@ -258,6 +293,7 @@ mod tests {
         assert_eq!(e.tags, vec!["work".to_owned(), FAVORITE_TAG.to_owned()]);
         assert_eq!(e.get("TOTP"), Some("fake-totp-seed"));
         assert!(e.fields["TOTP"].is_protected());
+        assert_eq!(e.get(OTP_FIELD), None, "not a usable secret: no otp attribute");
         assert_eq!(
             e.get("Title (2)"),
             Some("clash"),

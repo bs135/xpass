@@ -25,6 +25,8 @@ pub enum AppError {
     WeakPassword,
     #[error("invalid input: {field}")]
     InvalidInput { field: &'static str },
+    #[error("not a usable one-time password secret")]
+    TotpInvalid,
     #[error("too many custom fields, or a name or value is too long")]
     FieldLimit {
         max_fields: usize,

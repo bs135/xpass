@@ -1,10 +1,12 @@
-import {ArrowDown, ArrowUp, Eye, Plus, Trash2} from 'lucide-react'
+import {useState} from 'react'
+import {ArrowDown, ArrowUp, Eye, KeyRound, Plus, Trash2} from 'lucide-react'
 import {useTranslation} from 'react-i18next'
 import {Button, PasswordInput, TextInput} from '../../components/ui'
 import {api} from '../../lib/api'
 import {errorMessage} from '../../lib/errors'
 import {type FieldRow, MAX_FIELDS, move, newRow} from '../../lib/fields'
 import {useToast} from '../../stores/toast'
+import {TotpDialog} from './TotpDialog'
 
 /**
  * Custom fields of the entry form (v0.8 plan V6). A stored secret value is not
@@ -15,13 +17,19 @@ export function FieldEditor({
     entryId,
     rows,
     onChange,
+    issuer,
+    account,
 }: {
     entryId: string | null
     rows: FieldRow[]
     onChange: (rows: FieldRow[]) => void
+    /** Defaults for a new one-time password: the entry's title and username. */
+    issuer: string
+    account: string
 }) {
     const {t} = useTranslation()
     const show = useToast((s) => s.show)
+    const [addingTotp, setAddingTotp] = useState(false)
 
     const update = (i: number, patch: Partial<FieldRow>) => onChange(rows.map((r, j) => (j === i ? {...r, ...patch} : r)))
 
@@ -122,15 +130,31 @@ export function FieldEditor({
                     )
                 })}
             </ul>
-            <Button
-                variant="secondary"
-                className="mt-3"
-                disabled={rows.length >= MAX_FIELDS}
-                onClick={() => onChange([...rows, newRow()])}
-            >
-                <Plus className="size-4" aria-hidden/>
-                {t('fields.add')}
-            </Button>
+            <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                    variant="secondary"
+                    disabled={rows.length >= MAX_FIELDS}
+                    onClick={() => onChange([...rows, newRow()])}
+                >
+                    <Plus className="size-4" aria-hidden/>
+                    {t('fields.add')}
+                </Button>
+                <Button variant="secondary" disabled={rows.length >= MAX_FIELDS} onClick={() => setAddingTotp(true)}>
+                    <KeyRound className="size-4" aria-hidden/>
+                    {t('totp.addButton')}
+                </Button>
+            </div>
+            {addingTotp && (
+                <TotpDialog
+                    issuer={issuer}
+                    account={account}
+                    onClose={() => setAddingTotp(false)}
+                    onAdd={(uri) => {
+                        setAddingTotp(false)
+                        onChange([...rows, {...newRow(), name: 'TOTP', secret: true, value: uri}])
+                    }}
+                />
+            )}
         </fieldset>
     )
 }

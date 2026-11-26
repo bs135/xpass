@@ -6,10 +6,10 @@ use uuid::Uuid;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::{
-    entries::{self, EntryDetail, EntryInput, EntrySummary, FieldRef, HistoryView},
+    entries::{self, EntryDetail, EntryInput, EntrySummary, FieldRef, HistoryView, TotpCode},
     error::{AppError, AppResult},
     shell,
-    state::AppState,
+    state::{now_ms, AppState},
 };
 
 #[tauri::command]
@@ -79,4 +79,10 @@ pub fn reveal_secret(state: State<'_, AppState>, id: Uuid, field: FieldRef) -> A
     Ok(Secret {
         value: value.to_string(),
     })
+}
+
+/// The current code of a TOTP field; the UI asks again when `remainingMs` runs out.
+#[tauri::command]
+pub fn totp_code(state: State<'_, AppState>, id: Uuid, index: usize) -> AppResult<TotpCode> {
+    state.read(|p| entries::totp_code(p, id, index, now_ms()))
 }

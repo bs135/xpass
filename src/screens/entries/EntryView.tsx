@@ -7,6 +7,7 @@ import {api, type EntryDetail, type FieldRef, type HistoryItemView} from '../../
 import {copyField} from '../../lib/copy'
 import {errorMessage} from '../../lib/errors'
 import {useEntries} from '../../stores/entries'
+import {TotpCode} from './TotpCode'
 
 /** Reveal hides again after this long, or when the window loses focus. */
 const REVEAL_MS = 15_000
@@ -18,6 +19,7 @@ function refKey(field: FieldRef): string {
             return `history:${field.index}:${field.at}`
         case 'field':
         case 'url':
+        case 'totp':
             return `${field.kind}:${field.index}`
         default:
             return field.kind
@@ -168,6 +170,24 @@ export function EntryView({detail, onDelete}: {detail: EntryDetail; onDelete: ()
                 </Row>
                 {detail.fields.map((f, index) => {
                     const field: FieldRef = {kind: 'field', index}
+                    if (f.totp) {
+                        // The code, not the secret (V4); the secret is revealed in the edit form.
+                        return (
+                            <Row
+                                key={index}
+                                label={f.name || t('totp.label')}
+                                actions={
+                                    <IconButton
+                                        icon={Copy}
+                                        title={t('copy.totp')}
+                                        onClick={() => copy({kind: 'totp', index})}
+                                    />
+                                }
+                            >
+                                <TotpCode entryId={detail.id} index={index} version={version}/>
+                            </Row>
+                        )
+                    }
                     return (
                         <Row
                             key={index}
