@@ -3,7 +3,7 @@
 > **Superseded:** the format as built is specified in [docs/FORMAT.md](../FORMAT.md) (format v1, payload schema 1).
 > This spike is kept as the record of how the design was chosen; its payload example is out of date.
 
-Status: **passed** (2026-11-14). Code: [`spikes/vault-format`](../../spikes/vault-format).
+Status: **passed** (2026-11-14). Code: [`spikes/vault-format`](https://github.com/bs135/xpass/tree/v0.5.0/spikes/vault-format).
 Related: [IDEA.md §3.2–3.4](../IDEA.md#32-key-hierarchy-critical), [windows-hello.md](windows-hello.md).
 
 ## Goal

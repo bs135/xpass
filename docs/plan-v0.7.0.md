@@ -4,7 +4,7 @@ Status: **done** (2026-11-25). Parent: [PLAN.md §4 v0.7](PLAN.md#v07--trusted-u
 
 ## Goal
 
-Close the "later" rows of the v0.6 self-review ([THREAT_MODEL.md §6](THREAT_MODEL.md#6-security-self-review-v06)
+Close the "later" rows of the v0.6 self-review ([THREAT_MODEL.md §6](THREAT_MODEL.md#6-security-self-review-10)
 R4, R28, R29) that do not need money or an outside party:
 
 - **Signed in-app update**: xPass downloads a release, checks its signature against a public key built into the app
@@ -385,7 +385,9 @@ Update (real, after the release)
       `gh attestation verify` passes for both installers.
 - [x] v0.6.1 → v0.7.0 by hand over an existing install keeps vault and settings.
 - [x] The 0.6.9 test build (real public key) updated in-app to the released v0.7.0.
-- [ ] **Next release** (v0.7.1 / v0.8.0): v0.7.0 NSIS install and v0.7.0 MSI install each update in-app.
+- [x] **Next release** (v0.8.0): the owner's v0.7.0 install updated in-app to v0.8.0 (2026-11-26), the first
+      in-app update from a published release.
+- [ ] The same from a v0.7.0 **MSI** install (not checked yet).
 
 Crash dumps
 - [x] Debug crash trigger while unlocked → no dump / report with heap (T40: no dump, report or event).

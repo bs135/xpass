@@ -1,7 +1,7 @@
 # v0.4.0 Plan: GitHub sync
 
 Status: **done** (2026-11-18). Parent: [PLAN.md §4 v0.4](PLAN.md#v04--github-sync-size-l-3-weeks--mvp-complete).
-Spike: [docs/spikes/github-sync.md](spikes/github-sync.md), code in [`spikes/github-sync`](../spikes/github-sync).
+Spike: [docs/spikes/github-sync.md](spikes/github-sync.md), code in [`spikes/github-sync`](https://github.com/bs135/xpass/tree/v0.5.0/spikes/github-sync).
 
 ## Goal
 

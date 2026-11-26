@@ -1,0 +1,42 @@
+{
+  "ciphertext_length": 591,
+  "description": "xPass vault format v1 / payload schema 1 test vector (docs/FORMAT.md §10). Synthetic data.",
+  "file": "vault.xpv",
+  "file_length": 837,
+  "file_sha256": "09a57f185e9542ec3c70b5c6fc340731d26ecdf62e7ce26fce756ce966aec117",
+  "header": "5850535601007848b5d711bc9883996317a3f9c902690102011c00002000000100000001000000c5210a2de4a8d4d3b4207beb0d419072a22cc779c9ee1c106f66e172c869bd5f8f0db4c43200551b3000a0a7d8860a714352f3a4bb1f7fca5f8c1b8fa63c58161dcadcab1a51f6508c696a437acafbcce76c6b42ed30178bfb32021000c4777157b105a71243a2252399a12e45e4375d8af35927a3128ab6da37483430633aac7fdf7e0d653000edd3cb21861b518f19a736dbb92646621a1c048a176ae2058ad0af7cb8c0d7bb4f1a9eb1324ebf8854bc8aacaca8759fe76e60e8d652f2178a44da0328015b7a09223a4dec18dcae",
+  "header_length": 246,
+  "password": "correct horse battery staple",
+  "payload_aad": "the header bytes above",
+  "payload_nonce": "e76e60e8d652f2178a44da0328015b7a09223a4dec18dcae",
+  "plaintext": "{\"schema\":1,\"revision\":1,\"entries\":[{\"id\":\"00000000-0000-0000-0000-000000000001\",\"created_at\":1700000000000,\"updated_at\":1700000000000,\"deleted\":false,\"title\":\"GitHub\",\"username\":\"alice\",\"password\":\"gh-secret\",\"urls\":[\"https://example.com\"],\"notes\":\"\",\"tags\":[],\"favorite\":false,\"fields\":[],\"history\":[]},{\"id\":\"00000000-0000-0000-0000-000000000002\",\"created_at\":1700000000000,\"updated_at\":1700000000000,\"deleted\":false,\"title\":\"Mail\",\"username\":\"alice\",\"password\":\"mail-secret\",\"urls\":[\"https://example.com\"],\"notes\":\"\",\"tags\":[],\"favorite\":false,\"fields\":[],\"history\":[]}]}",
+  "recovery_key": "4SKHR-6MHTJ-QLQMX-SJ73Y-7J256-ACE4I-DHSIV-7NHT7-L2TMI-IFVF6-4A6HY",
+  "slots": [
+    {
+      "aad": "5850535601007848b5d711bc9883996317a3f9c9026901002000000100000001000000c5210a2de4a8d4d3b4207beb0d419072",
+      "kek": "e819b9a7ee4a4255676a4ab0efbd81a2663483962962c209ce10c1edddd57c82",
+      "kind": "password",
+      "nonce": "a22cc779c9ee1c106f66e172c869bd5f8f0db4c43200551b",
+      "params": {
+        "m_kib": 8192,
+        "p": 1,
+        "salt": "c5210a2de4a8d4d3b4207beb0d419072",
+        "t": 1
+      },
+      "wrapped": "a0a7d8860a714352f3a4bb1f7fca5f8c1b8fa63c58161dcadcab1a51f6508c696a437acafbcce76c6b42ed30178bfb32"
+    },
+    {
+      "aad": "5850535601007848b5d711bc9883996317a3f9c9026902c4777157b105a71243a2252399a12e45",
+      "kek": "c7cfd8f05f8790bdaa88f41b6164ba88e1b9bff42e090aeab2297b0f9ba7e8c5",
+      "kind": "recovery",
+      "nonce": "e4375d8af35927a3128ab6da37483430633aac7fdf7e0d65",
+      "params": {
+        "recovery_secret": "e49478f9879a60b832f24ff78fa75df0044e2067922bf69e7f5ea6c420b52fb8",
+        "salt": "c4777157b105a71243a2252399a12e45"
+      },
+      "wrapped": "edd3cb21861b518f19a736dbb92646621a1c048a176ae2058ad0af7cb8c0d7bb4f1a9eb1324ebf8854bc8aacaca8759f"
+    }
+  ],
+  "vault_id": "7848b5d711bc9883996317a3f9c90269",
+  "vault_key": "d56771005d540a19184939c9e8d0db2a55f292a9a75dc429aa86f5fb84756558"
+}

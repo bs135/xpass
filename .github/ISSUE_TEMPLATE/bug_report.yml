@@ -1,0 +1,65 @@
+name: Bug report
+description: Something in xPass does not work as described.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never attach or paste a vault file (`vault.xpv`, backups), a password, a recovery key, a TOTP secret,
+        a GitHub token or an export.** Reproduce the problem with a test vault and made-up entries instead.
+
+        A security problem (anything that exposes vault contents, secrets or the update chain) must **not** be
+        reported here: use [Report a vulnerability](https://github.com/bs135/xpass/security/advisories/new)
+        instead (see SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: xPass version
+      description: Settings → About.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+  - type: dropdown
+    id: installer
+    attributes:
+      label: Installed with
+      options:
+        - NSIS setup (.exe)
+        - MSI
+        - Built from source
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce (with a test vault)
+      placeholder: |
+        1. Create a test vault…
+        2. …
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Error message
+      description: The exact text shown by xPass, if any. Check it contains no secret before posting.
+  - type: checkboxes
+    id: no-secrets
+    attributes:
+      label: Before you submit
+      options:
+        - label: This report contains no vault file, password, recovery key, TOTP secret, token or real entry data.
+          required: true
