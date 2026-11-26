@@ -45,6 +45,8 @@ pub enum AppError {
     InvalidFile,
     #[error("unsupported vault format version {version}")]
     UnsupportedVersion { version: u16 },
+    #[error("unsupported vault payload schema {schema}")]
+    UnsupportedSchema { schema: u32 },
     #[error("the vault has no key slot of this kind")]
     NoSuchSlot,
     #[error("the file belongs to a different vault")]
@@ -121,6 +123,7 @@ impl From<xpass_core::Error> for AppError {
             // Out-of-bounds KDF params can only come from a damaged or hostile file.
             E::Format(_) | E::BadKdfParams | E::Payload(_) => Self::InvalidFile,
             E::UnsupportedVersion(version) => Self::UnsupportedVersion { version },
+            E::UnsupportedSchema(schema) => Self::UnsupportedSchema { schema },
             E::NoSuchSlot => Self::NoSuchSlot,
             E::DifferentVault => Self::DifferentVault,
             E::KeyChanged => Self::KeyChanged,

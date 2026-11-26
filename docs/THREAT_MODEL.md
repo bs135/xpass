@@ -169,3 +169,4 @@ needed no signature changes (see R11).
 ## 7. Reporting a vulnerability
 
 Report it privately through GitHub ("Security" tab → "Report a vulnerability") rather than in a public issue.
+Supported versions, what to include, response times and scope: [SECURITY.md](../SECURITY.md).

@@ -223,6 +223,7 @@
     "tampered": "File kho đã bị sửa đổi hoặc bị hỏng. Hãy khôi phục một bản trong thư mục backups.",
     "invalid_file": "Đây không phải file kho xPass hợp lệ.",
     "unsupported_version": "Kho này được tạo bởi phiên bản xPass mới hơn (định dạng v{{version}}). Hãy cập nhật ứng dụng.",
+    "unsupported_schema": "Vault này được lưu bởi một phiên bản xPass mới hơn (data schema {{schema}}). Hãy cập nhật xPass để mở. Chưa có gì bị thay đổi.",
     "io": "Không đọc hoặc ghi được file kho ({{kind}}).",
     "not_found": "Mục này không còn tồn tại.",
     "open_failed": "Không mở được liên kết.",
