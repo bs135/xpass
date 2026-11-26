@@ -1,6 +1,6 @@
 # v0.8.0 Plan: TOTP, custom fields, password health
 
-Status: **approved** (2026-11-25). Parent: [PLAN.md §4 v0.8 → v1.0](PLAN.md#v08--v10--release-outline).
+Status: **done** (2026-11-26). Parent: [PLAN.md §4 v0.8](PLAN.md#v08--totp-custom-fields-password-health-size-m-12-weeks).
 
 ## Goal
 
@@ -228,28 +228,56 @@ file); links work on GitHub.
 - `CHANGELOG.md` `[Unreleased]` → 0.8.0; this plan → **done** with "As built"; `npm run release:prepare` →
   `chore(release): 0.8.0`.
 
+## As built
+
+Differences from the decisions and task texts above, found while implementing:
+
+- **T45 (V3):** the first Fuzz run of `otp_parse` found an input that parsed but could not be read back: a label of
+  NUL bytes grew past the 2 KB input limit once percent-encoded by `to_uri`. Issuer and account are now at most 128
+  bytes and refuse control characters; the input is a regression file. The label separator may be a literal `:`
+  or `%3A`; a URI without issuer and account gets an empty label. The PR also fixed a flaky T40 test
+  (`secret::hooks_see_every_page_created_and_dropped`: reused page addresses across parallel tests, and a
+  poisoned mutex that failed every later test).
+- **T46 (V6):** `FieldValue` is `{ set }` / `{ keep: { index, name } }` as planned; an empty name is
+  `invalid_input` (`fieldName`), the limits are `field_limit { maxFields, maxName, maxValue }`. A stored secret
+  shows Reveal / Replace in the form.
+- **T47 (V4, V5):** `totp_preview(input, issuer, account)` also returns the normalized URI that the new field
+  stores, and refuses a label the stored URI could not read back. A TOTP field shows its code instead of the
+  secret in the entry view; the secret is revealed only in the edit form. KDBX export writes `otp` for the first
+  TOTP field only.
+- **T48 (V8, V9):** the entry's title, username and hosts are split into words (and run together) for zxcvbn,
+  because it only matches whole words. Measured: 2 000 entries in 0.74 s (release), so no chunking. The cache key
+  is `(vault_id, payload.revision)`; the list refreshes the result after every load. The filter is a shield button
+  next to Favorites.
+- **T49 (V10):** an independent review of `FORMAT.md` against the code found 15 discrepancies (fixed) and a real
+  gap: no code checked `payload.schema`. Unlock and sync now refuse a newer schema (`unsupported_schema`); builds up
+  to v0.7 do not, which FORMAT.md §9.5 accounts for. Not planned: the merge keeps only the winning version's
+  unknown entry keys, now documented (§7, §9.1).
+
 ## Manual test checklist (v0.8.0)
 
 Use a test vault (`$env:XPASS_DATA_DIR = "$env:TEMP\xpass-v08"`) with synthetic entries.
 
 TOTP
-- [ ] Codes equal those of an authenticator app for the same secret (SHA-1 / 6 digits / 30 s, and one SHA-256 or
-      8-digit secret); countdown and refresh at the period boundary.
-- [ ] Imported Bitwarden URI and KeePassXC base32 secret both show codes; HOTP and a bad secret give a clear error.
-- [ ] Copy puts the code on the clipboard (not in `Win+V` history), cleared after the timeout; lock stops the codes.
-- [ ] KDBX export opened in KeePassXC shows the code.
+- [x] Codes equal those of an authenticator app for the same secret; countdown and refresh at the period boundary.
+      (T47; SHA-256 / 8-digit codes by the RFC vector tests.)
+- [x] Imported Bitwarden URI and KeePassXC base32 secret both show codes. HOTP and a bad secret give a clear
+      error (unit tests; not checked by hand).
+- [x] Copy puts the code on the clipboard, cleared after the timeout; lock stops the codes.
+- [x] KDBX export opened in KeePassXC shows the code.
 
 Custom fields
-- [ ] Add, rename, reorder, delete; flip secret; edit a secret value only after reveal; confirmation on secret
+- [x] Add, rename, reorder, delete; flip secret; edit a secret value only after reveal; confirmation on secret
       change / delete.
-- [ ] No secret field value in the WebView without a reveal (debug devtools: `get_entry` response).
-- [ ] Two PCs edit fields of the same entry: newer edit wins, nothing else lost.
+- [x] No secret field value in the WebView without a reveal (debug devtools: `get_entry` response).
+- [x] Two PCs edit fields of the same entry: newer edit wins, nothing else lost (state test with two devices;
+      not checked on two PCs).
 - [ ] An entry edited in v0.8 still opens and saves in v0.7.0 without losing its fields.
 
 Password health
-- [ ] Weak and reused entries listed correctly; fixing one updates the list; no password in the `password_health`
-      response.
-- [ ] Time with a large vault (2 000 entries) acceptable, UI responsive.
+- [x] Weak and reused entries listed correctly; fixing one updates the list; no password in the `password_health`
+      response (unit test).
+- [x] Time with a large vault (2 000 entries) acceptable: 0.74 s in a release build, off the IPC thread.
 
 Release
 - [ ] v0.7.0 NSIS and MSI installs update in-app to v0.8.0 (first real update from a release; v0.7 checklist).
