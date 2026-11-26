@@ -3,6 +3,39 @@
 All notable changes to xPass. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.0]
+
+First stable release. The features are those of 0.8.0; what changes is the promise that comes with 1.0.
+
+### Added
+
+- [User guide](docs/USER_GUIDE.md), with a **backups and recovery** chapter: forgotten master password, lost
+  Emergency Kit, both lost, lost or stolen PC, Windows Hello reset, restoring a version, damaged vault file, and how
+  to keep your own backups. It also covers locking in detail, where xPass keeps its files, and privacy and network
+  use. The README now points to it.
+- A published test vector for the vault format ([docs/vectors/v1](docs/vectors/v1)): the reference vault with its
+  password, recovery key, every intermediate key and the decrypted payload.
+- Issue template that asks for a test vault and no secrets, and points security reports to private reporting.
+
+### Changed
+
+- **Stable from here:** versions follow Semantic Versioning. Bug fixes come as patch releases through the in-app
+  update; a change that older builds could not read (a new vault format or data schema,
+  [docs/FORMAT.md](docs/FORMAT.md) §9) only comes with a new major version.
+- [SECURITY.md](SECURITY.md): only the latest 1.x release is supported; Windows 11 is supported and Windows 10 22H2
+  is best effort.
+- The release and CI workflows pin third-party GitHub Actions to commit SHAs.
+
+### Security
+
+- The threat model's self-review was redone for 1.0 and corrected: entry **notes** and non-secret custom fields are
+  shown whenever an entry is open and are not treated as secrets (keep secrets in the password or a secret custom
+  field); the update manifest `latest.json` is not signed itself (each installer is, and the release notes shown
+  before an update are unauthenticated text); new accepted limits for `settings.json`, the CSV delete and the release
+  environment.
+- README, plan and threat model state that xPass has not had an independent security review; it rests on its own
+  tests, fuzzing and self-review.
+
 ## [0.8.0]
 
 One-time passwords, editable custom fields and a password health check; the vault format is written down and

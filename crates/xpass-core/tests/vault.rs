@@ -633,3 +633,45 @@ fn newer_payload_schema_is_refused() {
     );
     assert_eq!(ours.open_sibling(&newer).unwrap_err(), Error::UnsupportedSchema(2));
 }
+
+/// The published test vector (`docs/vectors/v1`, FORMAT.md §10) is the golden vault, and
+/// its decrypted payload is what `vector.json` says. Regenerate with
+/// `cargo run -p xpass-core --example format_vector` after an intended format change.
+#[test]
+fn published_vector_matches() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/vectors/v1");
+    let file = std::fs::read(dir.join("vault.xpv")).expect("docs/vectors/v1/vault.xpv");
+    let vector: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(dir.join("vector.json")).expect("vector.json")).unwrap();
+    let (golden, rec) = sample(42);
+    assert_eq!(file, golden, "published vault differs from the golden vector");
+    assert_eq!(vector["recovery_key"], rec.as_str());
+    assert_eq!(vector["file_length"], file.len());
+    let v = UnlockedVault::unlock(&file, Unlock::Password(PW)).unwrap();
+    assert_eq!(vector["plaintext"], serde_json::to_string(&v.payload).unwrap());
+    let r = UnlockedVault::unlock(&file, Unlock::Recovery(vector["recovery_key"].as_str().unwrap())).unwrap();
+    assert_eq!(r.vault_key_fingerprint(), v.vault_key_fingerprint());
+}
+
+/// The 55th character carries 2 data bits and 3 unused bits (34 bytes = 272 bits in
+/// 55 × 5 = 275). Non-zero unused bits are refused, so each key has one spelling
+/// (docs/FORMAT.md §5.2).
+#[test]
+fn recovery_key_with_non_zero_unused_bits_is_refused() {
+    const ALPHABET: &[u8; 32] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    let (_, rec) = sample(9);
+    assert!(recovery::decode(&rec).is_ok());
+    let last = *rec.as_bytes().last().unwrap();
+    let value = ALPHABET.iter().position(|&c| c == last).unwrap();
+    assert_eq!(value & 0b111, 0, "unused bits are written as zero");
+    for bit in [1, 2, 4] {
+        let mut changed = rec.clone();
+        changed.pop();
+        changed.push(char::from(ALPHABET[value | bit]));
+        assert_eq!(
+            recovery::decode(&changed).unwrap_err(),
+            Error::BadRecoveryKey,
+            "unused bit {bit}"
+        );
+    }
+}

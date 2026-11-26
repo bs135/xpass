@@ -1,6 +1,6 @@
 # Spike: Windows Hello as a key source
 
-Status: **passed** (2026-11-14). Code: [`spikes/windows-hello`](../../spikes/windows-hello).
+Status: **passed** (2026-11-14). Code: [`spikes/windows-hello`](https://github.com/bs135/xpass/tree/v0.5.0/spikes/windows-hello).
 Related: [IDEA.md §3.1](../IDEA.md#31-windows-hello--credential-manager-critical).
 
 ## Goal

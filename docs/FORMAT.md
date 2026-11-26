@@ -39,7 +39,8 @@ All integers are little-endian. Sizes in bytes. Source: `format.rs`.
 header:
   magic          4   "XPSV" (58 50 53 56)
   version        u16 = 1
-  vault_id       16  random at creation, never changes for the vault's life
+  vault_id       16  16 random bytes at creation (not a UUID v4: no version bits are set; shown in UUID
+                     notation), never changes for the vault's life
   cipher         u8  = 1 (XChaCha20-Poly1305)
   slot_count     u8  1..=8
   slots          slot_count × slot
@@ -61,8 +62,9 @@ slot:
 Slot sizes: password 105, recovery 93, hello 109 bytes. Fixed header part: 24 + 24 bytes. A vault with a
 password and a recovery slot therefore has a 246-byte header; with Hello, 355 bytes.
 
-Writers emit slots sorted by `kind`; readers do not check the order. At most one slot per kind is allowed, so a
-valid file has 1–3 slots even though `slot_count` may say up to 8. A new vault has a password and a recovery slot;
+Writers normally emit slots sorted by `kind`; readers must not rely on the order and do not check it. At most one slot per kind is allowed, so a
+valid file has 1–3 slots even though `slot_count` may say up to 8. A slot `kind` the reader does not know makes the
+**whole file** unreadable, so adding a slot kind needs a new `version` (§9). A new vault has a password and a recovery slot;
 the Hello slot is optional and device-local (§5.3).
 
 ### Parsing rules
@@ -153,8 +155,8 @@ Source: `recovery.rs`.
 - Encoded as RFC 4648 Base32 without padding (55 characters), grouped by 5 with `-`: 65 printable characters.
   Example shape: `ABCDE-FGHIJ-…`.
 - Input is accepted case-insensitively, any whitespace and dashes are ignored, and `0` / `1` / `8` are read as
-  `O` / `I` / `B`. An invalid character, a wrong length or a wrong checksum gives `BadRecoveryKey` before any key
-  derivation.
+  `O` / `I` / `B`. An invalid character, non-zero unused bits in the last character, a wrong length or a wrong
+  checksum gives `BadRecoveryKey` before any key derivation.
 - `S` is the HKDF input of the recovery KEK.
 
 ### 5.3 Windows Hello
@@ -164,7 +166,7 @@ Source: `recovery.rs`.
   gives the same signature.
 - Challenge (62 bytes): `"xpass-hello-v1" ‖ vault_id (16 bytes) ‖ slot salt (32 bytes)`. It can be read from a
   locked file (`hello_challenge_for_file`).
-- The signature is the HKDF input of the Hello KEK.
+- The signature (256 bytes for RSA-2048) is the HKDF input of the Hello KEK; the derivation accepts any length.
 - The Hello slot is **device-local**. A synced copy from another device may carry that device's Hello slot. When
   comparing copies, Hello slots are not a key change, and each device keeps its own (sync S4).
 
@@ -173,13 +175,18 @@ Source: `recovery.rs`.
 Source: `model.rs`. The plaintext is UTF-8 JSON, written compactly (no whitespace) into an exact-size buffer,
 known keys in the order of the tables below, unknown keys after them. Readers must accept any valid JSON with
 these keys (key order and whitespace do not matter). A key with a default must be **absent** to take it: an
-explicit `null` is an error. Integers: `schema` u32, `revision` u64, timestamps i64 (Unix ms).
+explicit `null` is an error, except for `username` and `note` of a HistoryItem, where `null` means absent.
+Integers: `schema` u32, `revision` u64, timestamps i64 (Unix ms). Nesting deeper than 128 levels (possible only in
+unknown keys) is refused as `Payload(..)`.
+
+Unknown keys are written back **sorted by name** (byte order), after the known keys; the order they were read in is
+not kept.
 
 ### Payload (top level)
 
 | Key | Type | Required | Meaning |
 |---|---|---|---|
-| `schema` | integer | yes | `1` |
+| `schema` | integer | yes | `1` written; `0` and `1` are accepted, a higher value is refused (§3) |
 | `revision` | integer | yes | incremented on every save |
 | `entries` | array of Entry | yes | live entries and tombstones |
 | *other keys* | any | no | kept as they are (`extra`, §9) |
@@ -256,7 +263,12 @@ Canonical form (`normalized_history`), which every write and every merge keeps:
 Source: `merge.rs`, `clock.rs`, `maintenance.rs`.
 
 - **Per-entry last writer wins (D1).** For each `id`: the higher `updated_at` wins; on a tie, a tombstone wins;
-  still tied, the entry whose `serde_json` bytes (without `history`) compare greater byte by byte wins. The
+  still tied, the entry whose **canonical bytes** compare greater byte by byte (unsigned) wins. Canonical bytes:
+  the entry written as JSON exactly as §6 writes it, but with `history` set to `[]`: compact (no whitespace); known
+  keys in the order of the Entry table, then unknown keys sorted by name; strings in UTF-8 with only `"`, `\` and
+  control characters escaped (`\b \f \n \r \t`, others as `\u00XX` with lower-case hex; `/` and non-ASCII are
+  written as they are); integers in plain decimal; `true` / `false`. Another implementation must produce these
+  exact bytes, or it can pick a different winner than xPass for two versions with the same `updated_at`. The
   winner keeps all its keys, `fields` and unknown entry keys included: those of the losing versions are not
   merged in. Its history becomes the union of all versions' histories plus each live version's credentials with
   note `conflict`, in canonical form (§6). A tombstone winner keeps no history.
@@ -286,6 +298,7 @@ Source: `sync/mod.rs`, `src-tauri/src/github.rs`, `src-tauri/src/sync_state.rs`.
   tries again, at most 5 times (`MAX_ATTEMPTS`), then `TooManyConflicts`. A remote body that does not parse or
   decrypt is read once more after 2 s before it counts as an error.
 - Each change is one commit with the message `xpass: update vault`.
+- A remote file larger than 64 MiB is refused (`InvalidResponse`) before it is parsed.
 - **Remove old versions** (`history.rs`) replaces the branch with one parentless commit, `xpass: history removed`,
   holding the branch's whole current tree. Other files in the branch therefore lose their history too. It runs
   only when the vault blob on the branch equals this device's `baseSha`, and it does nothing when the branch has a
@@ -304,6 +317,19 @@ Source: `sync/mod.rs`, `src-tauri/src/github.rs`, `src-tauri/src/sync_state.rs`.
   - they differ: the key was rotated elsewhere (`KeyChanged`), and the master password of that copy is needed;
   - they are equal: the file is damaged (`Tampered`).
 - A remote whose `schema` is newer than this build is refused (`UnsupportedSchema`, since v0.8).
+
+## 8a. Local files
+
+Source: `src-tauri/src/storage.rs`, `paths.rs`. These are not part of the vault format, but tools that read or
+back up a vault should know them. The data folder is `%APPDATA%\com.bs135.xpass\`.
+
+| File | Content |
+|---|---|
+| `vault.xpv` | The vault (§2). |
+| `vault.xpv.tmp` | Exists only during a save: the new file is written here, flushed to disk, then renamed over `vault.xpv`. A leftover one after a crash is incomplete and can be deleted. |
+| `backups/vault-<yyyyMMdd-HHmmss-mmm>.xpv` | Before every save, the current `vault.xpv` is copied here (UTC time, millisecond precision; names sort in time order). After each copy only the newest 10 are kept. A backup is an ordinary vault file and opens with the credentials that were valid when it was written. |
+| `sync-state.json` | §8. |
+| `settings.json` | App settings (language, theme, timeouts, sync target). Not encrypted or authenticated; holds no secret. |
 
 ## 9. Compatibility rules
 
@@ -331,6 +357,13 @@ Readers and writers of format 1 / schema 1:
 
 ## 10. Reference file (golden vector)
 
+**Published test vector:** [vectors/v1/vault.xpv](vectors/v1/vault.xpv) with
+[vectors/v1/vector.json](vectors/v1/vector.json), which lists the password, the recovery key and its 32-byte
+secret, the header bytes, for each slot its parameters, AAD, KEK, nonce and wrapped key, the VaultKey, the payload
+nonce and the decrypted payload JSON. An independent implementation can check every step against it without
+running Rust. It is written by `cargo run -p xpass-core --example format_vector` and checked by the test
+`published_vector_matches`. All values are synthetic.
+
 `crates/xpass-core/tests/vault.rs` `golden_vector_v1` builds a vault with `ChaCha20Rng::seed_from_u64(42)` (for
 both create and save), the password `correct horse battery staple`, the smallest KDF the bounds allow
 (`m_kib = 8192`, `t = 1`, `p = 1`) and two entries (ids `Uuid::from_u128(1)` and `(2)`, timestamps
@@ -345,6 +378,6 @@ reason in the pull request.
 
 Other tests that pin the format: header tampering (`any_single_byte_flip_is_detected`), fresh nonces
 (`every_saved_file_uses_a_fresh_nonce`), KDF bounds (`kdf_downgrade_is_rejected`), recovery checksum
-(`recovery_key_typo_is_caught_by_checksum`), unknown keys kept (`unknown_fields_survive_unlock_and_save`,
+(`recovery_key_typo_is_caught_by_checksum`, `recovery_key_with_non_zero_unused_bits_is_refused`), unknown keys kept (`unknown_fields_survive_unlock_and_save`,
 `unknown_fields_survive_json_roundtrip`), newer schema refused (`newer_payload_schema_is_refused`), and the merge
 properties in `tests/merge.rs`.
