@@ -3,7 +3,7 @@
 All notable changes to xPass. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.8.0]
 
 One-time passwords, editable custom fields and a password health check; the vault format is written down and
 frozen for 1.0. This is the first release that 0.7.0 installs from Settings → About.
