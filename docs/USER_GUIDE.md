@@ -18,6 +18,7 @@ no server: nobody, including the developer, can open your vault or reset your ma
 - [9. Uninstall](#9-uninstall)
 - [10. Where xPass keeps its files](#10-where-xpass-keeps-its-files)
 - [11. Privacy and network](#11-privacy-and-network)
+- [12. Get help](#12-get-help)
 
 ## 1. Install
 
@@ -173,17 +174,34 @@ older copies (local versions, git history). If someone may have the old kit, als
 
 ### I lost both the password and the kit
 
-Only one way is left: Windows Hello, on a PC where it was turned on for this vault. Unlock with Hello, then export
-right away (Settings → Import & export → **KeePass (KDBX)**; the export accepts Windows Hello instead of the
-password), create a new vault and bring the entries back (via KeePassXC → CSV → Import, then delete the CSV). Then
-write down the new Emergency Kit. Without Hello, the vault is lost.
+Only one way is left: Windows Hello, on a PC where it was turned on for this vault. **Without Hello, the vault is
+lost.** With it, move the entries into a new vault:
+
+1. Unlock with Windows Hello. Do not lock or restart before step 3 if you can avoid it.
+2. If sync is on: Settings → Sync → **Turn off sync** (the new vault would otherwise clash with the old one on
+   GitHub as a "different vault").
+3. Settings → Import & export → **Export as CSV**, and confirm with Windows Hello (exports accept it instead of the
+   password). Save it on this PC, not in a cloud-synced folder. The xPass CSV keeps websites, notes, tags, favorites
+   and custom fields (TOTP secrets included); it does **not** keep password history. The file is **plaintext**.
+4. Quit xPass (tray → Quit). Move `vault.xpv` out of `%APPDATA%\com.bs135.xpass\` into another folder (keep it:
+   Hello still opens it on this PC). Leave the `backups` folder alone.
+5. Start xPass: it shows the first-start screen. Create a new vault with a new master password and **write down
+   the new Emergency Kit**.
+6. Settings → Import & export → **Choose CSV file…**, pick the export (format **xPass**), import, then **delete the
+   CSV** on the result screen and empty the Recycle Bin.
+7. Turn Windows Hello on again for the new vault; set up sync again, with a new path or repository (the old file on
+   GitHub belongs to the old vault).
+
+An **Export as KeePass (KDBX)** keeps the password history too and is encrypted, but xPass cannot import KDBX files;
+it is a good extra copy to make at step 3.
 
 ### My PC was lost or stolen
 
 - The vault on it is encrypted; how long it resists guessing depends on your master password. A locked or
   switched-off PC holds no key.
-- On a new PC, install xPass and choose **Use my vault from GitHub** (sync), or copy `vault.xpv` from your own backup
-  into `%APPDATA%\com.bs135.xpass\` before the first start.
+- On a new PC, install xPass and choose **Use my vault from GitHub** (sync). Without sync, use your own backup: do
+  not create a vault on the first-start screen; quit xPass (tray → Quit), create the folder
+  `%APPDATA%\com.bs135.xpass\` if it does not exist, copy your backup into it as `vault.xpv`, then start xPass.
 - On GitHub, **revoke the token** the lost PC used (Settings → Developer settings → Personal access tokens) and
   create a new one.
 - If the thief may know or guess your master password, or the PC was taken unlocked: change the master password,
@@ -205,9 +223,27 @@ time.
 
 ### The vault file is damaged or missing
 
-xPass says the file was modified or is not a vault. Quit xPass, then either copy the newest file from
-`%APPDATA%\com.bs135.xpass\backups\` over `vault.xpv`, or, with sync, move `vault.xpv` away and start xPass to
-choose **Use my vault from GitHub**. Never edit `vault.xpv` by hand.
+- **Damaged:** xPass says the file was modified or is not a vault.
+- **Missing:** xPass shows the first-start screen as if you had no vault. **Do not create a new vault there.**
+
+In both cases:
+
+1. Quit xPass (tray → Quit). If `vault.xpv` is still there, rename it (for example `vault.damaged.xpv`) instead
+   of deleting it.
+2. With sync: start xPass and choose **Use my vault from GitHub** on the first-start screen. Done.
+3. Without sync: in `%APPDATA%\com.bs135.xpass\backups\`, copy the newest `vault-<date-time>.xpv` into
+   `%APPDATA%\com.bs135.xpass\` and **rename the copy to `vault.xpv`**. Then start xPass.
+
+Keep in mind:
+- a backup is the file as it was **before** a save, so the newest one may lack your last change;
+- a backup opens with the master password (and recovery key) that was valid when it was written: one from before
+  a password change needs the old password;
+- never edit `vault.xpv` by hand.
+
+### "This vault was saved by a newer version of xPass"
+
+Another PC with a newer xPass wrote the vault (directly or through sync). Update xPass on this PC (Settings →
+About), and keep all your PCs on the same version. Nothing was changed.
 
 ### Make your own backups
 
@@ -217,11 +253,11 @@ The local versions and GitHub protect against mistakes, not against losing the P
   **if your master password is strong**; it opens with the password (or recovery key) that was valid when it was
   copied.
 - Keep the **Emergency Kit** apart from those backups.
-- For a copy readable by other software, export to **KeePass (KDBX)** with a strong export password. It does not
-  update itself; export again after big changes.
+- For a copy readable by other software, use **Export as KeePass (KDBX)** with a strong export password. It does
+  not update itself; export again after big changes.
 - Never keep a **CSV export** as a backup: it is plaintext.
-- Now and then, test a backup: start xPass with a throwaway data folder (debug builds) or on another Windows user
-  account and open the copy.
+- Now and then, test a backup: sign in to another Windows user account, install xPass there, copy the backup into
+  that account's `%APPDATA%\com.bs135.xpass\` as `vault.xpv` before the first start, and open it.
 
 ## 6. Sync with GitHub
 
@@ -325,11 +361,11 @@ BOM), comma, semicolon or tab separated, at most 10 MB and 10 000 rows.
 
 ### Export
 
-- **KeePass (KDBX)**: an encrypted KDBX 4 file (ChaCha20, Argon2id 64 MiB) protected by a new *export password*.
+- **Export as KeePass (KDBX)**: an encrypted KDBX 4 file (ChaCha20, Argon2id 64 MiB) protected by a new *export password*.
   KeePassXC and KeePass 2 open it. Entries go into one group `xPass`; extra websites are stored as `KP2A_URL_1`, …
   (KeePassXC shows them), favorites as the tag `favorite`, secret custom fields as protected fields, a TOTP secret
   also as KeePassXC's `otp` attribute, and password history as entry history.
-- **CSV**: a **plaintext** file, readable by anyone who gets it. Do not open it in Excel or another spreadsheet app
+- **Export as CSV**: a **plaintext** file, readable by anyone who gets it. Do not open it in Excel or another spreadsheet app
   (they can change values), do not save it in a folder that syncs to the cloud, and delete it (and empty the Recycle
   Bin) when done. Its columns are `title, username, password, urls, notes, tags, favorite, created, updated,
   fields`; xPass imports it back with the **xPass** format.
@@ -355,9 +391,12 @@ notes looks wrong, check the release page on GitHub.
 
 ## 9. Uninstall
 
-Settings → Apps → Installed apps → xPass → Uninstall. By default your data is **not** removed: the vault, its
-backups and settings stay in `%APPDATA%\com.bs135.xpass`, and the GitHub token stays in Windows Credential Manager
-(`xpass/github-token`) unless you turn sync off before uninstalling.
+Settings → Apps → Installed apps → **xpass** (the installed app may be listed in lower case) → Uninstall. By default
+your data is **not** removed: the vault, its backups and settings stay in `%APPDATA%\com.bs135.xpass`, and the
+GitHub token stays in Windows Credential Manager (`xpass/github-token`) unless you turn sync off before
+uninstalling. Also left behind: the Windows Hello key `xpass-<vault id>` (turn Hello off in xPass before
+uninstalling to remove it) and the WebView2 cache in `%LOCALAPPDATA%\com.bs135.xpass` (no secrets; safe to
+delete).
 
 The NSIS uninstaller also offers a checkbox to delete the application data. Ticking it **deletes the vault and all
 local backups** in `%APPDATA%\com.bs135.xpass`; only do that if the vault is synced to GitHub or you no longer need
@@ -387,3 +426,9 @@ it. The MSI uninstaller has no such option: delete that folder yourself if you w
 - Connections use HTTPS only and the Windows proxy settings. Links in entries open in your default browser, never
   inside xPass. The xPass window itself has no network access (Content Security Policy).
 - GitHub sees what [What GitHub sees](#what-github-sees) describes; your entries stay encrypted.
+
+## 12. Get help
+
+- A bug or a question: [GitHub Issues](https://github.com/bs135/xpass/issues). Reproduce it with a test vault and
+  made-up entries; **never** attach a vault file, a password, a recovery key, a TOTP secret, a token or an export.
+- A security problem: report it privately, as [SECURITY.md](../SECURITY.md) explains, never in a public issue.

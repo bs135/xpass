@@ -378,6 +378,6 @@ reason in the pull request.
 
 Other tests that pin the format: header tampering (`any_single_byte_flip_is_detected`), fresh nonces
 (`every_saved_file_uses_a_fresh_nonce`), KDF bounds (`kdf_downgrade_is_rejected`), recovery checksum
-(`recovery_key_typo_is_caught_by_checksum`), unknown keys kept (`unknown_fields_survive_unlock_and_save`,
+(`recovery_key_typo_is_caught_by_checksum`, `recovery_key_with_non_zero_unused_bits_is_refused`), unknown keys kept (`unknown_fields_survive_unlock_and_save`,
 `unknown_fields_survive_json_roundtrip`), newer schema refused (`newer_payload_schema_is_refused`), and the merge
 properties in `tests/merge.rs`.
