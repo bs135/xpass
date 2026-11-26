@@ -12,7 +12,7 @@ use std::sync::OnceLock;
 
 use rand::{rngs::StdRng, SeedableRng};
 
-use crate::{crypto::KdfParams, format, model::Entry, recovery, vault, Unlock, UnlockedVault};
+use crate::{crypto::KdfParams, format, model::Entry, otp, recovery, vault, Unlock, UnlockedVault};
 
 /// Stand-in for a Windows Hello signature (RSA-2048 = 256 bytes).
 pub const HELLO_SIGNATURE: [u8; 256] = [0x5A; 256];
@@ -54,6 +54,21 @@ pub fn recovery_decode(data: &[u8]) {
     if let Ok(key) = recovery::decode(text) {
         let again = recovery::decode(&recovery::encode(&key)).expect("encoded key decodes");
         assert_eq!(*again, *key, "recovery key does not round-trip");
+    }
+}
+
+/// Parses a TOTP secret (URI or base32, from imports and paste, v0.8 plan V3); one
+/// that parses must give a code of the right length and survive its own URI.
+pub fn otp_parse(data: &[u8]) {
+    let Ok(text) = std::str::from_utf8(data) else {
+        return;
+    };
+    if let Ok(totp) = otp::Totp::parse(text) {
+        let code = totp.code_at(1_700_000_000_000);
+        assert_eq!(code.code.len(), usize::from(totp.digits), "code length");
+        assert!(code.remaining_ms > 0 && code.remaining_ms <= u64::from(totp.period) * 1000);
+        let again = otp::Totp::parse(&totp.to_uri()).expect("normalized URI parses");
+        assert_eq!(again, totp, "TOTP does not round-trip through its URI");
     }
 }
 
@@ -102,6 +117,17 @@ pub fn seed_inputs() -> Vec<(&'static str, &'static str, Vec<u8>)> {
         ("unlock_hello", "vault-password-recovery.xpv", plain.clone()),
         ("recovery_decode", "key.txt", s.recovery_text.clone().into_bytes()),
         ("recovery_decode", "key-lower-spaced.txt", spaced.into_bytes()),
+        (
+            "otp_parse",
+            "uri-bitwarden.txt",
+            b"otpauth://totp/Example:user%40example.com?secret=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP&issuer=Example".to_vec(),
+        ),
+        (
+            "otp_parse",
+            "uri-sha512-8-60.txt",
+            b"otpauth://totp/ACME%20Co:alice?secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ&issuer=ACME%20Co&algorithm=SHA512&digits=8&period=60".to_vec(),
+        ),
+        ("otp_parse", "base32-keepassxc.txt", b"jbsw y3dp ehpk 3pxp jbsw y3dp ehpk 3pxp".to_vec()),
     ]
 }
 
@@ -111,11 +137,12 @@ pub fn run(target: &str, data: &[u8]) {
         "parse" => parse(data),
         "unlock_hello" => unlock_hello(data),
         "recovery_decode" => recovery_decode(data),
+        "otp_parse" => otp_parse(data),
         _ => panic!("unknown fuzz target {target}"),
     }
 }
 
-pub const TARGETS: [&str; 3] = ["parse", "unlock_hello", "recovery_decode"];
+pub const TARGETS: [&str; 4] = ["parse", "unlock_hello", "recovery_decode", "otp_parse"];
 
 #[cfg(test)]
 mod tests {

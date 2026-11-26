@@ -300,7 +300,8 @@ npm audit --audit-level=high
 ```
 
 Fuzzing (every Sunday and on demand, not part of the PR checks): `crates/xpass-core/fuzz` has `cargo-fuzz` targets for the vault file parser
-(`parse`), Hello unlock and sibling open (`unlock_hello`) and recovery-key input (`recovery_decode`). Every CI run
+(`parse`), Hello unlock and sibling open (`unlock_hello`), recovery-key input (`recovery_decode`) and TOTP secrets
+(`otp_parse`). Every CI run
 replays the checked-in seeds and regressions on stable (`cargo test`). The **Fuzz** workflow runs each target for
 15 minutes every Sunday, keeping its corpus between runs in the Actions cache (a crash makes the run red and uploads
 the input); longer runs: Actions → Fuzz → Run workflow, or nightly locally:

@@ -6,6 +6,7 @@
 //! - [`format`]: binary envelope (header + key slots + ciphertext), hand-written parser.
 //! - [`crypto`]: Argon2id, HKDF and XChaCha20-Poly1305 primitives.
 //! - [`recovery`]: printable recovery key with checksum.
+//! - [`otp`]: TOTP codes (RFC 6238) from a secret custom field.
 //! - [`secret`]: page-locked storage for the VaultKey.
 //! - [`model`]: decrypted payload (entries with merge-ready metadata).
 //! - [`vault`]: high-level operations (create, unlock, save, change password, rotate).
@@ -25,6 +26,7 @@ pub mod fuzzing;
 pub mod maintenance;
 pub mod merge;
 pub mod model;
+pub mod otp;
 pub mod recovery;
 pub mod restore;
 pub mod secret;

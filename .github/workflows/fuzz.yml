@@ -14,7 +14,7 @@ on:
       target:
         description: Fuzz target
         type: choice
-        options: [all, parse, unlock_hello, recovery_decode]
+        options: [all, parse, unlock_hello, recovery_decode, otp_parse]
         default: all
       minutes:
         description: Minutes per target
@@ -37,7 +37,7 @@ jobs:
           TARGET: ${{ inputs.target || 'all' }}
         run: |
           if [ "$TARGET" = "all" ]; then
-            echo 'list=["parse","unlock_hello","recovery_decode"]' >> "$GITHUB_OUTPUT"
+            echo 'list=["parse","unlock_hello","recovery_decode","otp_parse"]' >> "$GITHUB_OUTPUT"
           else
             echo "list=[\"$TARGET\"]" >> "$GITHUB_OUTPUT"
           fi
