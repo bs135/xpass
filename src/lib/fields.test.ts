@@ -2,8 +2,8 @@ import {describe, expect, it} from 'vitest'
 import {lostSecrets, move, newRow, rowsFromDetail, rowsProblem, toInput, MAX_FIELDS} from './fields'
 
 const stored = [
-    {name: 'PIN', value: null, secret: true},
-    {name: 'Branch', value: 'Main', secret: false},
+    {name: 'PIN', value: null, secret: true, totp: false},
+    {name: 'Branch', value: 'Main', secret: false, totp: false},
 ]
 
 describe('custom field rows', () => {

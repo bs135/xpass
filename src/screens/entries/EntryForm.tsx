@@ -119,7 +119,13 @@ export function EntryForm({detail}: {detail: EntryDetail | null}) {
             <Field label={t('entries.notes')}>
                 <textarea rows={5} className={areaClass} value={notes} onChange={(e) => setNotes(e.target.value)}/>
             </Field>
-            <FieldEditor entryId={detail?.id ?? null} rows={fields} onChange={setFields}/>
+            <FieldEditor
+                entryId={detail?.id ?? null}
+                rows={fields}
+                onChange={setFields}
+                issuer={title.trim()}
+                account={username.trim()}
+            />
             <label className="mb-5 flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={favorite} onChange={(e) => setFavorite(e.target.checked)}/>
                 {t('entries.favorite')}
