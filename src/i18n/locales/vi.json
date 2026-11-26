@@ -596,5 +596,17 @@
     "previewCode": "Mã hiện tại:",
     "compare": "So với mã mà trang web yêu cầu.",
     "add": "Thêm"
+  },
+  "health": {
+    "filter": "Sức khoẻ mật khẩu: mật khẩu yếu hoặc dùng lại",
+    "checking": "Đang kiểm tra mật khẩu…",
+    "allGood": "Không có mật khẩu yếu hay dùng lại.",
+    "summary": "{{weak}} mật khẩu yếu, {{reused}} nhóm dùng lại. Danh sách tự cập nhật sau mỗi thay đổi.",
+    "weak_one": "Mật khẩu yếu ({{count}})",
+    "weak_other": "Mật khẩu yếu ({{count}})",
+    "reusedGroup": "Cùng mật khẩu ở {{count}} entry",
+    "badgeWeak": "Mật khẩu yếu",
+    "badgeReused_one": "Cũng dùng ở {{count}} entry khác",
+    "badgeReused_other": "Cũng dùng ở {{count}} entry khác"
   }
 }

@@ -6,6 +6,7 @@ import {Alert, Button} from '../../components/ui'
 import {api, type EntryDetail, type FieldRef, type HistoryItemView} from '../../lib/api'
 import {copyField} from '../../lib/copy'
 import {errorMessage} from '../../lib/errors'
+import {healthOf} from '../../lib/health'
 import {useEntries} from '../../stores/entries'
 import {TotpCode} from './TotpCode'
 
@@ -33,7 +34,8 @@ function refKey(field: FieldRef): string {
  */
 export function EntryView({detail, onDelete}: {detail: EntryDetail; onDelete: () => void}) {
     const {t, i18n} = useTranslation()
-    const {startEdit, toggleFavorite} = useEntries()
+    const {startEdit, toggleFavorite, health} = useEntries()
+    const passwordHealth = healthOf(detail.id, health)
     const [error, setError] = useState<string | null>(null)
     const [revealed, setRevealed] = useState<{key: string; value: string} | null>(null)
 
@@ -129,6 +131,14 @@ export function EntryView({detail, onDelete}: {detail: EntryDetail; onDelete: ()
                     }
                 >
                     {detail.hasPassword ? <Secret value={shown({kind: 'password'})}/> : <Empty/>}
+                    {detail.hasPassword && (passwordHealth.weak || passwordHealth.reusedWith > 0) && (
+                        <span className="mt-1 flex flex-wrap gap-1.5">
+                            {passwordHealth.weak && <Badge>{t('health.badgeWeak')}</Badge>}
+                            {passwordHealth.reusedWith > 0 && (
+                                <Badge>{t('health.badgeReused', {count: passwordHealth.reusedWith})}</Badge>
+                            )}
+                        </span>
+                    )}
                 </Row>
                 <Row label={t('entries.urls')}>
                     {detail.urls.length === 0 ? (
@@ -356,6 +366,14 @@ function Row({label, actions, children}: {label: string; actions?: ReactNode; ch
             </dd>
             <div className="-my-1 flex gap-0.5">{actions}</div>
         </div>
+    )
+}
+
+function Badge({children}: {children: ReactNode}) {
+    return (
+        <span className="rounded bg-red-50 px-1.5 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950/50 dark:text-red-300">
+            {children}
+        </span>
     )
 }
 
