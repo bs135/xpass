@@ -633,3 +633,22 @@ fn newer_payload_schema_is_refused() {
     );
     assert_eq!(ours.open_sibling(&newer).unwrap_err(), Error::UnsupportedSchema(2));
 }
+
+/// The published test vector (`docs/vectors/v1`, FORMAT.md §10) is the golden vault, and
+/// its decrypted payload is what `vector.json` says. Regenerate with
+/// `cargo run -p xpass-core --example format_vector` after an intended format change.
+#[test]
+fn published_vector_matches() {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/vectors/v1");
+    let file = std::fs::read(dir.join("vault.xpv")).expect("docs/vectors/v1/vault.xpv");
+    let vector: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(dir.join("vector.json")).expect("vector.json")).unwrap();
+    let (golden, rec) = sample(42);
+    assert_eq!(file, golden, "published vault differs from the golden vector");
+    assert_eq!(vector["recovery_key"], rec.as_str());
+    assert_eq!(vector["file_length"], file.len());
+    let v = UnlockedVault::unlock(&file, Unlock::Password(PW)).unwrap();
+    assert_eq!(vector["plaintext"], serde_json::to_string(&v.payload).unwrap());
+    let r = UnlockedVault::unlock(&file, Unlock::Recovery(vector["recovery_key"].as_str().unwrap())).unwrap();
+    assert_eq!(r.vault_key_fingerprint(), v.vault_key_fingerprint());
+}
