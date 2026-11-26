@@ -1,7 +1,7 @@
 # Spike: GitHub sync + merge (offline-first, multi-device)
 
 Status: **passed** (2026-11-14); follow-ups closed in v0.4.0 ([plan](../plan-v0.4.0.md)).
-Code: [`spikes/github-sync`](../../spikes/github-sync).
+Code: [`spikes/github-sync`](https://github.com/bs135/xpass/tree/v0.5.0/spikes/github-sync).
 Related: [IDEA.md §3.4–3.5](../IDEA.md#34-multi-device-sync-and-conflicts), [vault-format.md](vault-format.md).
 
 ## Goal

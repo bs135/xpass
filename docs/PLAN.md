@@ -329,4 +329,11 @@ Decisions W1–W5: [plan-v1.0.0.md](plan-v1.0.0.md).
   `develop` → `main` must pass the `version` check. After the merge, `release.yml` only creates the tag `vx.y.z`
   and builds the release (notes from the CHANGELOG section); it never pushes to `main`, so the branch stays
   protected.
+- `npm run release:prepare` picks the version from the commits; `node scripts/release-prepare.mjs x.y.z` sets it
+  explicitly. 1.0.0 was set that way (the commits since v0.8.0 had no `feat` or `fix`, and before 1.0 the script never
+  leaves major version 0). From 1.0 the script bumps the major version for a breaking change, and a change that
+  existing builds would misread (FORMAT.md §9) counts as one.
+- Third-party GitHub Actions are pinned to commit SHAs with the version in a comment (the release job holds the
+  signing secrets). Updating one is a deliberate change: look up the new tag's commit, read its changes, then bump
+  the SHA in a PR.
 - One `docs/plan-vX.Y.Z.md` per milestone with the detailed task list, written when the milestone starts.

@@ -5,8 +5,10 @@ seriously; please read this page first.
 
 ## Supported versions
 
-Only the **latest release** gets security fixes. xPass updates itself from Settings → About (signed in-app update,
-since v0.7.0), so moving to the newest version is the fix. Older versions do not get patch releases.
+Only the **latest release** gets security fixes; older versions do not get patch releases. Installing a newer
+version takes a click: Settings → About → **Check for updates** → **Install and restart** (signed in-app update,
+since v0.7.0; nothing is installed without that click). Turn on the startup check there to be told about new
+versions.
 
 | Version | Supported |
 |---|---|
@@ -14,11 +16,19 @@ since v0.7.0), so moving to the newest version is the fix. Older versions do not
 | Older 1.x releases | No: update in-app (Settings → About) |
 | 0.x | No: update in-app (v0.7.0 and later) or install the latest release by hand (v0.6.x and earlier) |
 
-Fixes ship as patch releases (`1.0.x`). A change that older builds could not read (a new vault format or data
+Fixes ship as patch releases (`1.x.y`). A change that older builds could not read (a new vault format or data
 schema, [docs/FORMAT.md](docs/FORMAT.md) §9) only comes with a new major version.
 
 xPass has not had an independent security review yet. Its protection rests on the tests, the fuzzing and the
 self-review in [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) §6.
+
+### Windows versions
+
+| Windows | Supported |
+|---|---|
+| Windows 11 (x64) | Yes |
+| Windows 10 22H2 (x64) | Best effort. Microsoft ended support for Windows 10 on 14 October 2025; reports that only affect Windows 10 may not be fixed, and a system without security updates weakens any password manager on it. |
+| Anything else (older Windows, 32-bit, ARM) | No |
 
 ## Reporting a vulnerability
 
@@ -56,10 +66,11 @@ In scope: anything that breaks what [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)
 
 Out of scope (accepted limits, THREAT_MODEL §5): malware running as the same Windows user, someone with the
 unlocked PC, the self-signed code-signing certificate not being trusted by Windows or SmartScreen, metadata visible
-to GitHub, and data in exports the user chose to write. Reports about these are still read, but they are not
+to GitHub, notes and non-secret custom fields being visible while an entry is open, and data in exports the user
+chose to write. Reports about these are still read, but they are not
 treated as vulnerabilities unless they show something the threat model does not already accept.
 
 ## Verifying releases
 
-How to check a download (SHA-256 checksums, the Authenticode thumbprint, build provenance attestations): README
-["Check the download"](README.md#check-the-download).
+How to check a download (SHA-256 checksums, the Authenticode thumbprint, build provenance attestations): user guide
+["Check the download"](docs/USER_GUIDE.md#check-the-download).

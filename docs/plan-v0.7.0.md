@@ -4,7 +4,7 @@ Status: **done** (2026-11-25). Parent: [PLAN.md §4 v0.7](PLAN.md#v07--trusted-u
 
 ## Goal
 
-Close the "later" rows of the v0.6 self-review ([THREAT_MODEL.md §6](THREAT_MODEL.md#6-security-self-review-v06)
+Close the "later" rows of the v0.6 self-review ([THREAT_MODEL.md §6](THREAT_MODEL.md#6-security-self-review-10)
 R4, R28, R29) that do not need money or an outside party:
 
 - **Signed in-app update**: xPass downloads a release, checks its signature against a public key built into the app
