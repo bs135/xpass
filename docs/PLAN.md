@@ -7,6 +7,7 @@ Each milestone is a runnable, releasable app. MVP = **v0.1 → v0.4**, complete 
 v0.5 (import / export, password history) done 2026-11-24. v0.6 (hardening, update check) done 2026-11-24.
 v0.7 (signed updates, code signing, crash dumps, history rewrite, SBOM) done 2026-11-25.
 v0.8 (TOTP, custom field editing, password health, FORMAT.md, SECURITY.md) done 2026-11-26.
+**1.0.0** (first stable release, the v0.8.0 feature set) 2026-11-26.
 
 ---
 
@@ -32,7 +33,7 @@ v0.8 (TOTP, custom field editing, password health, FORMAT.md, SECURITY.md) done 
 - v0.7 (done): signed in-app update, self-signed Authenticode, WER exclusion, sync history rewrite, SBOM and
   build provenance, weekly fuzzing.
 - v0.8 (done): TOTP codes, custom field editing, password health, frozen format spec (`FORMAT.md`), `SECURITY.md`.
-- 1.0: the owner decides on the third-party review; then 1.0, real use, fixes in patch releases (v0.8 plan V12).
+- 1.0 (done): released without a third-party review (owner's decision); real use, fixes in patch releases.
 - After 1.0 (from the owner's notes during real use): auto-type (global hotkey, not in 1.0), Touch ID
   (macOS).
 
@@ -263,15 +264,16 @@ Done in T45–T50; decisions V1–V13, as-built notes and the manual checklist: 
 - [FORMAT.md](FORMAT.md) (format v1 / schema 1, frozen) and [SECURITY.md](../SECURITY.md); payload `schema`
   now checked.
 
-### v1.0 — Release (outline)
+### v1.0 — First stable release
 
-Planned when v0.8 is out (v0.8 plan V12):
+Decisions W1–W5: [plan-v1.0.0.md](plan-v1.0.0.md).
 
-- The owner decides on the third-party review before 1.0 (scope: xpass-core crypto, format and sync, the IPC
-  boundary, the update chain; options in v0.7 plan U14).
-- Optional: a publicly trusted code-signing certificate if SmartScreen matters (options in v0.7 plan U8).
-- After 1.0: real use; bugs fixed in patch releases (in-app update), improvements collected for the next plan.
-  Auto-type is not part of 1.0.
+- 1.0.0 = the v0.8.0 feature set; no code change. No third-party review before 1.0 (still possible later, scope
+  in v0.7 plan U14). Not in 1.0: auto-type, a publicly trusted code-signing certificate, other platforms.
+- Semantic Versioning from here: breaking (including a vault format or schema change, FORMAT.md §9) → major.
+- Support: the latest release only (SECURITY.md).
+- After 1.0: real use; bugs fixed in patch releases (in-app update); improvements collected as GitHub issues for
+  the next plan.
 
 ---
 
@@ -318,9 +320,9 @@ Planned when v0.8 is out (v0.8 plan V12):
 ## 7. Workflow
 
 - Branches: `main` (releases) ← `develop` ← feature branches, PRs as in xmark/logledge.
-- Conventional Commits; the version follows the commit types: `feat` → minor, `fix`/`perf` → patch (a breaking
-  change is a minor bump before 1.0). A milestone with a `feat` is therefore a minor release (`v0.X.0`); milestones
-  are numbered to match.
+- Conventional Commits; the version follows the commit types: `feat` → minor, `fix`/`perf` → patch, a breaking
+  change → major (before 1.0 it was a minor bump). A milestone with a `feat` is therefore a minor release; a
+  bug-fix release after 1.0 is a patch release (`1.0.x`).
 - Release (since v0.6, plan H10): on `develop`, `npm run release:prepare` computes the version from the commits since
   the last tag, bumps `package.json`, `package-lock.json`, `src-tauri/Cargo.toml` and `Cargo.lock`, and turns
   `CHANGELOG.md`'s "Unreleased" heading into the version; commit it as `chore(release): x.y.z`. The release PR

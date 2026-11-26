@@ -280,8 +280,10 @@ Password health
 - [x] Time with a large vault (2 000 entries) acceptable: 0.74 s in a release build, off the IPC thread.
 
 Release
-- [ ] v0.7.0 NSIS and MSI installs update in-app to v0.8.0 (first real update from a release; v0.7 checklist).
-- [ ] `verify-updater` and `publish` jobs pass without manual steps (#58).
+- [x] v0.7.0 updates in-app to v0.8.0 (the owner's install, 2026-11-26); an MSI install not checked yet.
+- [x] `verify-updater` and `publish` jobs pass without manual steps (#58): run
+      [45751165904](https://github.com/bs135/xpass/actions/runs/45751165904); assets, checksums and attestations
+      checked after the release.
 
 ## Out of scope
 

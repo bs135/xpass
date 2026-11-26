@@ -3,6 +3,19 @@
 All notable changes to xPass. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+First stable release. The features are those of 0.8.0; what changes is the promise that comes with 1.0.
+
+### Changed
+
+- **Stable from here:** versions follow Semantic Versioning. Bug fixes come as patch releases (`1.0.x`) through
+  the in-app update; a change that older builds could not read (a new vault format or data schema,
+  [docs/FORMAT.md](docs/FORMAT.md) §9) only comes with a new major version.
+- [SECURITY.md](SECURITY.md): only the latest 1.x release is supported.
+- README, plan and threat model state that xPass has not had an independent security review; it rests on its own
+  tests, fuzzing and self-review.
+
 ## [0.8.0]
 
 One-time passwords, editable custom fields and a password health check; the vault format is written down and

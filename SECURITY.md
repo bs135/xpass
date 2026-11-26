@@ -10,10 +10,15 @@ since v0.7.0), so moving to the newest version is the fix. Older versions do not
 
 | Version | Supported |
 |---|---|
-| Latest release | Yes |
-| Anything older | No: update in-app (v0.7.0 and later) or install the latest release by hand (v0.6.x and earlier) |
+| Latest 1.x release | Yes |
+| Older 1.x releases | No: update in-app (Settings → About) |
+| 0.x | No: update in-app (v0.7.0 and later) or install the latest release by hand (v0.6.x and earlier) |
 
-At 1.0 this may become a range of supported versions; this page will say so.
+Fixes ship as patch releases (`1.0.x`). A change that older builds could not read (a new vault format or data
+schema, [docs/FORMAT.md](docs/FORMAT.md) §9) only comes with a new major version.
+
+xPass has not had an independent security review yet. Its protection rests on the tests, the fuzzing and the
+self-review in [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) §6.
 
 ## Reporting a vulnerability
 

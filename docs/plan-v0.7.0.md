@@ -385,7 +385,9 @@ Update (real, after the release)
       `gh attestation verify` passes for both installers.
 - [x] v0.6.1 → v0.7.0 by hand over an existing install keeps vault and settings.
 - [x] The 0.6.9 test build (real public key) updated in-app to the released v0.7.0.
-- [ ] **Next release** (v0.7.1 / v0.8.0): v0.7.0 NSIS install and v0.7.0 MSI install each update in-app.
+- [x] **Next release** (v0.8.0): the owner's v0.7.0 install updated in-app to v0.8.0 (2026-11-26), the first
+      in-app update from a published release.
+- [ ] The same from a v0.7.0 **MSI** install (not checked yet).
 
 Crash dumps
 - [x] Debug crash trigger while unlocked → no dump / report with heap (T40: no dump, report or event).

@@ -2,8 +2,10 @@
 
 Zero-knowledge personal password manager for Windows, built with Tauri (Rust + React).
 
-> Status: **v0.8 — TOTP, custom fields and password health**, the last feature release before 1.0. The vault
-> format is frozen ([docs/FORMAT.md](docs/FORMAT.md)). See [docs/PLAN.md](docs/PLAN.md).
+> Status: **1.0 — first stable release.** The vault format is frozen ([docs/FORMAT.md](docs/FORMAT.md)), versions
+> follow Semantic Versioning, and only the latest release is supported ([SECURITY.md](SECURITY.md)). xPass has not
+> had an independent security review; it rests on its own tests, fuzzing and the self-review in
+> [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md). See [docs/PLAN.md](docs/PLAN.md).
 
 ![xPass: entry list and an entry with its password history](docs/screenshots/main.png)
 
@@ -11,7 +13,7 @@ Zero-knowledge personal password manager for Windows, built with Tauri (Rust + R
   <img src="docs/screenshots/unlock.png" alt="xPass unlock screen with Windows Hello and the master password" width="500">
 </p>
 
-## Features (v0.8)
+## Features (1.0)
 
 - **Encrypted local vault** — one file, `%APPDATA%\com.bs135.xpass\vault.xpv`, with the last 10 versions kept in
   `backups\`.
@@ -394,6 +396,8 @@ src/                 React + TypeScript frontend
 - [docs/plan-v0.5.0.md](docs/plan-v0.5.0.md) — v0.5 tasks (import / export, password history) and test checklist
 - [docs/plan-v0.6.0.md](docs/plan-v0.6.0.md) — v0.6 tasks (hardening, update check, release process) and test checklist
 - [docs/plan-v0.7.0.md](docs/plan-v0.7.0.md) — v0.7 tasks (signed updates, code signing, crash dumps, history rewrite, SBOM) and test checklist
+- [docs/plan-v0.8.0.md](docs/plan-v0.8.0.md) — v0.8 tasks (TOTP, custom fields, password health, format spec) and test checklist
+- [docs/plan-v1.0.0.md](docs/plan-v1.0.0.md) — 1.0 decisions (scope, versioning, support, after 1.0)
 - [docs/spikes/](docs/spikes) — feasibility spikes (Windows Hello, vault format, GitHub sync)
 - [CHANGELOG.md](CHANGELOG.md)
 

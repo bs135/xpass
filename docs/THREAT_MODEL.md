@@ -1,8 +1,9 @@
 # xPass — Threat Model
 
-Status: **v0.8** (2026-11-26), written against the code on `develop` after v0.5.0 and updated for v0.7.0 (signed
+Status: **1.0** (2026-11-26), written against the code on `develop` after v0.5.0 and updated for v0.7.0 (signed
 updates, code signing, crash dumps, history rewrite, release provenance) and v0.8.0 (TOTP codes, custom field
-editing, password health, payload schema check). The vault format is specified in [FORMAT.md](FORMAT.md). Updated when a release changes
+editing, password health, payload schema check). 1.0.0 has the same code as v0.8.0. No independent review has
+checked this document or the code yet (v1.0 plan W1). The vault format is specified in [FORMAT.md](FORMAT.md). Updated when a release changes
 what is stored, who can reach it or how it is protected. Decisions it refers to: [IDEA.md §3](IDEA.md#3-design-issues),
 [PLAN.md §2](PLAN.md#2-decisions), and the per-milestone plans (`plan-v0.X.0.md`).
 
